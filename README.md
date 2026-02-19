@@ -1,27 +1,83 @@
-# RetailWeb
+# 🌐 README – FRONTEND  
+(Repositorio: `ventas-microservicios-front`)
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 16.2.0.
+```markdown
+# 🖥 Retail System - Frontend (Angular 16)
 
-## Development server
+Proyecto desarrollado como parte de prueba técnica.  
+Aplicación Angular que consume microservicios .NET 8 utilizando JWT e interceptores.
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+---
 
-## Code scaffolding
+# 🚀 Tecnologías utilizadas
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+- Angular 16.2
+- TypeScript
+- Bootstrap 5
+- HttpClient
+- Interceptor JWT
+- Arquitectura modular
 
-## Build
+---
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+# 🧱 Estructura del proyecto
 
-## Running unit tests
+src/app/
+├── core/
+│ ├── api/
+│ ├── jwt.interceptor.ts
+├── features/
+│ ├── purchases/
+│ ├── sales/
+│ ├── products/
+│ ├── kardex/
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
 
-## Running end-to-end tests
+---
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+# 🔐 Autenticación
 
-## Further help
+- Se utiliza JWT almacenado en `localStorage`.
+- Se implementó `HttpInterceptor` para agregar automáticamente:
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+Authorization: Bearer {token}
+
+
+- Si el token expira, el interceptor puede regenerarlo automáticamente.
+
+---
+
+# 📄 Vistas implementadas
+
+## 🛒 Registrar Compra
+- Permite agregar múltiples productos.
+- Modal para registrar nuevo producto.
+- Calcula subtotal dinámicamente.
+- Envía datos a Purchases.Api.
+- Genera movimiento tipo ENTRADA.
+
+## 💰 Registrar Venta
+- Muestra precio venta.
+- Calcula:
+  - Subtotal
+  - IGV
+  - Total
+- Valida stock disponible.
+- Genera movimiento tipo SALIDA.
+
+## 📊 Kardex
+- Lista productos con:
+  - Stock actual
+  - Costo
+  - Precio Venta
+- Modal para ver movimientos del producto.
+
+---
+
+# ⚙ Cómo ejecutar el proyecto
+
+## 1️⃣ Instalar dependencias
+
+```bash
+npm install
+npm install bootstrap
