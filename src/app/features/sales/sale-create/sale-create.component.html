@@ -1,0 +1,50 @@
+<div class="container mt-4">
+    <h3>Registrar Venta</h3>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label">Producto</label>
+            <select class="form-select" [(ngModel)]="selectedProduct">
+              <option *ngFor="let p of products" [ngValue]="p">
+                {{ p.nombre_producto }} (Stock: {{ p.cantidad }})
+              </option>
+            </select>
+          </div>
+  
+          <div class="col-md-2">
+            <label class="form-label">Cantidad</label>
+            <input type="number" class="form-control" [(ngModel)]="cantidad">
+          </div>
+  
+          <div class="col-md-2 d-grid">
+            <button class="btn btn-primary" (click)="addItem()">Agregar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Cant</th>
+          <th>Subtotal</th>
+          <th>IGV</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of items">
+          <td>{{ item.nombre }}</td>
+          <td>{{ item.cantidad }}</td>
+          <td>{{ item.subtotal | number:'1.2-2' }}</td>
+          <td>{{ item.igv | number:'1.2-2' }}</td>
+          <td>{{ item.total | number:'1.2-2' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  
+    <button class="btn btn-success" (click)="saveSale()">Guardar Venta</button>
+  </div>

@@ -1,0 +1,63 @@
+<div class="container mt-4">
+    <h3>Kardex</h3>
+  
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Id</th>
+          <th>Producto</th>
+          <th>Stock</th>
+          <th>Costo</th>
+          <th>Precio Venta</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of products">
+          <td>{{ p.id_producto }}</td>
+          <td>{{ p.nombre_producto }}</td>
+          <td>{{ p.cantidad }}</td>
+          <td>{{ p.costo | number:'1.2-2' }}</td>
+          <td>{{ p.PrecioVenta | number:'1.2-2' }}</td>
+          <td>
+            <button class="btn btn-info btn-sm"
+                    data-bs-toggle="modal"
+                    data-bs-target="#movModal"
+                    (click)="viewMovements(p)">
+              Movimientos
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Modal Movimientos -->
+  <div class="modal fade" id="movModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5>Movimientos</h5>
+        </div>
+        <div class="modal-body">
+          <table class="table">
+            <tr *ngFor="let m of movimientos">
+              <td>{{ m.fec_registro | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+              <td>
+                <span
+                  class="badge rounded-pill px-3 py-2 fw-semibold"
+                  [ngClass]="m.id_TipoMovimiento == 1 ? 'badge-entrada' : 'badge-salida'"
+                >
+                  <span class="me-2">
+                    {{ m.id_TipoMovimiento == 1 ? '↗' : '↘' }}
+                  </span>
+                  {{ m.id_TipoMovimiento == 1 ? 'Entrada' : 'Salida' }}
+                </span>
+              </td>
+              <td>{{ m.cantidad }}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,52 @@
+<div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+  
+        <div class="modal-header">
+          <h5 class="modal-title">Registrar Producto</h5>
+          <button type="button" class="btn-close" aria-label="Close" (click)="close()"></button>
+        </div>
+  
+        <div class="modal-body">
+  
+          <div *ngIf="errorMsg" class="alert alert-danger">
+            {{ errorMsg }}
+          </div>
+  
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nombre</label>
+              <input class="form-control" [(ngModel)]="model.nombre_producto" />
+            </div>
+  
+            <div class="col-md-6">
+              <label class="form-label">Nro Lote</label>
+              <input class="form-control" [(ngModel)]="model.nroLote" />
+            </div>
+  
+            <div class="col-md-6">
+              <label class="form-label">Costo</label>
+              <input type="number" class="form-control" [(ngModel)]="model.costo" (ngModelChange)="calcularPrecioVenta()" />
+            </div>
+  
+            <div class="col-md-6">
+              <label class="form-label">Precio Venta (auto: costo * 1.35)</label>
+              <input type="number" class="form-control" [(ngModel)]="model.precioVenta" [disabled]="isDisabled" />
+              <small class="text-muted">
+                Sugerido: {{ (model.costo * 1.35) | number:'1.2-2' }}
+              </small>  
+            </div>
+          </div>
+  
+        </div>
+  
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="close()">Cancelar</button>
+          <button class="btn btn-primary" [disabled]="loading" (click)="save()">
+            {{ loading ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+  
+      </div>
+    </div>
+  </div>

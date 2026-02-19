@@ -1,0 +1,98 @@
+<div class="container mt-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="mb-0">Registrar Compra</h3>
+    <button class="btn btn-outline-primary" (click)="openNewProductModal()">
+      + Nuevo Producto
+    </button>
+  </div>
+
+  <div *ngIf="errorMsg" class="alert alert-danger">{{ errorMsg }}</div>
+  <div *ngIf="successMsg" class="alert alert-success">{{ successMsg }}</div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label">Producto</label>
+          <select class="form-select" [(ngModel)]="selectedProductId">
+            <option [ngValue]="null">Seleccione producto</option>
+            <option *ngFor="let p of products" [ngValue]="p.id_producto">
+              {{ p.nombre_producto }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Cantidad</label>
+          <input type="number" class="form-control" [(ngModel)]="cantidad" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Precio compra (Costo)</label>
+          <input type="number" class="form-control" [(ngModel)]="precioCompra" />
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <button class="btn btn-primary" (click)="addItem()">Agregar</button>
+        </div>
+      </div>
+
+      <div class="mt-3 text-muted" *ngIf="selectedProduct">
+        <small>
+          Precio venta sugerido (costo * 1.35): <b>{{ (precioCompra * 1.35) | number:'1.2-2' }}</b>
+          (el backend lo actualiza).
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5>Detalle de compra</h5>
+
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Producto</th>
+              <th style="width:120px;">Cantidad</th>
+              <th style="width:160px;">Precio</th>
+              <th style="width:160px;">Subtotal</th>
+              <th style="width:80px;"></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let it of items; let i = index">
+              <td>{{ it.nombre_producto }}</td>
+              <td>{{ it.cantidad }}</td>
+              <td>{{ it.precio | number:'1.2-2' }}</td>
+              <td>{{ it.subtotal | number:'1.2-2' }}</td>
+              <td>
+                <button class="btn btn-sm btn-danger" (click)="removeItem(i)">X</button>
+              </td>
+            </tr>
+
+            <tr *ngIf="items.length === 0">
+              <td colspan="5" class="text-center text-muted">Sin items</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-between mt-3">
+        <div class="fw-bold">Total compra:</div>
+        <div class="fw-bold">{{ totalCompra | number:'1.2-2' }}</div>
+      </div>
+
+      <div class="d-grid mt-3">
+        <button class="btn btn-success" [disabled]="loading" (click)="savePurchase()">
+          {{ loading ? 'Guardando...' : 'Guardar Compra' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Producto -->
+<app-product-modal (productCreated)="onProductCreated()"></app-product-modal>
