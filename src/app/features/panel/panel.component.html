@@ -1,0 +1,103 @@
+<app-page-header title="Panel de Control" [crumbs]="crumbs"></app-page-header>
+
+<div class="nx-grid nx-grid--4 nx-mb-20">
+  <div *ngFor="let k of kpis" class="nx-card nx-kpi">
+    <span class="nx-kpi__title"><span class="nx-iconbox nx-iconbox--30"><app-icon [name]="k.icon" [size]="17"></app-icon></span>{{ k.title }}</span>
+    <span class="nx-muted nx-small">{{ k.sub }}</span>
+    <div class="nx-kpi__values">
+      <div *ngFor="let v of k.values"><span>{{ v[0] }}</span><b>{{ v[1] }}</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="nx-grid nx-grid--2 nx-mb-20">
+  <!-- Procesos -->
+  <section class="nx-card nx-section">
+    <div class="nx-section__head">
+      <h2>Procesos</h2>
+      <a class="nx-btn nx-btn--outline nx-btn--sm" routerLink="/rem/procesos">Ver historial</a>
+      <a class="nx-btn nx-btn--outline nx-btn--sm" routerLink="/rem/procesos">Ver anteriores</a>
+    </div>
+    <div class="nx-banner nx-banner--compact" role="note">
+      <app-icon name="info" [size]="18"></app-icon>
+      <span class="nx-grow">Descubre la nueva experiencia de Archivos y Pagos</span>
+      <a routerLink="/rem/archivos-pagos">Conocer</a>
+    </div>
+    <div class="nx-accordion">
+      <div *ngFor="let p of periodos; let i = index" class="nx-accordion__item">
+        <button type="button" class="nx-accordion__btn" [attr.aria-expanded]="open.has(i)" (click)="toggle(i)">
+          <span class="nx-lock-dot" [class.is-open]="p.abierto"><app-icon name="lock" [size]="15"></app-icon></span>
+          <span class="nx-grow">{{ p.label }} · <span class="nx-period-state" [class.is-open]="p.abierto">{{ p.abierto ? 'Abierto' : 'Cerrado' }}</span></span>
+          <span class="nx-rot" [class.is-flipped]="open.has(i)"><app-icon name="chevron-down" [size]="18"></app-icon></span>
+        </button>
+        <div *ngIf="open.has(i)" class="nx-accordion__panel">
+          <table class="nx-mini-table" [attr.aria-label]="'Procesos de ' + p.label">
+            <colgroup><col><col style="width: 96px"><col style="width: 112px"><col style="width: 112px"></colgroup>
+            <thead><tr><th>Nombre</th><th>Estado</th><th class="nx-num">Colaboradores</th><th>Fecha de pago</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let pr of p.procesos">
+                <td>{{ pr.nombre }}</td>
+                <td><span class="nx-badge" [ngClass]="'nx-tone-' + pr.tone">{{ pr.estado }}</span></td>
+                <td class="nx-num">{{ pr.colaboradores }}</td>
+                <td>{{ pr.fechaPago }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gráficos -->
+  <section class="nx-card nx-section">
+    <h2 class="nx-section__title">Gráficos</h2>
+    <div class="nx-tabs" role="tablist">
+      <button *ngFor="let s of series; let i = index" type="button" role="tab" class="nx-tab"
+              [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="pickTab(i)">{{ s.titulo }}</button>
+    </div>
+    <ng-container *ngIf="series[tab] as s">
+      <div class="nx-chart__title"><b>{{ s.titulo }}</b><span class="nx-muted">· últimos 6 meses</span></div>
+      <div class="nx-chart">
+        <div class="nx-chart__grid"><div></div><div></div><div class="is-base"></div></div>
+        <span class="nx-chart__max">{{ chart.max }}</span>
+        <svg viewBox="0 0 480 180" preserveAspectRatio="none" width="100%" height="180" aria-hidden="true">
+          <path [attr.d]="chart.area" fill="#2D4DA4" fill-opacity="0.12" />
+          <path [attr.d]="chart.line" fill="none" stroke="#2D4DA4" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+        </svg>
+        <span *ngFor="let pt of chart.pts; let i = index" class="nx-chart__dot" [class.is-hover]="hover === i"
+              [style.left]="pt.left" [style.top.px]="pt.y"></span>
+        <div class="nx-chart__hits">
+          <button *ngFor="let pt of chart.pts; let i = index" type="button" [attr.aria-label]="pt.aria"
+                  (mouseenter)="hover = i" (focus)="hover = i" (mouseleave)="hover = null" (blur)="hover = null"></button>
+        </div>
+        <div *ngIf="hover !== null" class="nx-chart__tip" role="status"
+             [style.left]="chart.pts[hover].left" [style.top.px]="chart.pts[hover].y - 10">
+          <b>{{ format(s.valores[hover]) }}</b> · {{ meses[hover] }}
+        </div>
+        <div class="nx-chart__axis"><span *ngFor="let pt of chart.pts">{{ pt.mes }}</span></div>
+      </div>
+    </ng-container>
+  </section>
+</div>
+
+<div class="nx-grid nx-grid--2">
+  <section class="nx-card nx-section">
+    <h2 class="nx-section__title">Últimas Publicaciones</h2>
+    <div class="nx-empty nx-empty--compact">
+      <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round"><app-icon name="message" [size]="26"></app-icon></span>
+      <b>No hay publicaciones recientes</b>
+      <a class="nx-btn nx-btn--outline" routerLink="/portal">Ir al portal</a>
+    </div>
+  </section>
+
+  <section class="nx-card nx-section">
+    <h2 class="nx-section__title">Colaboradores Nuevos</h2>
+    <div class="nx-people">
+      <a *ngFor="let n of nuevos" class="nx-person" [routerLink]="['/admin/colaboradores/ficha', n.id]">
+        <span class="nx-avatar nx-avatar--52" [style.background]="n.bg">{{ n.ini }}</span>
+        <b>{{ n.nombre }}</b>
+        <span class="nx-muted nx-small">Ingreso {{ n.ingreso }}</span>
+      </a>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,154 @@
+<app-page-header title="Accesos API" [crumbs]="['Administración']" [askAi]="false">
+  <span header-badge class="nx-pro nx-pro--head">PRO</span>
+</app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<!-- API Keys -->
+<ng-container *ngIf="tab === 0">
+  <div class="nx-section__head"><h2>API Keys</h2>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="nuevaKey()"><app-icon name="plus" [size]="16"></app-icon>Crear Nueva API Key</button></div>
+  <div class="nx-card nx-dt__scroll">
+    <table class="nx-table" aria-label="API Keys">
+      <thead><tr><th>ID</th><th>Descripción</th><th>Limitar acceso por Empresas</th><th>Token</th><th>Empresas</th><th>Última IP</th><th>Último acceso</th><th>Fecha Creación</th><th>Acciones</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let k of keys">
+          <td>{{ k.id }}</td><td><b>{{ k.descripcion }}</b></td><td>{{ k.limitarEmpresas ? 'Sí' : 'No' }}</td>
+          <td><span class="nx-token"><code>{{ mask(k) }}</code>
+            <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" [attr.aria-label]="visibles.has(k.id) ? 'Ocultar token' : 'Mostrar token'" (click)="toggleToken(k)"><app-icon [name]="visibles.has(k.id) ? 'eye-off' : 'eye'" [size]="15"></app-icon></button>
+            <button *ngIf="visibles.has(k.id)" type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Copiar token" (click)="copiar(k.token)"><app-icon name="copy" [size]="15"></app-icon></button>
+          </span></td>
+          <td>{{ k.empresas }}</td><td>{{ k.ultimaIp }}</td><td>{{ k.ultimoAcceso }}</td><td>{{ k.creada }}</td>
+          <td class="nx-dt__actions">
+            <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Revocar API Key" title="Revocar API Key" (click)="borrarKey = k"><app-icon name="trash" [size]="16"></app-icon></button>
+          </td>
+        </tr>
+        <tr *ngIf="!keys.length"><td colspan="9"><div class="nx-empty nx-empty--compact"><b>No hay API Keys</b></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</ng-container>
+
+<!-- Whitelist -->
+<ng-container *ngIf="tab === 1">
+  <div class="nx-section__head"><h2>IPs permitidas</h2>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="intento = false; ipModal = { ip: '', descripcion: '' }"><app-icon name="plus" [size]="16"></app-icon>Agregar IP</button></div>
+  <div class="nx-card nx-dt__scroll">
+    <table class="nx-table" aria-label="Whitelist de acceso">
+      <thead><tr><th>IP</th><th>Descripción</th><th>Fecha de creación</th><th>Acciones</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let i of ips"><td><code>{{ i.ip }}</code></td><td>{{ i.descripcion }}</td><td>{{ i.creada }}</td>
+          <td><button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" [attr.aria-label]="'Eliminar ' + i.ip" (click)="quitarIp(i)"><app-icon name="trash" [size]="16"></app-icon></button></td></tr>
+        <tr *ngIf="!ips.length"><td colspan="4"><div class="nx-empty nx-empty--compact"><b>Sin IPs: se acepta cualquier origen</b></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</ng-container>
+
+<!-- Integración contable -->
+<form *ngIf="tab === 2" class="nx-card nx-settings nx-maxw-720" (ngSubmit)="guardarContable()">
+  <div class="nx-form">
+    <label class="nx-field">Sistema contable
+      <select class="nx-select" name="sistema" [(ngModel)]="contable.sistema"><option>SAP Business One</option><option>Concar</option><option>Siigo</option><option>Otro (archivo plano)</option></select>
+    </label>
+    <label class="nx-field">Formato de exportación
+      <select class="nx-select" name="formato" [(ngModel)]="contable.formato"><option>JSON vía API</option><option>Excel</option><option>TXT</option></select>
+    </label>
+    <label class="nx-field">URL del servicio<input class="nx-input" name="url" placeholder="https://erp.empresa.pe/api/asientos" [(ngModel)]="contable.url"></label>
+    <label class="nx-switch-row">
+      <button type="button" role="switch" class="nx-switch" [class.is-on]="contable.alCerrar" [attr.aria-checked]="contable.alCerrar"
+              aria-label="Enviar asientos al cerrar el período" (click)="contable.alCerrar = !contable.alCerrar"><span></span></button>Enviar asientos al cerrar el período
+    </label>
+    <span *ngIf="errContable" class="nx-error">{{ errContable }}</span>
+  </div>
+  <div class="nx-settings__foot"><button type="submit" class="nx-btn nx-btn--primary">Guardar</button></div>
+</form>
+
+<!-- Webhooks -->
+<ng-container *ngIf="tab === 3">
+  <div class="nx-section__head"><h2>Urls Webhook</h2>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="editarHook(null)"><app-icon name="plus" [size]="16"></app-icon>Agregar Url</button></div>
+  <div class="nx-card nx-dt__scroll">
+    <table class="nx-table" aria-label="Urls webhook">
+      <thead><tr><th>URL</th><th>Evento</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let h of hooks">
+          <td><code>{{ h.url }}</code></td><td>{{ h.evento }}</td>
+          <td><span class="nx-badge" [ngClass]="h.activo ? 'nx-tone-success' : 'nx-tone-danger'">{{ h.activo ? 'Activo' : 'Detenido' }}</span></td>
+          <td class="nx-dt__actions">
+            <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" [attr.aria-label]="h.activo ? 'Detener' : 'Activar'" (click)="toggleHook(h)"><app-icon [name]="h.activo ? 'pause' : 'play'" [size]="16"></app-icon></button>
+            <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Editar" (click)="editarHook(h)"><app-icon name="edit" [size]="16"></app-icon></button>
+            <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Eliminar" (click)="quitarHook(h)"><app-icon name="trash" [size]="16"></app-icon></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</ng-container>
+
+<!-- Modals -->
+<app-modal *ngIf="keyModal as m" title="Crear Nueva API Key" width="680px" (closed)="keyModal = null">
+  <form id="key-form" class="nx-form" (ngSubmit)="crearKey()">
+    <label class="nx-field">Descripción*
+      <input class="nx-input" name="descripcion" placeholder="Ej. Integración con ERP" [(ngModel)]="m.descripcion" [class.is-invalid]="intento && !m.descripcion.trim()">
+      <span *ngIf="intento && !m.descripcion.trim()" class="nx-error">Campo obligatorio.</span>
+    </label>
+    <label class="nx-check nx-check--plain"><input type="checkbox" name="limitar" [(ngModel)]="m.limitar">Limitar acceso por Empresas</label>
+    <span class="nx-field-label nx-mb-0">Permisos por recurso</span>
+    <div class="nx-perm-grid">
+      <label *ngFor="let r of recursos" class="nx-perm-row">
+        <span class="nx-grow">{{ r }}</span>
+        <select class="nx-select nx-select--sm nx-w-140" [name]="'perm-' + r" [attr.name]="'perm-' + r" [attr.aria-label]="'Permiso para ' + r" [(ngModel)]="m.permisos[r]"><option>No</option><option>Lectura</option><option>Escritura</option></select>
+      </label>
+    </div>
+    <span *ngIf="intento && sinPermisos" class="nx-error">Otorga al menos un permiso a la API Key.</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="keyModal = null">Cancelar</button>
+    <button type="submit" form="key-form" class="nx-btn nx-btn--primary">Crear API Key</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="tokenCreado as t" title="API Key creada" width="560px" (closed)="tokenCreado = null">
+  <div class="nx-form">
+    <p class="nx-mt-0">Copia el token de “{{ t.descripcion }}” y guárdalo en un lugar seguro.</p>
+    <div class="nx-token nx-token--big"><code>{{ t.token }}</code>
+      <button type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="copiar(t.token)"><app-icon name="copy" [size]="15"></app-icon>Copiar</button></div>
+  </div>
+  <ng-container modal-footer><span></span><button type="button" class="nx-btn nx-btn--primary" (click)="tokenCreado = null">Listo</button></ng-container>
+</app-modal>
+
+<app-modal *ngIf="borrarKey as k" title="Revocar API Key" width="480px" (closed)="borrarKey = null">
+  <p class="nx-mt-0">Las integraciones que usen “{{ k.descripcion }}” dejarán de funcionar de inmediato. Esta acción no se puede deshacer.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="borrarKey = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--danger-solid" (click)="eliminarKey()">Revocar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="ipModal as m" title="Agregar IP" width="480px" (closed)="ipModal = null">
+  <form id="ip-form" class="nx-form" (ngSubmit)="agregarIp()">
+    <label class="nx-field">IP*<input class="nx-input" name="ip" placeholder="190.12.45.201" [(ngModel)]="m.ip" [class.is-invalid]="intento && ipInvalida">
+      <span *ngIf="intento && ipInvalida" class="nx-error">{{ ipInvalida }}</span></label>
+    <label class="nx-field">Descripción<input class="nx-input" name="descripcion" placeholder="Ej. Servidor ERP" [(ngModel)]="m.descripcion"></label>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="ipModal = null">Cancelar</button>
+    <button type="submit" form="ip-form" class="nx-btn nx-btn--primary">Agregar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="hookModal as m" [title]="m.id === null ? 'Agregar Url Webhook' : 'Editar Url Webhook'" width="560px" (closed)="hookModal = null">
+  <form id="hook-form" class="nx-form" (ngSubmit)="guardarHook()">
+    <label class="nx-field">URL*<input class="nx-input" name="url" placeholder="https://erp.empresa.pe/hooks/..." [(ngModel)]="m.url" [class.is-invalid]="intento && urlInvalida">
+      <span *ngIf="intento && urlInvalida" class="nx-error">La URL debe comenzar con https://</span></label>
+    <label class="nx-field">Evento<select class="nx-select" name="evento" [(ngModel)]="m.evento"><option *ngFor="let e of eventos">{{ e }}</option></select></label>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="hookModal = null">Cancelar</button>
+    <button type="submit" form="hook-form" class="nx-btn nx-btn--primary">Guardar</button>
+  </ng-container>
+</app-modal>

@@ -1,0 +1,38 @@
+<app-page-header title="Encuestas Libres" [crumbs]="['Desarrollo Organizacional', 'Encuestas']"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of ['Activas', 'Historial']; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="pick(i)">{{ t }}</button>
+</div>
+
+<app-data-table [columns]="columns" [rows]="rows" createLabel="Crear Encuesta Libre" [rowActions]="actions" [showBulk]="false"
+                [selectable]="false" [showAdvancedFilter]="false" tableLabel="Encuestas libres" minWidth="1300px" exportName="encuestas-libres"
+                (create)="openModal()" (action)="onAction($event.action, $event.row)"></app-data-table>
+
+<app-modal *ngIf="modal" title="Nueva encuesta" width="920px" (closed)="modal = false">
+  <div class="nx-picker">
+    <div class="nx-picker__side" role="group" aria-label="Origen de la plantilla">
+      <button type="button" [class.is-on]="fuente === 0" [attr.aria-pressed]="fuente === 0" (click)="fuente = 0">Plantillas Nexo (10)</button>
+      <button type="button" [class.is-on]="fuente === 1" [attr.aria-pressed]="fuente === 1" (click)="fuente = 1">Plantillas de encuestas anteriores ({{ anterioresCount }})</button>
+    </div>
+    <div class="nx-picker__main">
+      <label class="nx-input-icon">
+        <app-icon name="search" [size]="16"></app-icon>
+        <input aria-label="Buscar plantilla" placeholder="Buscar plantilla" [(ngModel)]="query">
+      </label>
+      <div class="nx-templates">
+        <button *ngFor="let t of plantillas" type="button" class="nx-template nx-template--col" (click)="crear(t)">
+          <span class="nx-iconbox nx-iconbox--34"><app-icon name="clipcheck" [size]="18"></app-icon></span>
+          <b>{{ t }}</b>
+        </button>
+      </div>
+      <p *ngIf="!plantillas.length" class="nx-muted nx-center">
+        {{ fuente === 1 && !anterioresCount ? 'Aún no hay encuestas anteriores para usar como plantilla.' : 'No hay plantillas con ese nombre.' }}
+      </p>
+    </div>
+  </div>
+  <ng-container modal-footer>
+    <span></span>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="modal = false">Cancelar</button>
+  </ng-container>
+</app-modal>

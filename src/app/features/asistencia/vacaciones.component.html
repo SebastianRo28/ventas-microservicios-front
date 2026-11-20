@@ -1,0 +1,67 @@
+<app-page-header title="Vacaciones" [crumbs]="['Administrativo', 'Asistencia']">
+  <button type="button" class="nx-btn nx-btn--primary" (click)="abrir()"><app-icon name="plus" [size]="16"></app-icon>Registrar vacaciones</button>
+</app-page-header>
+
+<div class="nx-grid nx-grid--4 nx-mb-16">
+  <div class="nx-card nx-stat"><span>Saldo total pendiente</span><b>{{ stats.saldoTotal | number: '1.0-0' }} días</b></div>
+  <div class="nx-card nx-stat"><span>Colaboradores con más de {{ asis.config.umbralSaldo }} días</span><b>{{ stats.sobre30 }}</b></div>
+  <div class="nx-card nx-stat"><span>De vacaciones al {{ asis.corte }}</span><b>{{ stats.hoy }}</b></div>
+  <div class="nx-card nx-stat"><span>Inician en los próximos 30 días</span><b>{{ stats.proximas }}</b></div>
+</div>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of ['Saldos', 'Registros']; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<ng-container *ngIf="tab === 0">
+  <div class="nx-banner" role="note">
+    <app-icon name="info" [size]="19"></app-icon>
+    <span class="nx-grow">Saldos al {{ asis.corte }}: saldo inicial importado al {{ asis.fechaSaldoInicial }}, más 30 días calendario por año devengados en forma proporcional, menos los días tomados y programados.
+      Un saldo acumulado alto puede generar vacaciones no gozadas a pagar como indemnización.</span>
+  </div>
+  <app-data-table [columns]="saldoCols" [rows]="saldoRows" [selectable]="false" [showBulk]="false" [showAdvancedFilter]="false"
+                  tableLabel="Saldos de vacaciones" minWidth="1200px" exportName="saldos-vacaciones"></app-data-table>
+</ng-container>
+
+<app-data-table *ngIf="tab === 1" [columns]="regCols" [rows]="regRows" [rowActions]="regActions" [selectable]="false" [showBulk]="false"
+                [showAdvancedFilter]="false" tableLabel="Registros de vacaciones" minWidth="1300px" exportName="registros-vacaciones"
+                emptyTitle="Aún no hay vacaciones registradas" (action)="onAction($event.action, $event.row)"></app-data-table>
+
+<app-modal *ngIf="modal as m" title="Registrar vacaciones" width="620px" (closed)="modal = null">
+  <form id="vac-form" class="nx-form" (ngSubmit)="guardar()">
+    <label class="nx-field">Colaborador*
+      <select class="nx-select" name="colaborador" [(ngModel)]="m.colaboradorId">
+        <option [ngValue]="null" disabled>Selecciona un colaborador</option>
+        <option *ngFor="let c of colaboradores" [ngValue]="c.id">{{ c.apellidos }}, {{ c.nombres }}</option>
+      </select>
+    </label>
+    <div *ngIf="seleccionado as c" class="nx-ok-note" [class.nx-ok-note--warn]="!asis.cumplioRecord(c)" role="status">
+      <app-icon [name]="asis.cumplioRecord(c) ? 'checkcircle' : 'alert'" [size]="17"></app-icon>
+      Saldo disponible: {{ asis.saldo(c) }} días · Ingreso {{ c.ingreso }}
+    </div>
+    <div class="nx-grid nx-grid--2">
+      <label class="nx-field">Desde*
+        <span class="nx-input-icon nx-input-icon--end"><input class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="m.desde"><app-icon name="calendar" [size]="16"></app-icon></span>
+      </label>
+      <label class="nx-field">Hasta*
+        <span class="nx-input-icon nx-input-icon--end"><input class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="m.hasta"><app-icon name="calendar" [size]="16"></app-icon></span>
+      </label>
+    </div>
+    <span class="nx-hint">Días calendario: <b>{{ dias }}</b> (incluye fines de semana y feriados).</span>
+    <label class="nx-field">Observación<input class="nx-input" name="observacion" placeholder="Opcional" [(ngModel)]="m.observacion"></label>
+    <span *ngIf="intento && error" class="nx-error">{{ error }}</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="modal = null">Cancelar</button>
+    <button type="submit" form="vac-form" class="nx-btn nx-btn--primary">Registrar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="borrar as v" title="Eliminar vacaciones" width="480px" (closed)="borrar = null">
+  <p class="nx-mt-0">Se eliminará el registro #{{ v.id }} ({{ v.dias }} días, del {{ v.desde }} al {{ v.hasta }}) y esos días volverán al saldo.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="borrar = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--danger-solid" (click)="confirmarBorrar()">Eliminar</button>
+  </ng-container>
+</app-modal>

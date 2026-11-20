@@ -1,0 +1,87 @@
+<app-page-header title="Administración de Usuarios y Perfiles" [crumbs]="['Administración']" [askAi]="false"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of ['Usuarios', 'Perfiles']; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<app-data-table *ngIf="tab === 0" [columns]="ucols" [rows]="uRows" createLabel="Crear Usuario" [rowActions]="uActions" [showAdvancedFilter]="false"
+                [bulkActions]="['Exportar seleccionados']" tableLabel="Usuarios" minWidth="1000px" exportName="usuarios"
+                (create)="nuevoUsuario()" (action)="onUsuario($event.action, $event.row)"></app-data-table>
+
+<ng-container *ngIf="tab === 1">
+  <div class="nx-filterbar">
+    <div class="nx-card nx-stat nx-stat--inline"><span>Perfiles sin usuarios asignados</span><b>{{ sinUsuarios }}</b></div>
+    <div class="nx-grow"></div>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="resumen = perfiles[1]; resumenArea = 0">Configuración de perfil Normal</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="intento = false; perfilModal = { nombre: '' }"><app-icon name="plus" [size]="16"></app-icon>Crear Perfil</button>
+  </div>
+  <app-data-table [columns]="pcols" [rows]="pRows" [rowActions]="pActions" [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false"
+                  tableLabel="Perfiles" minWidth="900px" exportName="perfiles" (action)="onPerfil($event.action, $event.row)"></app-data-table>
+</ng-container>
+
+<app-modal *ngIf="resumen as p" title="Resumen del perfil" width="820px" (closed)="resumen = null">
+  <div class="nx-picker nx-picker--short">
+    <div class="nx-picker__side" role="group" aria-label="Secciones del perfil">
+      <button type="button" [class.is-on]="resumenArea === 0" (click)="resumenArea = 0">Resumen general</button>
+      <button *ngFor="let a of areas; let i = index" type="button" [class.is-on]="resumenArea === i + 1" (click)="resumenArea = i + 1">{{ a }}</button>
+    </div>
+    <div class="nx-picker__main">
+      <ng-container *ngIf="resumenArea === 0; else areaTpl">
+        <div class="nx-fieldrow"><span>Nombre del perfil</span><span>{{ p.nombre }}</span></div>
+        <div class="nx-fieldrow"><span>Tipo de perfil</span><span><span class="nx-badge" [ngClass]="p.predefinido ? 'nx-tone-info' : 'nx-tone-neutral'">{{ p.predefinido ? 'Predefinido' : 'Personalizado' }}</span></span></div>
+        <div class="nx-fieldrow"><span>Usuarios asignados</span><span>{{ count(p.nombre) }}</span></div>
+        <div class="nx-fieldrow"><span>Fecha de creación</span><span>{{ p.creado }}</span></div>
+        <div class="nx-fieldrow"><span>Última modificación</span><span>{{ p.actualizado }}</span></div>
+        <div class="nx-fieldrow"><span>Modificado por Usuario</span><span>{{ p.modificadoPor }}</span></div>
+      </ng-container>
+      <ng-template #areaTpl>
+        <h3 class="nx-section__title">{{ areas[resumenArea - 1] }}</h3>
+        <div *ngFor="let perm of permisos(p, areas[resumenArea - 1])" class="nx-perm">
+          <span class="nx-grow">{{ perm[0] }}</span>
+          <span class="nx-badge" [ngClass]="perm[1] === 'No' ? 'nx-tone-gray' : perm[1] === 'Lectura' ? 'nx-tone-info' : 'nx-tone-success'">{{ perm[1] }}</span>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="resumen = null">Cerrar</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="ui.toast('El editor de perfiles llegará en la próxima versión')">Editar perfil</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="userModal as m" [title]="m.id === null ? 'Crear Usuario' : 'Editar Usuario'" width="560px" (closed)="userModal = null">
+  <form id="user-form" class="nx-form" (ngSubmit)="guardarUsuario()">
+    <label class="nx-field">Nombre*
+      <input class="nx-input" name="nombre" placeholder="Apellidos, Nombres" [(ngModel)]="m.nombre" [class.is-invalid]="intento && !m.nombre.trim()">
+      <span *ngIf="intento && !m.nombre.trim()" class="nx-error">Campo obligatorio.</span>
+    </label>
+    <label class="nx-field">Correo*
+      <input class="nx-input" name="correo" type="email" placeholder="nombre@comercialandina.pe" [(ngModel)]="m.correo" [class.is-invalid]="intento && (correoInvalido || correoDuplicado)">
+      <span *ngIf="intento && correoInvalido" class="nx-error">Ingresa un correo válido.</span>
+      <span *ngIf="intento && !correoInvalido && correoDuplicado" class="nx-error">Este correo ya está registrado.</span>
+    </label>
+    <label class="nx-field">Perfil
+      <select class="nx-select" name="perfil" [(ngModel)]="m.perfil"><option *ngFor="let p of perfiles">{{ p.nombre }}</option></select>
+    </label>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="userModal = null">Cancelar</button>
+    <button type="submit" form="user-form" class="nx-btn nx-btn--primary">{{ m.id === null ? 'Crear Usuario' : 'Guardar' }}</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="perfilModal as m" title="Crear Perfil" width="480px" (closed)="perfilModal = null">
+  <form id="perfil-form" class="nx-form" (ngSubmit)="crearPerfil()">
+    <label class="nx-field">Nombre del perfil*
+      <input class="nx-input" name="nombre" placeholder="Ej. Analista de planillas" [(ngModel)]="m.nombre" [class.is-invalid]="intento && (!m.nombre.trim() || perfilDuplicado)">
+      <span *ngIf="intento && !m.nombre.trim()" class="nx-error">Campo obligatorio.</span>
+      <span *ngIf="intento && m.nombre.trim() && perfilDuplicado" class="nx-error">Ya existe un perfil con ese nombre.</span>
+    </label>
+    <span class="nx-hint">Los permisos se configuran en el editor de perfiles.</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="perfilModal = null">Cancelar</button>
+    <button type="submit" form="perfil-form" class="nx-btn nx-btn--primary">Crear Perfil</button>
+  </ng-container>
+</app-modal>

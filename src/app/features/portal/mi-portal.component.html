@@ -1,0 +1,239 @@
+<h1 class="visually-hidden">Mi portal</h1>
+<div class="nx-portal">
+  <div class="nx-portal__main">
+    <!-- Portadas -->
+    <section class="nx-card nx-cover" aria-label="Portadas" aria-roledescription="carrusel">
+      <ng-container *ngFor="let p of portadas; let i = index">
+        <ng-container *ngIf="i === slide">
+          <div class="nx-cover__art" [style.background]="p.bg">
+            <span class="nx-cover__blob nx-cover__blob--a" [style.background]="p.blob"></span>
+            <span class="nx-cover__blob nx-cover__blob--b" [style.background]="p.blob"></span>
+            <span class="nx-cover__icon"><app-icon [name]="p.icon" [size]="52" [stroke]="1.6"></app-icon></span>
+          </div>
+          <div class="nx-cover__text" aria-live="polite"><h2>{{ p.title }}</h2><p>{{ p.text }}</p></div>
+        </ng-container>
+      </ng-container>
+      <button type="button" class="nx-cover__nav nx-cover__nav--prev" aria-label="Portada anterior" (click)="prev()"><app-icon name="chevron-left"></app-icon></button>
+      <button type="button" class="nx-cover__nav nx-cover__nav--next" aria-label="Portada siguiente" (click)="next()"><app-icon name="chevron-right"></app-icon></button>
+      <div class="nx-cover__dots">
+        <button *ngFor="let p of portadas; let i = index" type="button" [attr.aria-label]="'Ir a portada ' + (i + 1)"
+                [attr.aria-current]="i === slide" (click)="slide = i"><span [class.is-on]="i === slide"></span></button>
+      </div>
+    </section>
+
+    <!-- Feed filters -->
+    <div class="nx-feedbar">
+      <button type="button" class="nx-icon-btn nx-icon-btn--34" aria-label="Configurar feed"><app-icon name="gear" [size]="17"></app-icon></button>
+      <button *ngFor="let c of chips" type="button" class="nx-chip nx-chip--lg" [class.is-on]="feed === c[0]"
+              [attr.aria-pressed]="feed === c[0]" (click)="feed = c[0]">{{ c[1] }}</button>
+      <div class="nx-grow"></div>
+      <button type="button" class="nx-btn nx-btn--primary" (click)="openRecon()"><app-icon name="award" [size]="16"></app-icon>Reconocer</button>
+    </div>
+
+    <!-- Feed -->
+    <div class="nx-stack nx-stack--16">
+      <article *ngFor="let p of visibles" class="nx-card nx-post">
+        <span *ngIf="p.pinned" class="nx-post__pin"><app-icon name="pin" [size]="15"></app-icon>Publicación fijada</span>
+
+        <ng-container [ngSwitch]="p.kind">
+          <ng-container *ngSwitchCase="'bday'">
+            <div class="nx-bday">
+              <span class="nx-avatar nx-avatar--64">{{ p.ini }}</span>
+              <div class="nx-bday__text">
+                <span class="nx-bday__tag"><app-icon name="cake" [size]="15"></app-icon>{{ p.meta }}</span>
+                <b>¡Felicidades! {{ p.author }} celebra su cumpleaños</b>
+                <span>{{ p.role }}</span>
+              </div>
+            </div>
+          </ng-container>
+          <ng-container *ngSwitchDefault>
+            <div class="nx-post__head">
+              <span class="nx-avatar nx-avatar--40" [ngClass]="'nx-tone-' + p.avatarTone">{{ p.ini }}</span>
+              <div class="nx-post__who">
+                <span *ngIf="p.kind === 'rec'; else autor"><b>{{ p.from }}</b> reconoció a <b>{{ p.to }}</b></span>
+                <ng-template #autor><b>{{ p.author }}</b></ng-template>
+                <span class="nx-muted nx-small">{{ p.meta }}</span>
+              </div>
+            </div>
+            <p *ngIf="p.kind === 'pub'" class="nx-post__text">{{ p.text }}</p>
+            <div *ngIf="p.image" class="nx-post__image"><app-icon name="image" [size]="22"></app-icon>Imagen de la publicación</div>
+            <div *ngIf="p.kind === 'rec'" class="nx-recog">
+              <span class="nx-recog__medal" [style.background]="p.valorColor || null" [class.is-custom]="p.valorColor"><app-icon name="award" [size]="26"></app-icon></span>
+              <div><span class="nx-recog__valor">{{ p.valor }}</span><span class="nx-recog__text">{{ p.text }}</span></div>
+            </div>
+          </ng-container>
+        </ng-container>
+
+        <div class="nx-post__actions">
+          <button type="button" class="nx-react" [class.is-on]="liked.has(p.id)" [attr.aria-pressed]="liked.has(p.id)" (click)="toggleLike(p)"
+                  [attr.aria-label]="'Me gusta, ' + (p.likes + (liked.has(p.id) ? 1 : 0))">
+            <app-icon name="thumbsup" [size]="16"></app-icon>{{ p.likes + (liked.has(p.id) ? 1 : 0) }}
+          </button>
+          <button type="button" class="nx-react" [attr.aria-label]="'Me encanta, ' + p.loves"><app-icon name="heart" [size]="16"></app-icon>{{ p.loves }}</button>
+          <button type="button" class="nx-react" [attr.aria-label]="'Me divierte, ' + p.smiles"><app-icon name="smile" [size]="16"></app-icon>{{ p.smiles }}</button>
+          <div class="nx-grow"></div>
+          <button type="button" class="nx-link-btn">{{ p.comments }} {{ p.comments === 1 ? 'comentario' : 'comentarios' }}</button>
+        </div>
+        <label class="nx-comment">
+          <span class="nx-avatar nx-avatar--32">FA</span>
+          <input class="nx-input" aria-label="Escribe un comentario" placeholder="Escribe un comentario…">
+        </label>
+      </article>
+    </div>
+  </div>
+
+  <!-- Aside -->
+  <aside class="nx-portal__side" aria-label="Accesos y tareas">
+    <section class="nx-card nx-side">
+      <h3>Registrar Asistencia</h3>
+      <p class="nx-muted">Marca tus entradas y salidas de tu lugar de trabajo</p>
+      <label class="nx-field">Selecciona tu ubicación de trabajo*
+        <select class="nx-select" [(ngModel)]="ubicacion"><option *ngFor="let r of recintos" [ngValue]="r.id">{{ r.nombre }}</option></select>
+      </label>
+      <div class="nx-grid nx-grid--2 nx-grid--10">
+        <button type="button" class="nx-btn nx-btn--primary" (click)="marcar('Entrada')"><app-icon name="login" [size]="16"></app-icon>Entrada</button>
+        <button type="button" class="nx-btn nx-btn--orange" (click)="marcar('Salida')"><app-icon name="logout" [size]="16"></app-icon>Salida</button>
+      </div>
+      <div *ngIf="marca" class="nx-ok-note" [class.nx-ok-note--warn]="marcaError" role="status"><app-icon [name]="marcaError ? 'alert' : 'checkcircle'" [size]="16"></app-icon>{{ marca }}</div>
+    </section>
+
+    <section class="nx-card nx-side">
+      <div class="nx-side__head">
+        <h3 class="nx-grow">Tareas Pendientes</h3>
+        <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--36" aria-label="Configurar tareas pendientes" (click)="tareasCfg = true"><app-icon name="gear" [size]="18"></app-icon></button>
+        <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--36" aria-label="Crear tarea"><app-icon name="plus" [size]="18"></app-icon></button>
+      </div>
+      <article *ngFor="let t of tareas" class="nx-mini-task">
+        <div><span class="nx-badge" [ngClass]="'nx-tone-' + t.tone">{{ t.tag }}</span></div>
+        <b>{{ t.who }}</b>
+        <span>{{ t.what }}</span>
+        <div class="nx-mini-task__foot"><span class="nx-muted nx-small">{{ t.when }}</span><button type="button" class="nx-btn nx-btn--outline nx-btn--xs">Acciones</button></div>
+      </article>
+      <button type="button" class="nx-link-btn" (click)="ui.openDrawer('pendientes')">Ver todas las tareas (8)</button>
+    </section>
+
+    <section class="nx-card nx-side">
+      <div class="nx-side__head"><h3 class="nx-grow">Accesos directos</h3><span class="nx-chip-sm">F1</span></div>
+      <div class="nx-vac">
+        <div class="nx-grow"><span>Vacaciones disponibles</span><b>{{ saldoVacaciones }} días totales</b></div>
+        <a class="nx-btn nx-btn--primary nx-btn--sm" routerLink="/admin/asistencia/solicitudes">Solicitar</a>
+      </div>
+      <div class="nx-slips">
+        <b>Últimas boletas de pago</b>
+        <div><a routerLink="/portal/mi-ficha">Febrero 2026</a><a routerLink="/portal/mi-ficha">Enero 2026</a><a routerLink="/portal/mi-ficha">Diciembre 2025</a></div>
+      </div>
+      <a *ngFor="let a of accesos" class="nx-shortcut" [routerLink]="a.path">
+        <span class="nx-iconbox"><app-icon [name]="a.icon" [size]="17"></app-icon></span>
+        <span class="nx-grow">{{ a.label }}</span>
+        <app-icon class="nx-faint" name="chevron-right" [size]="16"></app-icon>
+      </a>
+    </section>
+
+    <section class="nx-card nx-side">
+      <h3>Cumpleaños</h3>
+      <div class="nx-side__empty"><app-icon name="cake" [size]="20"></app-icon><span>Esta semana nadie celebra su cumpleaños</span></div>
+      <button type="button" class="nx-btn nx-btn--outline" (click)="calendario = true">Ver calendario</button>
+    </section>
+
+    <section class="nx-card nx-side">
+      <h3>Links de interés</h3>
+      <div class="nx-grid nx-grid--2 nx-grid--10">
+        <a class="nx-tile" href="#" (click)="$event.preventDefault()"><span class="nx-tile__art nx-tile__art--green"><app-icon name="hospital" [size]="28"></app-icon></span><span>¿Dónde me atiendo?</span></a>
+        <a class="nx-tile" routerLink="/do/denuncias"><span class="nx-tile__art nx-tile__art--blue"><app-icon name="flag" [size]="28"></app-icon></span><span>Canal de Denuncias</span></a>
+      </div>
+    </section>
+
+    <section class="nx-card nx-side nx-side--tips">
+      <span class="nx-tips__icon"><app-icon name="lightbulb" [size]="20"></app-icon></span>
+      <div><b>Nexo tips</b><span>Descarga la app móvil y marca tu asistencia o revisa tus boletas desde el celular.</span></div>
+    </section>
+  </aside>
+</div>
+
+<!-- Nuevo Reconocimiento -->
+<app-modal *ngIf="recon" title="Nuevo Reconocimiento" width="720px" (closed)="recon = 0">
+  <ng-container *ngIf="recon === 1">
+    <span class="nx-field-label">Elige el valor que quieres reconocer</span>
+    <div class="nx-values">
+      <button *ngFor="let v of valores; let i = index" type="button" class="nx-value" [class.is-on]="valor === i"
+              [attr.aria-pressed]="valor === i" (click)="valor = i">
+        <span class="nx-value__icon" [style.background]="v.color" [style.box-shadow]="'0 0 0 5px ' + v.color + '33'"><app-icon [name]="v.icon" [size]="26"></app-icon></span>
+        <span class="nx-value__name" [title]="v.hint">{{ v.name }}</span>
+      </button>
+    </div>
+  </ng-container>
+  <div *ngIf="recon === 2" class="nx-form">
+    <div class="nx-field">¿A quién quieres reconocer?
+      <div class="nx-tags">
+        <span *ngFor="let w of reconWho" class="nx-tag">{{ w }}
+          <button type="button" [attr.aria-label]="'Quitar ' + w" (click)="removeWho(w)"><app-icon name="x" [size]="13"></app-icon></button>
+        </span>
+        <select #who aria-label="Agregar colaborador" (change)="addWho(who.value); who.value = ''">
+          <option value="">Buscar colaborador</option>
+          <option *ngFor="let o of reconOpts" [value]="o">{{ o }}</option>
+        </select>
+      </div>
+      <span *ngIf="!reconWho.length" class="nx-error">Elige al menos una persona.</span>
+    </div>
+    <label class="nx-field">¿Qué quieres destacar de esta persona?
+      <textarea class="nx-input nx-textarea" [(ngModel)]="reconMsg"></textarea>
+    </label>
+  </div>
+  <ng-container *ngIf="recon < 3">
+    <span class="nx-field-label nx-mt-16">Vista previa</span>
+    <div class="nx-recog-preview">
+      <div [style.background]="valores[valor].color">{{ valores[valor].name }}</div>
+      <p>{{ reconMsg || '¡Buen trabajo equipo!' }}</p>
+    </div>
+  </ng-container>
+  <div *ngIf="recon === 3" class="nx-empty nx-empty--compact">
+    <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round nx-iconbox--success"><app-icon name="check" [size]="28"></app-icon></span>
+    <b>¡Reconocimiento publicado!</b>
+    <span>Aparece en el feed y la persona reconocida recibió una notificación.</span>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="reconBack()">{{ recon === 2 ? 'Volver' : recon === 3 ? 'Cerrar' : 'Cancelar' }}</button>
+    <button *ngIf="recon < 3" type="button" class="nx-btn nx-btn--primary" (click)="reconNext()">{{ recon === 1 ? 'Siguiente' : 'Publicar' }}</button>
+  </ng-container>
+</app-modal>
+
+<!-- Configuración de tareas pendientes -->
+<app-modal *ngIf="tareasCfg" title="Configuración de tareas pendientes" width="640px" (closed)="tareasCfg = false">
+  <p class="nx-muted nx-mt-0">Selecciona las tareas/solicitudes pendientes que quieres ver en tu lista</p>
+  <div class="nx-grid nx-grid--2">
+    <div>
+      <b>Solicitudes y Tareas Pendientes</b>
+      <div class="nx-checks">
+        <label *ngFor="let o of ['Permisos','Vacaciones','Beneficios','Capacitaciones','Ítems','Firma de Documentos','Tareas de Onboarding','Actualización de datos','Curso requerido','Desempeño','Solicitudes','Tareas de solicitudes']"
+               class="nx-check nx-check--plain"><input type="checkbox" [checked]="o !== 'Ítems' && o !== 'Tareas de Onboarding'">{{ o }}</label>
+      </div>
+    </div>
+    <div>
+      <b>Avisos de Vencimiento</b>
+      <div class="nx-checks">
+        <label *ngFor="let o of ['AFC Reducido','Contratos','Atributos Personalizados','Cumplimiento de Días Progresivos','Vacaciones por vencer']"
+               class="nx-check nx-check--plain"><input type="checkbox" [checked]="o === 'Contratos' || o === 'Vacaciones por vencer'">{{ o }}</label>
+      </div>
+    </div>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="tareasCfg = false">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="saveTareas()">Guardar</button>
+  </ng-container>
+</app-modal>
+
+<!-- Calendario de cumpleaños -->
+<app-modal *ngIf="calendario" title="Calendario de cumpleaños 2026" width="760px" (closed)="calendario = false">
+  <div class="nx-calendar">
+    <div *ngFor="let m of cumples" class="nx-calendar__month">
+      <b>{{ m[0] }}</b>
+      <div *ngFor="let p of m[1]" class="nx-calendar__row">
+        <span class="nx-avatar nx-avatar--28">{{ p[0] }}</span><span class="nx-grow">{{ p[1] }}</span><span class="nx-muted nx-small">{{ p[2] }}</span>
+      </div>
+    </div>
+  </div>
+  <ng-container modal-footer>
+    <span></span>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="calendario = false">Cerrar</button>
+  </ng-container>
+</app-modal>

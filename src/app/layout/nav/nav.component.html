@@ -1,0 +1,78 @@
+<nav class="nx-nav" aria-label="Navegación principal">
+  <div class="nx-rail">
+    <ng-container *ngFor="let s of sections">
+      <a *ngIf="s.id === 'portal'; else railBtn" routerLink="/portal" class="nx-rail__btn"
+         [class.is-active]="current.id === s.id" [attr.aria-label]="s.label" [title]="s.label">
+        <app-icon [name]="s.icon" [size]="21"></app-icon>
+      </a>
+      <ng-template #railBtn>
+        <button type="button" class="nx-rail__btn" [class.is-active]="current.id === s.id"
+                [attr.aria-label]="s.label" [title]="s.label" [attr.aria-pressed]="current.id === s.id" (click)="pick(s)">
+          <app-icon [name]="s.icon" [size]="21"></app-icon>
+          <span *ngIf="s.locked" class="nx-rail__lock"><app-icon name="lock" [size]="9" [stroke]="2.4"></app-icon></span>
+        </button>
+      </ng-template>
+    </ng-container>
+  </div>
+
+  <div id="nx-sidebar" class="nx-sidebar">
+    <div class="nx-logo"><b>Nexo</b><span>RH</span></div>
+    <div class="nx-sidebar__title">{{ current.label }}</div>
+
+    <div *ngIf="current.id === 'portal'" class="nx-sidebar__hello">
+      <span class="nx-avatar nx-avatar--44">FA</span>
+      <div><span>¡Hola!</span><b>Florencia Alamos</b><span>Analista Finanzas</span></div>
+    </div>
+
+    <div *ngIf="current.external as ext" class="nx-sidebar__card">
+      <span>{{ ext.text }}</span>
+      <a class="nx-sidebar__card-cta" routerLink="/asistencia">{{ ext.cta }} <app-icon name="external" [size]="16"></app-icon></a>
+    </div>
+
+    <p *ngIf="current.locked" class="nx-sidebar__locked">
+      <app-icon name="lock" [size]="16"></app-icon> Módulo no contratado
+    </p>
+
+    <div class="nx-sidebar__list">
+      <ng-container *ngFor="let item of current.items">
+        <!-- Not contracted -->
+        <div *ngIf="item.locked" class="nx-sidebar__item is-locked" aria-disabled="true" title="Módulo no contratado">
+          <app-icon *ngIf="item.icon" [name]="item.icon" [size]="18"></app-icon>
+          <span class="nx-grow">{{ item.label }}</span>
+          <app-icon name="lock" [size]="14"></app-icon>
+        </div>
+
+        <!-- Direct link -->
+        <a *ngIf="!item.locked && item.path" class="nx-sidebar__item" [routerLink]="'/' + item.path"
+           routerLinkActive="is-active" ariaCurrentWhenActive="page">
+          <app-icon *ngIf="item.icon" [name]="item.icon" [size]="18"></app-icon>
+          <span class="nx-grow">{{ item.label }}</span>
+          <ng-container *ngTemplateOutlet="marks; context: { $implicit: item }"></ng-container>
+        </a>
+
+        <!-- Group -->
+        <div *ngIf="!item.locked && item.children">
+          <button type="button" class="nx-sidebar__item" [attr.aria-expanded]="isOpen(item)" (click)="toggle(item)">
+            <app-icon *ngIf="item.icon" [name]="item.icon" [size]="18"></app-icon>
+            <span class="nx-grow">{{ item.label }}</span>
+            <ng-container *ngTemplateOutlet="marks; context: { $implicit: item }"></ng-container>
+            <span class="nx-sidebar__chev" [class.is-open]="isOpen(item)"><app-icon name="chevron-left" [size]="16"></app-icon></span>
+          </button>
+          <div *ngIf="isOpen(item)" class="nx-sidebar__sub">
+            <a *ngFor="let child of item.children" class="nx-sidebar__subitem" [routerLink]="'/' + child.path"
+               routerLinkActive="is-active" ariaCurrentWhenActive="page">
+              <span class="nx-grow">{{ child.label }}</span>
+              <ng-container *ngTemplateOutlet="marks; context: { $implicit: child }"></ng-container>
+            </a>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+</nav>
+
+<ng-template #marks let-item>
+  <span *ngFor="let b of item.badges" class="nx-navbadge" [class.nx-navbadge--pro]="b === 'PRO'"
+        [class.nx-navbadge--new]="b === 'Nuevo'" [class.nx-navbadge--beta]="b === 'Beta'">{{ b }}</span>
+  <span *ngIf="count(item) as n" class="nx-navcount" [attr.aria-label]="n + ' pendientes'">{{ n }}</span>
+</ng-template>

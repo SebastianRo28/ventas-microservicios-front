@@ -1,0 +1,178 @@
+<section class="nx-dt">
+  <!-- Toolbar -->
+  <div class="nx-dt__toolbar">
+    <button *ngIf="showAdvancedFilter" type="button" class="nx-icon-btn" aria-label="Filtro avanzado"
+            [attr.aria-expanded]="advOpen" (click)="advOpen = !advOpen">
+      <app-icon name="filter" [size]="17"></app-icon>
+    </button>
+    <label class="nx-dt__size">Ver
+      <select class="nx-select nx-select--bold nx-select--sm" [value]="'' + pageSize" (change)="setPageSize($any($event.target).value)">
+        <option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
+      </select>de {{ rows.length }}
+    </label>
+    <div class="nx-grow"></div>
+    <button type="button" class="nx-icon-btn" aria-label="Descargar Excel" title="Descargar Excel" (click)="exportCsv()">
+      <app-icon name="download" [size]="17"></app-icon>
+    </button>
+    <div *ngIf="showBulk" class="nx-dt__menu-anchor">
+      <button type="button" class="nx-btn nx-btn--outline" [attr.aria-expanded]="bulkOpen" (click)="bulkOpen = !bulkOpen">
+        Acciones<app-icon name="chevron-down" [size]="16"></app-icon>
+      </button>
+      <div *ngIf="bulkOpen" class="nx-popover nx-dt__bulk">
+        <button *ngFor="let b of bulkActions" type="button" class="nx-menu-item" [disabled]="!selected.size" (click)="runBulk(b)">
+          {{ b }} ({{ selected.size }})
+        </button>
+      </div>
+    </div>
+    <ng-container *ngIf="createLabel">
+      <a *ngIf="createLink; else createBtn" class="nx-btn nx-btn--primary" [routerLink]="createLink">
+        <app-icon name="plus" [size]="16"></app-icon>{{ createLabel }}
+      </a>
+      <ng-template #createBtn>
+        <button type="button" class="nx-btn nx-btn--primary" (click)="create.emit()">
+          <app-icon name="plus" [size]="16"></app-icon>{{ createLabel }}
+        </button>
+      </ng-template>
+    </ng-container>
+  </div>
+
+  <!-- Advanced filter -->
+  <div *ngIf="advOpen" class="nx-card nx-dt__adv">
+    <div class="nx-dt__adv-title"><app-icon class="nx-primary" name="filter" [size]="16"></app-icon>Filtro avanzado</div>
+    <div class="nx-dt__adv-row">
+      <select #advField class="nx-select nx-select--sm" aria-label="Campo">
+        <option *ngFor="let c of view.cols" [value]="c.key" [hidden]="c.type === 'actions'">{{ c.label }}</option>
+      </select>
+      <select class="nx-select nx-select--sm" aria-label="Operador"><option>contiene</option></select>
+      <input #advValue class="nx-input nx-input--sm" aria-label="Valor" placeholder="Valor">
+      <button type="button" class="nx-icon-btn nx-icon-btn--ghost" aria-label="Quitar condición" (click)="advValue.value = ''">
+        <app-icon name="trash" [size]="16"></app-icon>
+      </button>
+    </div>
+    <div class="nx-dt__adv-actions">
+      <div class="nx-grow"></div>
+      <button type="button" class="nx-btn nx-btn--outline" (click)="filters = {}; recompute(); advValue.value = ''">Limpiar</button>
+      <button type="button" class="nx-btn nx-btn--primary" (click)="setFilter(advField.value, advValue.value)">Aplicar</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="nx-card nx-dt__card">
+    <div class="nx-dt__scroll">
+      <div role="table" [attr.aria-label]="tableLabel" [style.min-width]="minWidth">
+        <div role="row" class="nx-dt__row nx-dt__row--head" [style.grid-template-columns]="view.grid">
+          <div *ngIf="selectable" role="columnheader" class="nx-dt__check">
+            <input type="checkbox" aria-label="Seleccionar todos" [checked]="allSelected" (change)="toggleAll()">
+          </div>
+          <div *ngFor="let c of view.cols; trackBy: trackCol" role="columnheader" class="nx-dt__th"
+               [attr.aria-sort]="sortKey === c.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : null">
+            <button *ngIf="isSortable(c); else plainHead" type="button" class="nx-dt__sort" (click)="sort(c)">
+              {{ c.label }}
+              <span class="nx-dt__sort-icon" [class.is-active]="sortKey === c.key">
+                <app-icon [name]="sortKey === c.key && sortDir === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="14"></app-icon>
+              </span>
+            </button>
+            <ng-template #plainHead><span class="nx-dt__head-label">{{ c.label }}</span></ng-template>
+          </div>
+          <div role="columnheader" class="nx-dt__cols nx-dt__menu-anchor">
+            <button type="button" class="nx-icon-btn nx-icon-btn--ghost" aria-label="Configurar columnas"
+                    [attr.aria-expanded]="colsOpen" (click)="colsOpen = !colsOpen">
+              <app-icon name="sliders" [size]="17"></app-icon>
+            </button>
+            <div *ngIf="colsOpen" class="nx-popover nx-dt__cols-menu">
+              <span class="nx-eyebrow">Mostrar columnas</span>
+              <ng-container *ngFor="let c of columns">
+                <label *ngIf="c.type !== 'actions'" class="nx-check">
+                  <input type="checkbox" [checked]="!hidden.has(c.key)" (change)="toggleColumn(c.key)">{{ c.label }}
+                </label>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="showFilters" role="row" class="nx-dt__row nx-dt__row--filters" [style.grid-template-columns]="view.grid">
+          <div *ngIf="selectable"></div>
+          <div *ngFor="let c of view.cols; trackBy: trackCol" class="nx-dt__filter" [ngSwitch]="c.type === 'actions' ? 'none' : (c.filter ?? 'text')">
+            <select *ngSwitchCase="'select'" class="nx-select nx-select--sm" [attr.aria-label]="'Filtrar ' + c.label"
+                    [value]="filters[c.key] || ''" (change)="setFilter(c.key, $any($event.target).value)">
+              <option value="">Seleccionar</option>
+              <option *ngFor="let o of options(c)" [value]="o">{{ o }}</option>
+            </select>
+            <label *ngSwitchCase="'date'" class="nx-input-icon nx-input-icon--end">
+              <input class="nx-input nx-input--sm" [attr.aria-label]="'Fecha ' + c.label" placeholder="DD/MM/YYYY"
+                     [value]="filters[c.key] || ''" (input)="setFilter(c.key, $any($event.target).value)">
+              <app-icon name="calendar" [size]="14"></app-icon>
+            </label>
+            <input *ngSwitchCase="'none'" class="nx-input nx-input--sm" [attr.aria-label]="c.label + ' no filtrable'"
+                   placeholder="No disponible" disabled>
+            <input *ngSwitchDefault class="nx-input nx-input--sm" [attr.aria-label]="'Buscar por ' + c.label" placeholder="Buscar por…"
+                   [value]="filters[c.key] || ''" (input)="setFilter(c.key, $any($event.target).value)">
+          </div>
+          <div></div>
+        </div>
+
+        <div *ngFor="let r of view.shown; trackBy: trackRow" role="row" class="nx-dt__row nx-dt__row--body"
+             [class.is-selected]="selected.has(r.id)" [style.grid-template-columns]="view.grid">
+          <div *ngIf="selectable" role="cell" class="nx-dt__check">
+            <input type="checkbox" aria-label="Seleccionar fila" [checked]="selected.has(r.id)" (change)="toggleRow(r)">
+          </div>
+          <div *ngFor="let c of view.cols; trackBy: trackCol" role="cell" class="nx-dt__td" [ngSwitch]="c.type ?? 'text'"
+               [class.nx-num]="c.type === 'money' || c.type === 'number'">
+            <ng-container *ngSwitchCase="'link'">
+              <a class="nx-dt__link" [routerLink]="rich(r[c.key])?.link ?? null">{{ cellText(r[c.key]) }}</a>
+              <span *ngIf="rich(r[c.key])?.chip as chip" class="nx-chip-sm">{{ chip }}</span>
+            </ng-container>
+            <span *ngSwitchCase="'badge'" class="nx-badge" [ngClass]="'nx-tone-' + (rich(r[c.key])?.tone ?? 'neutral')">
+              {{ cellText(r[c.key]) }}
+            </span>
+            <span *ngSwitchCase="'progress'" class="nx-progress">
+              <span class="nx-progress__track"><span [style.width.%]="rich(r[c.key])?.pct ?? 0"></span></span>
+              <span class="nx-progress__text">{{ cellText(r[c.key]) }}</span>
+            </span>
+            <ng-container *ngSwitchCase="'check'">
+              <span class="nx-check-cell" [ngClass]="'is-' + r[c.key]" [title]="r[c.key] === 'si' ? (c.checkLabels?.[0] ?? 'Completado') : r[c.key] === 'no' ? (c.checkLabels?.[1] ?? 'Pendiente') : 'No aplica'">
+                <app-icon *ngIf="r[c.key] === 'si'" name="checkcircle" [size]="16"></app-icon>
+                <app-icon *ngIf="r[c.key] === 'no'" name="x" [size]="16"></app-icon>
+                <ng-container *ngIf="r[c.key] === 'na'">N/A</ng-container>
+                <span class="visually-hidden">{{ r[c.key] === 'si' ? (c.checkLabels?.[0] ?? 'Completado') : r[c.key] === 'no' ? (c.checkLabels?.[1] ?? 'Pendiente') : '' }}</span>
+              </span>
+            </ng-container>
+            <span *ngSwitchCase="'actions'" class="nx-dt__actions">
+              <button *ngFor="let a of rowActions" type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm"
+                      [attr.aria-label]="actionMeta[a].label" [title]="actionMeta[a].label" (click)="action.emit({ action: a, row: r })">
+                <app-icon [name]="actionMeta[a].icon" [size]="16"></app-icon>
+              </button>
+            </span>
+            <span *ngSwitchDefault class="nx-ellipsis" [title]="cellText(r[c.key])">{{ cellText(r[c.key]) }}</span>
+          </div>
+          <div></div>
+        </div>
+      </div>
+
+      <div *ngIf="!view.filtered.length" class="nx-empty">
+        <svg width="120" height="96" viewBox="0 0 120 96" fill="none" aria-hidden="true">
+          <path d="M14 22a6 6 0 0 1 6-6h26l9 10h45a6 6 0 0 1 6 6v46a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" fill="#C9D8FF"/>
+          <path d="M8 38a6 6 0 0 1 6-6h92a6 6 0 0 1 6 6l-6 40a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" fill="#2D4DA4"/>
+          <path d="M44 56h32" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <b>{{ emptyTitle }}</b>
+        <span>{{ emptyText }}</span>
+      </div>
+    </div>
+
+    <div *ngIf="view.filtered.length" class="nx-dt__foot">
+      <span>Mostrando {{ (page - 1) * pageSize + 1 }} a {{ (page - 1) * pageSize + view.shown.length }} de {{ view.filtered.length }} registros</span>
+      <nav class="nx-pager" aria-label="Paginación">
+        <button type="button" class="nx-pager__btn" aria-label="Página anterior" [disabled]="page === 1" (click)="prev()">
+          <app-icon name="chevron-left" [size]="16"></app-icon>
+        </button>
+        <button *ngFor="let p of view.pages" type="button" class="nx-pager__btn" [class.is-active]="p === page"
+                [disabled]="p === '…'" [attr.aria-label]="p === '…' ? null : 'Página ' + p" [attr.aria-current]="p === page ? 'page' : null"
+                (click)="goTo(p)">{{ p }}</button>
+        <button type="button" class="nx-pager__btn" aria-label="Página siguiente" [disabled]="page === view.nPages" (click)="next()">
+          <app-icon name="chevron-right" [size]="16"></app-icon>
+        </button>
+      </nav>
+    </div>
+  </div>
+</section>

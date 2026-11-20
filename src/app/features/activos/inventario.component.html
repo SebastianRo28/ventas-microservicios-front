@@ -1,0 +1,64 @@
+<app-page-header title="Inventario" [crumbs]="['Administrativo', 'Gestión de Activos']"></app-page-header>
+
+<div class="nx-grid nx-grid--4 nx-mb-16">
+  <div class="nx-card nx-stat"><span>Total de activos</span><b>{{ count() }}</b></div>
+  <div class="nx-card nx-stat"><span>Activos disponibles</span><b>{{ count('Disponible') }}</b></div>
+  <div class="nx-card nx-stat"><span>Activos asignados</span><b>{{ count('Asignado') }}</b></div>
+  <div class="nx-card nx-stat"><span>Activos en mantenimiento</span><b>{{ count('Mantenimiento') }}</b></div>
+</div>
+
+<div class="nx-row nx-row--right">
+  <a class="nx-btn nx-btn--outline" routerLink="/rep/importadores"><app-icon name="upload" [size]="16"></app-icon>Importador masivo</a>
+</div>
+
+<app-data-table [columns]="columns" [rows]="rows" [pageSize]="50" createLabel="Crear Activo" [rowActions]="actions" [showBulk]="false"
+                tableLabel="Inventario" minWidth="1100px" exportName="inventario-activos"
+                (create)="ui.toast('El alta de activos llegará en la próxima versión')"
+                (action)="onAction($event.action, $event.row)"></app-data-table>
+
+<app-modal *ngIf="historial as h" [title]="'Historial de movimientos - ID ' + h.id + ' - ' + h.nombre" width="900px" (closed)="historial = null">
+  <div class="nx-row nx-row--right">
+    <button type="button" class="nx-btn nx-btn--primary" (click)="openCambio(h)"><app-icon name="refresh" [size]="16"></app-icon>Cambiar estado</button>
+  </div>
+  <div *ngIf="h.historial.length; else sinHist" class="nx-dt__scroll nx-period__table">
+    <table class="nx-table" aria-label="Historial de movimientos">
+      <thead><tr><th>Fecha de actualización</th><th>Asignado a</th><th>Estado</th><th>Comentario</th><th>Administrador</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let m of h.historial">
+          <td>{{ m.fecha }}</td><td>{{ m.asignado }}</td>
+          <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone[m.estado]">{{ m.estado }}</span></td>
+          <td class="nx-wrap">{{ m.comentario }}</td><td>{{ m.admin }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #sinHist>
+    <div class="nx-empty nx-empty--compact"><b>Aún no hay movimientos</b><span>Los cambios de estado y asignación de este activo aparecerán aquí.</span></div>
+  </ng-template>
+  <ng-container modal-footer>
+    <span></span>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="historial = null">Cerrar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="cambio as c" [title]="'Cambiar estado · ' + c.id" width="560px" (closed)="cambio = null">
+  <form id="cambio-activo" class="nx-form" (ngSubmit)="guardarCambio()">
+    <p class="nx-muted nx-mt-0">{{ c.nombre }} · {{ c.marca }}</p>
+    <label class="nx-field">Estado
+      <select class="nx-select" name="estado" [(ngModel)]="form.estado"><option *ngFor="let e of estados">{{ e }}</option></select>
+    </label>
+    <label *ngIf="form.estado === 'Asignado'" class="nx-field">Asignado a*
+      <select class="nx-select" name="asignado" [(ngModel)]="form.asignado" [class.is-invalid]="!cambioValido">
+        <option value="">Seleccionar colaborador</option><option *ngFor="let p of personas">{{ p }}</option>
+      </select>
+      <span *ngIf="!cambioValido" class="nx-error">Elige a quién se asigna el activo.</span>
+    </label>
+    <label class="nx-field">Comentario
+      <textarea class="nx-input nx-textarea" name="comentario" placeholder="Ej. Entrega con acta firmada." [(ngModel)]="form.comentario"></textarea>
+    </label>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="cambio = null">Cancelar</button>
+    <button type="submit" form="cambio-activo" class="nx-btn nx-btn--primary" [disabled]="!cambioValido">Guardar</button>
+  </ng-container>
+</app-modal>

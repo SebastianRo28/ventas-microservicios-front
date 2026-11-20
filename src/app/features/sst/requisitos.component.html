@@ -1,0 +1,59 @@
+<app-page-header title="Requisitos" [crumbs]="['Seguridad y Salud en el Trabajo', 'Registro de evidencias']"></app-page-header>
+
+<div class="nx-banner nx-banner--green" role="note">
+  <app-icon name="shield" [size]="19"></app-icon>
+  <span class="nx-grow">Capacitaciones, exámenes ocupacionales, EPP y más con descuentos exclusivos para clientes Nexo RH.</span>
+  <a href="#" (click)="$event.preventDefault()">Ver la Red de Proveedores SST</a>
+</div>
+<p class="nx-page-lead nx-page-lead--flat">Crea los requisitos de tus cumplimientos y asigna a los Colaboradores o Empresas que deben cumplirlos. Desde Asignaciones, haz seguimiento individual.</p>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of ['Requisitos', 'Asignaciones']; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<ng-container *ngIf="tab === 0">
+  <div *ngIf="cargarAviso" class="nx-banner" role="status">
+    <app-icon name="info" [size]="19"></app-icon>
+    <span class="nx-grow">Carga la evidencia del requisito “{{ cargarAviso }}”. La pantalla de carga de evidencia llegará en la próxima versión.</span>
+    <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="cargarAviso = ''"><app-icon name="x" [size]="16"></app-icon></button>
+  </div>
+  <app-data-table [columns]="cols" [rows]="rows" createLabel="Crear Requisito" [rowActions]="actions" [showAdvancedFilter]="false"
+                  [bulkActions]="['Descargar evidencias', 'Eliminar']" tableLabel="Requisitos" minWidth="1500px" exportName="requisitos-sst"
+                  (create)="ui.toast('La creación de requisitos llegará en la próxima versión')"
+                  (action)="onRequisito($event.action, $event.row)"></app-data-table>
+</ng-container>
+
+<ng-container *ngIf="tab === 1">
+  <div class="nx-filterbar">
+    <div class="nx-pills" role="group" aria-label="Tipo de asignación">
+      <button *ngFor="let s of ['Colaboradores', 'Empresas']; let i = index" type="button" [class.is-on]="sub === i" [attr.aria-pressed]="sub === i" (click)="sub = i">{{ s }}</button>
+    </div>
+    <div class="nx-segmented" role="group" aria-label="Vigencia">
+      <button type="button" [class.is-on]="seg === 0" [attr.aria-pressed]="seg === 0" (click)="seg = 0">Asignaciones vigentes</button>
+      <button type="button" [class.is-on]="seg === 1" [attr.aria-pressed]="seg === 1" (click)="seg = 1">Asignaciones finalizadas</button>
+    </div>
+    <div class="nx-grow"></div>
+    <a class="nx-btn nx-btn--outline" routerLink="/rep/importadores"><app-icon name="upload" [size]="16"></app-icon>Importador</a>
+  </div>
+  <app-data-table *ngIf="sub === 0" [columns]="acols" [rows]="seg === 0 ? colRows : []" [rowActions]="verActions" [showBulk]="false"
+                  [selectable]="false" [showAdvancedFilter]="false" tableLabel="Asignaciones a colaboradores" minWidth="1500px"
+                  exportName="asignaciones-colaboradores" (action)="ver($event.row, false)"></app-data-table>
+  <app-data-table *ngIf="sub === 1" [columns]="ecols" [rows]="seg === 0 ? empRows : []" [rowActions]="verActions" [showBulk]="false"
+                  [selectable]="false" [showAdvancedFilter]="false" tableLabel="Asignaciones a empresas" minWidth="1000px"
+                  exportName="asignaciones-empresas" (action)="ver($event.row, true)"></app-data-table>
+  <p class="nx-muted nx-small nx-mt-12">El historial se conserva aunque el colaborador cambie de cargo o deje la empresa.</p>
+</ng-container>
+
+<app-modal *ngIf="preview as p" title="Previsualización de evidencia" width="640px" (closed)="preview = null">
+  <div class="nx-evidence">
+    <b>{{ p.requisito | uppercase }}</b>
+    <p>Evidencia registrada para <b>{{ p.titular }}</b> en el cumplimiento “{{ p.cumplimiento }}”.</p>
+    <p>Estado: <span class="nx-badge" [ngClass]="'nx-tone-' + tone[p.estado]">{{ p.estado }}</span> · Última actualización: {{ p.actualizado }}</p>
+    <div class="nx-evidence__signs"><span>Prevencionista</span><span>{{ p.colaboradorId !== undefined ? 'Trabajador' : 'Representante legal' }}</span></div>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="preview = null">Cerrar</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="ui.toast('La descarga de evidencias llegará en la próxima versión')"><app-icon name="download" [size]="16"></app-icon>Descargar</button>
+  </ng-container>
+</app-modal>

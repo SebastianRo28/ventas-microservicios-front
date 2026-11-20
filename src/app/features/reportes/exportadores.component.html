@@ -1,0 +1,56 @@
+<app-page-header title="Exportadores" [crumbs]="['Reportería']"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of ['Mis reportes', 'Historial']; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<div *ngIf="banner" class="nx-banner" role="note">
+  <app-icon name="info" [size]="19"></app-icon>
+  <span class="nx-grow"><b>Nuevo:</b> Reportes con filas abiertas por tipo de comprobante… <a href="#" (click)="$event.preventDefault()">Conocer más</a></span>
+  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="banner = false"><app-icon name="x" [size]="16"></app-icon></button>
+</div>
+
+<app-data-table *ngIf="tab === 0" [columns]="cols" [rows]="rows" createLabel="Crear Reporte" [rowActions]="actions"
+                [bulkActions]="['Eliminar seleccionados']" [showAdvancedFilter]="false" tableLabel="Mis reportes" minWidth="1000px"
+                exportName="mis-reportes" (create)="openModal()" (action)="onAction($event.action, $event.row)"
+                (bulk)="eliminarVarios($event.rows)"></app-data-table>
+<app-data-table *ngIf="tab === 1" [columns]="hcols" [rows]="hrows" [rowActions]="hActions" [showBulk]="false" [showAdvancedFilter]="false"
+                tableLabel="Historial de reportes" minWidth="1000px" exportName="historial-reportes"
+                (action)="onHistorial($event.row)"></app-data-table>
+
+<app-modal *ngIf="modal" title="Plantillas" width="980px" (closed)="modal = false">
+  <div class="nx-picker">
+    <div class="nx-picker__side" role="group" aria-label="Categorías">
+      <span class="nx-eyebrow">Categorías</span>
+      <button *ngFor="let c of categorias" type="button" [class.is-on]="categoria === c" [attr.aria-pressed]="categoria === c" (click)="categoria = c">
+        <span class="nx-grow">{{ c }}</span><span class="nx-catalog__count">{{ countCat(c) }}</span>
+      </button>
+    </div>
+    <div class="nx-picker__main">
+      <div class="nx-filterbar nx-mb-0">
+        <label class="nx-input-icon nx-w-280">
+          <app-icon name="search" [size]="16"></app-icon>
+          <input aria-label="Buscar plantilla" placeholder="Buscar plantilla" [(ngModel)]="query">
+        </label>
+        <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--gray"></span>Reportes en Blanco</span>
+        <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--orange"></span>Personalizados</span>
+        <span class="nx-legend"><span class="nx-legend__dot"></span>Predefinidos</span>
+      </div>
+      <div class="nx-templates">
+        <button *ngFor="let p of plantillas" type="button" class="nx-tpl-card" [ngClass]="'is-' + p.tipo" [class.is-on]="seleccion === p"
+                [attr.aria-pressed]="seleccion === p" (click)="seleccion = p">
+          <b>{{ p.titulo }}</b><span>{{ p.descripcion }}</span>
+        </button>
+      </div>
+      <p *ngIf="!plantillas.length" class="nx-muted nx-center">No hay plantillas en esta categoría.</p>
+    </div>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="modal = false">Cancelar</button>
+    <div class="nx-row nx-row--center">
+      <span class="nx-muted nx-small">{{ seleccion ? 'Seleccionada: ' + seleccion.titulo : 'Selecciona una plantilla' }}</span>
+      <button type="button" class="nx-btn nx-btn--primary" [disabled]="!seleccion" (click)="usarPlantilla()">Usar plantilla</button>
+    </div>
+  </ng-container>
+</app-modal>

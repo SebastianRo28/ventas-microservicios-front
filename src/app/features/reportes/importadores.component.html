@@ -1,0 +1,79 @@
+<app-page-header title="Importadores" [crumbs]="['Reportería', 'Importadores']" [askAi]="false"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let m of modulos; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="modulo === i" [attr.aria-selected]="modulo === i" (click)="pickModulo(i)">{{ m }}</button>
+</div>
+
+<div class="nx-filterbar">
+  <label class="nx-input-icon nx-w-280">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input aria-label="Buscar importador" placeholder="Buscar importador" [(ngModel)]="query">
+  </label>
+  <span class="nx-legend"><span class="nx-legend__dot"></span>Importador: crea registros nuevos</span>
+  <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--orange"></span>Modificador: actualiza datos existentes</span>
+  <div class="nx-grow"></div>
+  <a routerLink="/rep/importadores/historial" class="nx-strong-link">Historial de Cargas</a>
+</div>
+
+<div class="nx-catalog">
+  <nav class="nx-card nx-catalog__side" aria-label="Categorías">
+    <span class="nx-eyebrow">Categorías</span>
+    <button *ngFor="let c of categorias" type="button" [class.is-on]="categoria === c.nombre" [attr.aria-pressed]="categoria === c.nombre"
+            (click)="categoria = c.nombre">
+      <span class="nx-grow">{{ c.nombre }}</span><span class="nx-catalog__count">{{ c.n }}</span>
+    </button>
+  </nav>
+  <div class="nx-grow">
+    <div class="nx-import-grid">
+      <button *ngFor="let i of visibles" type="button" class="nx-import-card" [class.is-mod]="i.tipo === 'Modificador'" (click)="abrir(i)">
+        <span class="nx-import-card__icon"><app-icon [name]="i.tipo === 'Modificador' ? 'edit' : 'upload'" [size]="20"></app-icon></span>
+        <span class="nx-import-card__text"><b>{{ i.nombre }}</b><span class="nx-badge nx-badge--sm" [ngClass]="i.tipo === 'Modificador' ? 'nx-tone-orange' : 'nx-tone-neutral'">{{ i.tipo }}</span></span>
+      </button>
+    </div>
+    <div *ngIf="!visibles.length" class="nx-card nx-empty nx-empty--compact">
+      <b>No hay importadores</b><span>Prueba con otra categoría o búsqueda.</span>
+    </div>
+  </div>
+</div>
+
+<app-modal *ngIf="abierto as a" [title]="a.nombre" width="760px" (closed)="abierto = null">
+  <div class="nx-form">
+    <div class="nx-row nx-row--center">
+      <span class="nx-badge" [ngClass]="a.tipo === 'Modificador' ? 'nx-tone-orange' : 'nx-tone-neutral'">{{ a.tipo }}</span>
+      <span class="nx-muted">Completa el template respetando el formato de cada campo.</span>
+    </div>
+    <div class="nx-dt__scroll nx-period__table">
+      <table class="nx-table" aria-label="Instrucciones del importador">
+        <thead><tr><th>Campo</th><th>Formato / valores permitidos</th></tr></thead>
+        <tbody><tr *ngFor="let c of campos"><td><b>{{ c.nombre }}</b></td><td class="nx-wrap">{{ c.formato }}</td></tr></tbody>
+      </table>
+    </div>
+    <div class="nx-row">
+      <label class="nx-check nx-check--plain"><input type="checkbox" [(ngModel)]="inactivos">Cargar como inactivos</label>
+      <label class="nx-check nx-check--plain"><input type="checkbox">Agregar segunda dirección</label>
+    </div>
+    <div class="nx-banner nx-banner--warning nx-banner--compact" role="note">
+      <app-icon name="alert" [size]="18"></app-icon><span><b>Importante:</b> no cambies el orden ni el nombre de las columnas del template.</span>
+    </div>
+    <div class="nx-banner nx-banner--compact" role="note">
+      <app-icon name="info" [size]="18"></app-icon><span><b>Recordatorio:</b> los colaboradores cargados aparecen en Vigentes, en el organigrama y en Control de Asistencia.</span>
+    </div>
+    <div *ngIf="resultado as r" class="nx-upload-result" [class.is-ok]="!r.errores.length" role="status">
+      <b>{{ r.archivo }} · {{ r.errores.length ? r.errores.length + ' error(es)' : 'sin errores' }} en {{ r.filas }} fila(s)</b>
+      <span *ngIf="!r.errores.length">El archivo cumple el formato. La carga en la base de datos se activará cuando Nexo RH tenga su API.</span>
+      <ul *ngIf="r.errores.length"><li *ngFor="let e of r.errores.slice(0, 8)">{{ e }}</li></ul>
+      <span *ngIf="r.errores.length > 8" class="nx-small">Y {{ r.errores.length - 8 }} error(es) más.</span>
+    </div>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="abierto = null">Cancelar</button>
+    <div class="nx-row">
+      <button type="button" class="nx-btn nx-btn--outline" (click)="descargarTemplate()"><app-icon name="download" [size]="16"></app-icon>Descargar Template</button>
+      <label class="nx-btn nx-btn--primary nx-file-btn">
+        <app-icon name="upload" [size]="16"></app-icon>Seleccionar archivo
+        <input #file type="file" accept=".csv,text/csv" class="visually-hidden" (change)="cargar(file)">
+      </label>
+    </div>
+  </ng-container>
+</app-modal>

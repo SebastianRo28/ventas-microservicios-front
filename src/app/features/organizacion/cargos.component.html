@@ -1,0 +1,88 @@
+<app-page-header title="Cargos" [crumbs]="['Administrativo', 'Organización']"></app-page-header>
+
+<div class="nx-tabs nx-mb-18" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<div *ngIf="banner" class="nx-banner" role="note">
+  <app-icon name="info" [size]="19"></app-icon>
+  <span class="nx-grow">Para dar un cargo a alguien ve a su perfil y elige “Nuevo trabajo”… o usa el importador “Trabajos”.
+    <a routerLink="/rep/importadores">Ir a importadores</a></span>
+  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="banner = false">
+    <app-icon name="x" [size]="16"></app-icon>
+  </button>
+</div>
+
+<app-data-table *ngIf="tab === 0" [columns]="cols" [rows]="rows" tableLabel="Cargos" createLabel="Crear Cargo"
+                [pageSize]="10" [showBulk]="false" [showAdvancedFilter]="false" [selectable]="false" exportName="cargos"
+                (create)="openModal()"></app-data-table>
+<app-data-table *ngIf="tab === 1" [columns]="fcols" [rows]="frows" tableLabel="Familias de Cargo" createLabel="Crear Familia de Cargo"
+                [pageSize]="10" [showBulk]="false" [showAdvancedFilter]="false" [selectable]="false" exportName="familias-de-cargo"></app-data-table>
+<app-data-table *ngIf="tab === 2" [columns]="ccols" [rows]="crows" tableLabel="Competencias" createLabel="Crear Competencia"
+                [pageSize]="10" [showBulk]="false" [showAdvancedFilter]="false" [selectable]="false" exportName="competencias"></app-data-table>
+
+<app-modal *ngIf="modal" title="Nuevo Cargo" (closed)="modal = false">
+  <form id="nuevo-cargo" class="nx-form" (ngSubmit)="create()">
+    <div class="nx-ai-box">
+      <span class="nx-ai-box__title"><app-icon class="nx-primary" name="sparkle" [size]="18"></app-icon>Crear cargos con Nexo AI</span>
+      <div class="nx-row nx-row--end">
+        <label class="nx-field nx-grow">Nombre*
+          <input class="nx-input" name="name" required placeholder="Ej. Analista de Planillas" [(ngModel)]="form.name">
+        </label>
+        <button type="button" class="nx-btn nx-btn--primary" (click)="generate()">
+          <app-icon name="sparkle" [size]="16"></app-icon>{{ generated ? 'Regenerar' : 'Crear Cargo con Nexo AI' }}
+        </button>
+      </div>
+      <span class="nx-ai-box__hint">Nexo AI completa la Descripción y los Requerimientos a partir del nombre.</span>
+    </div>
+
+    <label class="nx-field">Código*
+      <input class="nx-input" name="code" required placeholder="Ej. ANA-PLA" [(ngModel)]="form.code">
+    </label>
+    <label class="nx-field">Descripción
+      <textarea class="nx-input nx-textarea" name="desc" [(ngModel)]="form.desc"></textarea>
+    </label>
+    <label class="nx-field">Requerimientos
+      <textarea class="nx-input nx-textarea" name="req" [(ngModel)]="form.req"></textarea>
+    </label>
+
+    <div class="nx-field">
+      <span>Sub-áreas</span>
+      <div class="nx-tags">
+        <span *ngFor="let s of subs" class="nx-tag">{{ s }}
+          <button type="button" [attr.aria-label]="'Quitar ' + s" (click)="removeSub(s)"><app-icon name="x" [size]="13"></app-icon></button>
+        </span>
+        <select #addSel aria-label="Agregar sub-área" (change)="addSub(addSel.value); addSel.value = ''">
+          <option value="">Seleccionar sub-áreas</option>
+          <option *ngFor="let o of subsAvail" [value]="o">{{ o }}</option>
+        </select>
+      </div>
+      <label class="nx-check nx-check--plain"><input type="checkbox">Mostrar sub-áreas inactivas</label>
+    </div>
+
+    <div class="nx-collapse">
+      <button type="button" class="nx-collapse__btn" [attr.aria-expanded]="adv" (click)="adv = !adv">
+        <span class="nx-grow">Opciones Avanzadas</span>
+        <span class="nx-rot" [class.is-flipped]="adv"><app-icon name="chevron-down" [size]="18"></app-icon></span>
+      </button>
+      <div *ngIf="adv" class="nx-collapse__body nx-grid nx-grid--2">
+        <label class="nx-field">Familia de cargo
+          <select class="nx-select" name="familia" [(ngModel)]="form.familia">
+            <option>Junior</option><option>Intermedio</option><option>Senior</option><option>Jefatura</option><option>Gerencia</option>
+          </select>
+        </label>
+        <label class="nx-field">Nivel de compensación
+          <select class="nx-select"><option>Nivel 1</option><option>Nivel 2</option><option selected>Nivel 3</option><option>Nivel 4</option></select>
+        </label>
+        <label class="nx-field nx-span-2">Competencias
+          <select class="nx-select"><option>Trabajo en equipo, Orientación a resultados</option><option>Comunicación efectiva</option><option>Liderazgo</option></select>
+        </label>
+      </div>
+    </div>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="modal = false">Cancelar</button>
+    <button type="submit" form="nuevo-cargo" class="nx-btn nx-btn--primary">Crear</button>
+  </ng-container>
+</app-modal>

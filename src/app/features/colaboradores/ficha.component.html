@@ -1,0 +1,176 @@
+<ng-container *ngIf="c; else missing">
+  <nav class="nx-breadcrumb" aria-label="Ruta">
+    <ng-container *ngIf="colabView; else adminCrumbs">Mi Portal</ng-container>
+    <ng-template #adminCrumbs>Administrativo <app-icon name="chevron-right" [size]="13"></app-icon> <a routerLink="/admin/colaboradores/vigentes">Colaboradores</a></ng-template>
+    <app-icon name="chevron-right" [size]="13"></app-icon>
+    <span aria-current="page">{{ nombreCompleto }}</span>
+  </nav>
+
+  <div *ngIf="c.detalle?.aviso as aviso" class="nx-banner nx-banner--warning" role="note">
+    <app-icon name="alert" [size]="19"></app-icon>{{ aviso }}
+  </div>
+
+  <div class="nx-ficha">
+    <!-- Perfil -->
+    <aside class="nx-card nx-ficha__side">
+      <div class="nx-ficha__id">
+        <span class="nx-hex" aria-hidden="true">{{ ini }}</span>
+        <h1>{{ nombreCompleto }}</h1>
+        <span class="nx-ficha__cargo">{{ c.cargo }}<span class="nx-chip-f1">F1</span></span>
+      </div>
+      <div *ngIf="!colabView" class="nx-ficha__tools">
+        <button type="button" class="nx-icon-btn nx-icon-btn--danger" aria-label="Eliminar colaborador"><app-icon name="trash" [size]="17"></app-icon></button>
+        <button type="button" class="nx-btn nx-btn--outline">Ficha: F1<app-icon name="chevron-down" [size]="16"></app-icon></button>
+        <button type="button" class="nx-icon-btn" aria-label="Editar datos personales"><app-icon name="edit" [size]="17"></app-icon></button>
+      </div>
+      <button *ngIf="colabView" type="button" class="nx-btn nx-btn--primary nx-btn--block"><app-icon name="edit" [size]="16"></app-icon>Actualizar Datos</button>
+
+      <div class="nx-ficha__groups">
+        <ng-container *ngTemplateOutlet="group; context: { k: 'info', title: 'Información General', fields: info }"></ng-container>
+        <ng-container *ngTemplateOutlet="group; context: { k: 'edu', title: 'Educación', fields: educacion }"></ng-container>
+        <ng-container *ngTemplateOutlet="group; context: { k: 'prev', title: 'Previsión y Pago', fields: prevision }"></ng-container>
+      </div>
+    </aside>
+
+    <!-- Trabajo -->
+    <div class="nx-ficha__main">
+      <div *ngIf="!colabView" class="nx-ficha__actions">
+        <div class="nx-dt__menu-anchor">
+          <button type="button" class="nx-btn nx-btn--outline nx-btn--danger" [attr.aria-expanded]="terminarOpen" (click)="terminarOpen = !terminarOpen">
+            Terminar trabajo<app-icon name="chevron-down" [size]="16"></app-icon>
+          </button>
+          <div *ngIf="terminarOpen" class="nx-popover nx-ficha__menu">
+            <button type="button" class="nx-menu-item" (click)="terminarOpen = false">Con liquidación</button>
+            <button type="button" class="nx-menu-item" (click)="terminarOpen = false">Sin liquidación</button>
+          </div>
+        </div>
+        <button type="button" class="nx-btn nx-btn--outline">Editar trabajo</button>
+        <button type="button" class="nx-btn nx-btn--primary">Renovar contrato</button>
+      </div>
+
+      <div class="nx-tabs nx-tabs--scroll" role="tablist">
+        <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+                [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">
+          {{ t }}<app-icon *ngIf="drop.has(t)" name="chevron-down" [size]="14"></app-icon>
+        </button>
+      </div>
+
+      <!-- Resumen -->
+      <ng-container *ngIf="tab === 0">
+        <div class="nx-card nx-ficha__panel">
+          <div class="nx-fields nx-fields--3">
+            <div *ngFor="let f of trabajo" class="nx-fieldrow">
+              <span>{{ f.label }}</span>
+              <span>
+                <a *ngIf="f.link; else plain" [routerLink]="f.link">{{ f.value }}</a>
+                <ng-template #plain>{{ f.value }}<ng-container *ngIf="f.action">&ngsp;<a href="#" (click)="$event.preventDefault()">{{ f.action }}</a></ng-container></ng-template>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="nx-grid nx-grid--2 nx-grid--16">
+          <div *ngFor="let ch of charts" class="nx-card nx-bars">
+            <div class="nx-bars__title"><b>{{ ch.title }}</b><span class="nx-muted">· últimos 6 meses ({{ ch.unit }})</span></div>
+            <div class="nx-bars__plot" role="img" [attr.aria-label]="ariaChart(ch)">
+              <div *ngFor="let v of ch.values; let i = index" class="nx-bars__col" [title]="meses[i] + ': ' + ch.fmt(v) + ' ' + ch.unit">
+                <span>{{ ch.fmt(v) }}</span>
+                <span class="nx-bars__bar" [style.height.px]="barHeight(ch.values, v)"></span>
+              </div>
+            </div>
+            <div class="nx-bars__axis"><span *ngFor="let m of meses">{{ m }}</span></div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Boletas de Pago -->
+      <div *ngIf="tab === 1" class="nx-card nx-ficha__panel nx-ficha__panel--flush">
+        <div *ngIf="boletas.length; else sinBoletas" class="nx-dt__scroll">
+          <table class="nx-table" aria-label="Boletas de pago">
+            <thead>
+              <tr>
+                <th>Mes</th><th class="nx-num">Sueldo Bruto</th><th class="nx-num">Sueldo Neto</th><th class="nx-num">Aporte Empleador</th>
+                <th class="nx-num">Horas Extras</th><th class="nx-num">Recargos</th><th class="nx-num">Horas no Trabajadas</th>
+                <th class="nx-num">Días no Trabajados</th><th>Proceso</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let bo of boletas">
+                <td>{{ bo.mes }}</td><td class="nx-num">{{ soles(bo.bruto) }}</td><td class="nx-num">{{ soles(bo.neto) }}</td>
+                <td class="nx-num">{{ soles(bo.aporteEmpleador) }}</td><td class="nx-num">{{ bo.horasExtras.toFixed(1) }}</td>
+                <td class="nx-num">{{ soles(bo.recargos) }}</td><td class="nx-num">{{ bo.horasNoTrabajadas.toFixed(1) }}</td>
+                <td class="nx-num">{{ bo.diasNoTrabajados }}</td><td>{{ bo.proceso }}</td>
+                <td class="nx-dt__actions">
+                  <span *ngIf="bo.abierto" class="nx-open-dot" title="Proceso abierto"><app-icon name="lock" [size]="14"></app-icon></span>
+                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Ver boleta" title="Ver boleta"><app-icon name="eye" [size]="16"></app-icon></button>
+                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Descargar" title="Descargar"><app-icon name="download" [size]="16"></app-icon></button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #sinBoletas>
+          <div class="nx-empty nx-empty--compact"><b>Aún no hay boletas</b><span>Las boletas aparecen cuando se procesa la planilla del colaborador.</span></div>
+        </ng-template>
+      </div>
+
+      <!-- Asistencia -->
+      <div *ngIf="tab === 5 && asisResumen as r" class="nx-card nx-ficha__panel">
+        <div class="nx-tabs" role="tablist" aria-label="Asistencia">
+          <button *ngFor="let s of ['Resumen', 'Tarjeta']" type="button" role="tab" class="nx-tab" [class.is-active]="asisSub === s" [attr.aria-selected]="asisSub === s" (click)="asisSub = $any(s)">{{ s }}</button>
+        </div>
+        <ng-container *ngIf="asisSub === 'Resumen'">
+          <div class="nx-grid nx-grid--4 nx-mb-16">
+            <div class="nx-card nx-stat"><span>Asistencias del mes</span><b>{{ r.asistencias }}</b></div>
+            <div class="nx-card nx-stat"><span>Inasistencias</span><b>{{ r.inasistencias }}</b></div>
+            <div class="nx-card nx-stat"><span>Atrasos</span><b>{{ r.atrasos }}</b></div>
+            <div class="nx-card nx-stat"><span>Horas extras</span><b>{{ dur(r.exceso) }}</b></div>
+          </div>
+          <div class="nx-fieldrow"><span>Turno vigente</span><span>{{ asisTurno }}</span></div>
+          <div class="nx-fieldrow"><span>Recinto</span><span>{{ ca.recintoNombre(c.id) }}</span></div>
+          <div class="nx-fieldrow"><span>Horas no trabajadas del mes</span><span>{{ dur(r.hnt) }} h</span></div>
+        </ng-container>
+        <div *ngIf="asisSub === 'Tarjeta'" class="nx-dt__scroll">
+          <table class="nx-table nx-catable" aria-label="Tarjeta de asistencia de las últimas dos semanas">
+            <thead><tr><th>Fecha</th><th>Turno</th><th>Entrada</th><th>Salida</th><th class="nx-num">HO</th><th class="nx-num">HNT</th><th class="nx-num">HHEE</th><th>Estado</th></tr></thead>
+            <tbody><tr *ngFor="let j of asisSemana" [class.is-ina]="j.estado === 'Inasistencia'" [class.is-des]="j.estado === 'Descanso'" [class.is-lic]="['Licencia', 'Vacaciones', 'Permiso'].includes(j.estado)" [class.is-inc]="j.estado === 'Incompleta'">
+              <td>{{ j.fecha }}</td><td>{{ j.codigo }}</td><td>{{ j.entrada?.hora || '—' }}</td><td>{{ j.salida?.hora || '—' }}</td>
+              <td class="nx-num">{{ dur(j.ho) }}</td><td class="nx-num">{{ dur(j.hnt) }}</td><td class="nx-num">{{ dur(j.exceso) }}</td><td>{{ j.estado }}{{ j.detalle ? ' · ' + j.detalle : '' }}</td></tr></tbody>
+          </table>
+        </div>
+        <div *ngIf="!colabView" class="nx-row nx-row--end nx-mt-16">
+          <a class="nx-btn nx-btn--outline nx-btn--sm" [routerLink]="['/ca/colaboradores/tarjeta']" [queryParams]="{ id: c.id }">Ver tarjeta completa</a>
+          <a class="nx-btn nx-btn--primary nx-btn--sm" [routerLink]="['/ca/colaboradores/perfil', c.id]">Perfil de asistencia</a>
+        </div>
+      </div>
+
+      <div *ngIf="tab > 1 && tab !== 5" class="nx-card nx-empty nx-empty--compact">
+        <b>{{ tabs[tab] }}</b>
+        <span>Esta pestaña de la ficha todavía no está disponible en esta versión.</span>
+      </div>
+    </div>
+  </div>
+</ng-container>
+
+<ng-template #group let-k="k" let-title="title" let-fields="fields">
+  <div class="nx-ficha__group">
+    <button type="button" class="nx-ficha__group-btn" [attr.aria-expanded]="open.has(k)" (click)="toggle(k)">
+      <span class="nx-grow">{{ title }}</span>
+      <span class="nx-rot" [class.is-flipped]="open.has(k)"><app-icon name="chevron-down" [size]="18"></app-icon></span>
+    </button>
+    <div *ngIf="open.has(k)" class="nx-ficha__group-body">
+      <div *ngFor="let f of fields" class="nx-fieldrow">
+        <span>{{ f.label }}</span>
+        <span>{{ f.value }}<ng-container *ngIf="f.action">&ngsp;<a href="#" (click)="$event.preventDefault()">{{ f.action }}</a></ng-container></span>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #missing>
+  <app-page-header title="Ficha del Colaborador" [crumbs]="['Administrativo', 'Colaboradores']" [askAi]="false"></app-page-header>
+  <div *ngIf="notFound" class="nx-card nx-empty">
+    <b>No encontramos a este colaborador</b>
+    <span>Puede que el enlace sea antiguo o que el colaborador ya no esté vigente.</span>
+    <a class="nx-btn nx-btn--outline" routerLink="/admin/colaboradores/vigentes">Ir a Vigentes</a>
+  </div>
+</ng-template>

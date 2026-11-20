@@ -1,0 +1,118 @@
+<app-page-header title="Parámetros generales" [crumbs]="['Administración']" [askAi]="false"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i; errores = []">{{ t }}</button>
+</div>
+
+<div *ngIf="errores.length" class="nx-upload-result" role="alert"><ul><li *ngFor="let e of errores">{{ e }}</li></ul></div>
+
+<!-- Organización -->
+<form *ngIf="tab === 0" class="nx-card nx-settings" (ngSubmit)="guardarOrg()">
+  <div class="nx-form-grid">
+    <label class="nx-field">País<select class="nx-select" name="pais" [(ngModel)]="org.pais"><option>Perú</option><option>Chile</option><option>Colombia</option></select></label>
+    <label class="nx-field">Nombre de la compañía<input class="nx-input" name="compania" [(ngModel)]="org.compania"></label>
+    <label class="nx-field">Nombre de la contabilidad<input class="nx-input" name="contabilidad" [(ngModel)]="org.contabilidad"></label>
+    <label class="nx-field">Días de alerta para recontratación<input class="nx-input" type="number" min="0" name="alerta" [(ngModel)]="org.alertaRecontratacion"></label>
+    <label class="nx-field">Horas laborales<input class="nx-input" type="number" min="1" max="48" name="horas" [(ngModel)]="org.horas"></label>
+    <label class="nx-field">Días laborales<input class="nx-input" type="number" min="1" max="31" name="dias" [(ngModel)]="org.dias"></label>
+    <label class="nx-switch-row nx-span-3">
+      <button type="button" role="switch" class="nx-switch" [class.is-on]="org.implementacion" [attr.aria-checked]="org.implementacion"
+              aria-label="Modo implementación" (click)="org.implementacion = !org.implementacion"><span></span></button>Modo implementación
+    </label>
+    <h3 class="nx-settings__title">Niveles organizacionales</h3>
+    <label class="nx-field">Primer nivel<input class="nx-input" name="n1" [(ngModel)]="org.nivel1"></label>
+    <label class="nx-field">Segundo nivel<input class="nx-input" name="n2" [(ngModel)]="org.nivel2"></label>
+    <label class="nx-field">Tercer nivel<input class="nx-input" name="n3" [(ngModel)]="org.nivel3"></label>
+    <h3 class="nx-settings__title">Remitentes de correo</h3>
+    <label class="nx-field">Mails de administración<input class="nx-input" name="ma" [(ngModel)]="org.mailAdmin"></label>
+    <label class="nx-field">Mails de cumpleaños<input class="nx-input" name="mc" [(ngModel)]="org.mailCumple"></label>
+    <label class="nx-field">Mails de encuestas<input class="nx-input" name="me" [(ngModel)]="org.mailEncuestas"></label>
+    <label class="nx-field">Nombre de “Recintos”<input class="nx-input" name="rec" [(ngModel)]="org.recintos"></label>
+    <label class="nx-field">Formato del nombre completo
+      <select class="nx-select" name="fmt" [(ngModel)]="org.formatoNombre"><option>Apellido, Nombre</option><option>Nombre Apellido</option></select>
+    </label>
+  </div>
+  <div class="nx-settings__foot"><button type="submit" class="nx-btn nx-btn--primary">Guardar</button></div>
+</form>
+
+<!-- Personaliza tu Nexo -->
+<div *ngIf="tab === 1" class="nx-grid nx-grid--2">
+  <div class="nx-card nx-settings">
+    <h3 class="nx-settings__title nx-mt-0">Personaliza tu Nexo</h3>
+    <div class="nx-form">
+      <label class="nx-field">Color de la barra superior
+        <span class="nx-color"><input type="color" [(ngModel)]="colores.nav"><code>{{ colores.nav | uppercase }}</code></span>
+      </label>
+      <label class="nx-field">Modales · fondo del encabezado
+        <span class="nx-color"><input type="color" [(ngModel)]="colores.modalBg"><code>{{ colores.modalBg | uppercase }}</code></span>
+      </label>
+      <label class="nx-field">Modales · contenido del encabezado
+        <span class="nx-color"><input type="color" [(ngModel)]="colores.modalFg"><code>{{ colores.modalFg | uppercase }}</code></span>
+      </label>
+    </div>
+    <div class="nx-settings__foot">
+      <button type="button" class="nx-btn nx-btn--outline" (click)="restablecer()">Restablecer</button>
+      <button type="button" class="nx-btn nx-btn--primary" (click)="guardarColores()">Guardar</button>
+    </div>
+  </div>
+  <div class="nx-card nx-settings">
+    <span class="nx-eyebrow">Vista previa</span>
+    <div class="nx-preview-bar" [style.background]="colores.nav"><app-icon name="calendar" [size]="14"></app-icon>Marzo 2026</div>
+    <div class="nx-preview-modal">
+      <div [style.background]="colores.modalBg" [style.color]="colores.modalFg">Nuevo Reconocimiento</div>
+      <p>Contenido del modal</p>
+    </div>
+  </div>
+</div>
+
+<!-- Seguridad / SSO -->
+<form *ngIf="tab === 2" class="nx-stack" (ngSubmit)="guardarSeguridad()">
+  <section class="nx-card nx-settings">
+    <h3 class="nx-settings__title nx-mt-0">Seguridad</h3>
+    <div class="nx-form-grid">
+      <ng-container *ngFor="let s of [['omniauth', 'Habilitar omniauth'], ['dobleAuth', 'Doble autenticación'], ['loginDocumento', 'Login con número de documento'], ['captcha', 'CAPTCHA en el login'], ['historial', 'Historial de cambios'], ['linkSso', 'Link SSO']]">
+        <label class="nx-switch-row">
+          <button type="button" role="switch" class="nx-switch" [class.is-on]="$any(seg)[s[0]]" [attr.aria-checked]="$any(seg)[s[0]]"
+                  [attr.aria-label]="s[1]" (click)="$any(seg)[s[0]] = !$any(seg)[s[0]]"><span></span></button>{{ s[1] }}
+        </label>
+      </ng-container>
+      <label *ngIf="seg.linkSso" class="nx-field">Nombre del link SSO<input class="nx-input" name="nsso" [(ngModel)]="seg.nombreSso"></label>
+      <label class="nx-field">Dominios a autenticar vía Google<input class="nx-input" name="dg" placeholder="ej. empresa.pe" [(ngModel)]="seg.dominiosGoogle"></label>
+      <label class="nx-field">Dominios a autenticar vía Microsoft<input class="nx-input" name="dm" [(ngModel)]="seg.dominiosMicrosoft"></label>
+    </div>
+  </section>
+  <section class="nx-card nx-settings">
+    <h3 class="nx-settings__title nx-mt-0">Estrategia OAuth personalizada</h3>
+    <div class="nx-form-grid">
+      <label class="nx-field">client_id<input class="nx-input" name="cid" placeholder="client_id" autocomplete="off" [(ngModel)]="seg.clientId"></label>
+      <label class="nx-field">client_secret<input class="nx-input" type="password" name="cs" placeholder="••••••••" autocomplete="new-password" [(ngModel)]="seg.clientSecret"></label>
+      <label class="nx-field">tenant_id<input class="nx-input" name="tid" placeholder="tenant_id" [(ngModel)]="seg.tenantId"></label>
+      <label class="nx-field">authorize_url<input class="nx-input" name="au" placeholder="https://…/authorize" [(ngModel)]="seg.authorizeUrl"></label>
+      <label class="nx-field">token_url<input class="nx-input" name="tu" placeholder="https://…/token" [(ngModel)]="seg.tokenUrl"></label>
+      <label class="nx-field">userinfo_endpoint<input class="nx-input" name="ui" placeholder="https://…/userinfo" [(ngModel)]="seg.userinfo"></label>
+      <label class="nx-field">logout_url<input class="nx-input" name="lu" placeholder="https://…/logout" [(ngModel)]="seg.logoutUrl"></label>
+      <label class="nx-field">Dominios<input class="nx-input" name="do" placeholder="empresa.pe" [(ngModel)]="seg.dominiosOauth"></label>
+      <label class="nx-switch-row">
+        <button type="button" role="switch" class="nx-switch" [class.is-on]="seg.emailCompleto" [attr.aria-checked]="seg.emailCompleto"
+                aria-label="Enviar email completo" (click)="seg.emailCompleto = !seg.emailCompleto"><span></span></button>Enviar email completo
+      </label>
+    </div>
+  </section>
+  <section class="nx-card nx-settings">
+    <label class="nx-switch-row">
+      <button type="button" role="switch" class="nx-switch" [class.is-on]="seg.saml" [attr.aria-checked]="seg.saml"
+              aria-label="Habilitar SAML" (click)="seg.saml = !seg.saml"><span></span></button><b>Habilitar SAML</b>
+    </label>
+    <div *ngIf="seg.saml" class="nx-form-grid nx-mt-16">
+      <label class="nx-field">Dominios<input class="nx-input" name="sd" [(ngModel)]="seg.samlDominios"></label>
+      <label class="nx-field">Issuer<input class="nx-input" name="si" [(ngModel)]="seg.issuer"></label>
+      <label class="nx-field">Audience URL<input class="nx-input" name="sa" [(ngModel)]="seg.audience"></label>
+      <label class="nx-field">Authentication context
+        <select class="nx-select" name="sc" [(ngModel)]="seg.contexto"><option>PasswordProtectedTransport</option><option>Unspecified</option></select>
+      </label>
+      <label class="nx-field">URL del IdP<input class="nx-input" name="sidp" [(ngModel)]="seg.idp"></label>
+    </div>
+  </section>
+  <div class="nx-settings__foot"><button type="submit" class="nx-btn nx-btn--primary">Guardar</button></div>
+</form>

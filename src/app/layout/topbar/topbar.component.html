@@ -1,0 +1,61 @@
+<header class="nx-topbar">
+  <button type="button" class="nx-topbar__icon" aria-label="Colapsar menú lateral" (click)="ui.toggleNav()"
+          [attr.aria-expanded]="sidebarVisible(ui.navCollapsed$ | async)" aria-controls="nx-sidebar">
+    <app-icon name="menu"></app-icon>
+  </button>
+
+  <button type="button" class="nx-topbar__period" aria-label="Cambiar período activo">
+    <app-icon name="calendar" [size]="16"></app-icon>
+    <span>{{ data.periodo }}</span>
+    <app-icon name="chevron-down" [size]="14"></app-icon>
+  </button>
+
+  <div class="nx-topbar__search">
+    <label class="nx-topbar__search-box">
+      <span class="visually-hidden">Buscar colaboradores y páginas</span>
+      <input #searchInput type="search" placeholder="Buscar (Ctrl + B)" autocomplete="off"
+             role="combobox" aria-autocomplete="list" [attr.aria-expanded]="hits.length > 0" aria-controls="nx-search-results"
+             [value]="query" (input)="search(searchInput.value)" (keydown)="onSearchKey($event)" (blur)="closeResults()">
+      <app-icon name="search" [size]="16"></app-icon>
+    </label>
+    <ul *ngIf="hits.length" id="nx-search-results" class="nx-popover nx-topbar__results" role="listbox">
+      <li *ngFor="let h of hits; let i = index" role="option" [attr.aria-selected]="i === activeHit">
+        <button type="button" [class.is-active]="i === activeHit" (mousedown)="go(h)">
+          <b>{{ h.label }}</b><span>{{ h.detail }}</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <div class="nx-topbar__spacer"></div>
+
+  <span class="nx-topbar__trial">Prueba Gratuita <app-icon name="info" [size]="14"></app-icon></span>
+
+  <button type="button" class="nx-topbar__ai" (click)="ui.openDrawer('ai')">
+    <app-icon name="sparkle" [size]="16"></app-icon>Nexo AI
+  </button>
+
+  <a class="nx-topbar__icon" [routerLink]="inPortal ? '/admin/colaboradores/vigentes' : '/portal'"
+     [attr.aria-label]="inPortal ? 'Cambiar a vista administrador' : 'Cambiar a vista colaborador'"
+     [title]="inPortal ? 'Cambiar a vista administrador' : 'Cambiar a vista colaborador'">
+    <app-icon name="eye"></app-icon>
+  </a>
+  <button type="button" class="nx-topbar__icon" aria-label="Administración" (click)="ui.openDrawer('admin')">
+    <app-icon name="gear"></app-icon>
+  </button>
+  <button type="button" class="nx-topbar__icon" aria-label="Mis pendientes, 99 notificaciones" (click)="ui.openDrawer('pendientes')">
+    <app-icon name="bell"></app-icon>
+    <span class="nx-topbar__count">99</span>
+  </button>
+  <button type="button" class="nx-topbar__icon nx-hide-sm" aria-label="Novedades del producto">
+    <app-icon name="megaphone"></app-icon>
+  </button>
+  <button type="button" class="nx-topbar__icon nx-hide-sm" aria-label="Ayuda">
+    <app-icon name="help"></app-icon>
+  </button>
+  <button type="button" class="nx-topbar__user" aria-label="Menú de usuario">
+    <span class="nx-avatar">{{ data.usuario.iniciales }}</span>
+    <span class="nx-topbar__user-name">{{ data.usuario.nombre }}</span>
+    <app-icon name="chevron-down" [size]="14"></app-icon>
+  </button>
+</header>

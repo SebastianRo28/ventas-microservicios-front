@@ -1,0 +1,202 @@
+<app-page-header title="Crear Colaborador" [crumbs]="['Administrativo', 'Colaboradores']" [askAi]="false"></app-page-header>
+
+<div *ngIf="banner" class="nx-banner" role="note">
+  <app-icon name="info" [size]="19"></app-icon>
+  <span class="nx-grow">También puedes cargar colaboradores de forma masiva con el importador “Colaboradores”.
+    <a routerLink="/rep/importadores">Ir a importadores</a></span>
+  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="banner = false">
+    <app-icon name="x" [size]="16"></app-icon>
+  </button>
+</div>
+
+<div *ngIf="createdId !== null" class="nx-success-note" role="status">
+  <app-icon name="checkcircle" [size]="20"></app-icon>
+  <span class="nx-grow">Colaborador creado con éxito. Ya aparece en Vigentes y se envió el correo “Bienvenido a Nexo RH”.</span>
+  <a [routerLink]="['/admin/colaboradores/ficha', createdId]">Ver ficha</a>
+</div>
+
+<section class="nx-card">
+  <div class="nx-stepper">
+    <ng-container *ngFor="let s of steps; let i = index">
+      <div *ngIf="i > 0" class="nx-stepper__line" [class.is-on]="i <= step"></div>
+      <button type="button" class="nx-stepper__step" [attr.aria-current]="i === step ? 'step' : null" (click)="goTo(i)">
+        <span class="nx-stepper__dot" [class.is-done]="i < step" [class.is-current]="i === step">
+          <app-icon *ngIf="i < step; else num" name="check" [size]="16" [stroke]="2.4"></app-icon>
+          <ng-template #num>{{ i + 1 }}</ng-template>
+        </span>
+        <span class="nx-stepper__label" [class.is-on]="i <= step">{{ s.label }}</span>
+      </button>
+    </ng-container>
+    <button type="button" class="nx-btn nx-btn--outline nx-stepper__express">
+      <app-icon name="sparkle" [size]="16"></app-icon>Data Express
+    </button>
+  </div>
+
+  <form novalidate (ngSubmit)="next()">
+   <div class="nx-wizard__body">
+    <h2 class="nx-wizard__title">{{ steps[step].title }}</h2>
+    <p class="nx-wizard__sub">{{ steps[step].sub }}</p>
+
+    <!-- Paso 1 -->
+    <div *ngIf="step === 0" class="nx-form-grid">
+      <ng-container *ngTemplateOutlet="text; context: { k: 'nombre', label: 'Nombre*', ph: 'Ej. Florencia' }"></ng-container>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'apellido', label: 'Apellido*', ph: 'Ej. Alamos' }"></ng-container>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'segundoApellido', label: 'Segundo Apellido', ph: 'Ej. Ruiz' }"></ng-container>
+      <label class="nx-field">Tipo de Documento
+        <select class="nx-select" name="tipoDoc" [(ngModel)]="f.tipoDoc"><option>DNI</option><option>Carné de extranjería</option><option>Pasaporte</option></select>
+      </label>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'documento', label: 'Número de Documento*', ph: '8 dígitos' }"></ng-container>
+      <label class="nx-field">Nacionalidad
+        <select class="nx-select" name="nacionalidad" [(ngModel)]="f.nacionalidad"><option>Perú</option><option>Venezuela</option><option>Colombia</option><option>Chile</option><option>Argentina</option></select>
+      </label>
+      <label class="nx-field">Sexo*
+        <select class="nx-select" name="sexo" [(ngModel)]="f.sexo" [class.is-invalid]="errors['sexo']"><option value="">Seleccionar</option><option>Femenino</option><option>Masculino</option></select>
+        <span *ngIf="errors['sexo']" class="nx-error">{{ errors['sexo'] }}</span>
+      </label>
+      <label class="nx-field">Estado Civil*
+        <select class="nx-select" name="estadoCivil" [(ngModel)]="f.estadoCivil" [class.is-invalid]="errors['estadoCivil']">
+          <option value="">Seleccionar</option><option>Soltero/a</option><option>Casado/a</option><option>Divorciado/a</option><option>Viudo/a</option><option>Conviviente</option>
+        </select>
+        <span *ngIf="errors['estadoCivil']" class="nx-error">{{ errors['estadoCivil'] }}</span>
+      </label>
+      <ng-container *ngTemplateOutlet="date; context: { k: 'nacimiento', label: 'Fecha de Nacimiento*' }"></ng-container>
+      <div class="nx-field">
+        <span>Foto</span>
+        <label class="nx-file">
+          <span class="nx-btn nx-btn--outline nx-btn--sm"><app-icon name="upload" [size]="16"></app-icon>Seleccionar archivo</span>
+          <span class="nx-muted nx-small">{{ foto.files?.[0]?.name || 'Ningún archivo' }}</span>
+          <input #foto type="file" accept="image/*" class="visually-hidden" (change)="0">
+        </label>
+      </div>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'telOficina', label: 'Teléfono Oficina', ph: 'Ej. 016123456' }"></ng-container>
+      <label class="nx-field">Teléfono Particular
+        <input class="nx-input" name="telefono" inputmode="tel" placeholder="51987654321" [(ngModel)]="f.telefono">
+        <span class="nx-hint">Prefijo de país sin +</span>
+      </label>
+      <div class="nx-field-stack">
+        <ng-container *ngTemplateOutlet="text; context: { k: 'email', label: 'Email Corporativo*', ph: 'nombre@comercialandina.pe', type: 'email' }"></ng-container>
+        <label class="nx-check nx-check--plain"><input type="checkbox" name="crearUsuario" [(ngModel)]="f.crearUsuario">Crear Usuario (Perfil Normal)</label>
+      </div>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'emailPersonal', label: 'Email Personal', ph: 'nombre@gmail.com', type: 'email' }"></ng-container>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'direccion', label: 'Dirección', ph: 'Ej. Av. Javier Prado Este 1250' }"></ng-container>
+      <label class="nx-field">Distrito
+        <select class="nx-select" name="distrito" [(ngModel)]="f.distrito">
+          <option value="">Seleccionar</option><option>San Isidro</option><option>Miraflores</option><option>Surco</option><option>San Borja</option><option>La Molina</option><option>Jesús María</option><option>Callao</option>
+        </select>
+      </label>
+      <label class="nx-field">Situación Educativa
+        <select class="nx-select" name="educacion" [(ngModel)]="f.educacion">
+          <option value="">Seleccionar</option><option>Secundaria completa</option><option>Técnica completa</option><option>Universitaria incompleta</option><option>Universitaria completa</option><option>Posgrado</option>
+        </select>
+      </label>
+      <label class="nx-field">Tipo de Centro de Formación Profesional
+        <select class="nx-select" name="centro" [(ngModel)]="f.centro">
+          <option value="">Seleccionar</option><option>Universidad</option><option>Instituto</option><option>Escuela superior</option><option>Otro</option>
+        </select>
+      </label>
+      <div class="nx-collapse nx-span-3">
+        <button type="button" class="nx-collapse__btn" [attr.aria-expanded]="advanced" (click)="advanced = !advanced">
+          <span class="nx-grow">Dirección Avanzada</span>
+          <span class="nx-rot" [class.is-flipped]="advanced"><app-icon name="chevron-down" [size]="18"></app-icon></span>
+        </button>
+        <div *ngIf="advanced" class="nx-collapse__body nx-form-grid">
+          <label class="nx-field">Tipo de vía<select class="nx-select"><option>Avenida</option><option>Jirón</option><option>Calle</option><option>Pasaje</option></select></label>
+          <label class="nx-field">Nombre de vía<input class="nx-input" maxlength="20" placeholder="Máx. 20 caracteres"></label>
+          <label class="nx-field">Número<input class="nx-input" placeholder="1250"></label>
+          <label class="nx-field">Departamento<select class="nx-select"><option>Lima</option><option>Arequipa</option><option>Callao</option><option>Cusco</option><option>La Libertad</option><option>Piura</option></select></label>
+          <label class="nx-field">Provincia<select class="nx-select"><option>Lima</option><option>Callao</option><option>Arequipa</option></select></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 2 -->
+    <div *ngIf="step === 1" class="nx-form-grid">
+      <label class="nx-field">Plan de salud<select class="nx-select" name="planSalud" [(ngModel)]="f.planSalud"><option>EsSalud</option><option>EsSalud + EPS</option></select></label>
+      <label class="nx-field">Régimen pensionario<select class="nx-select" name="regimen" [(ngModel)]="f.regimen"><option>AFP</option><option>ONP</option></select></label>
+      <label class="nx-field">AFP
+        <select class="nx-select" name="afp" [(ngModel)]="f.afp" [disabled]="f.regimen !== 'AFP'"><option>Habitat</option><option>Integra</option><option>Prima</option><option>Profuturo</option></select>
+      </label>
+      <label class="nx-field">CUSPP<input class="nx-input" name="cuspp" placeholder="Ej. 612345FARRU3" [(ngModel)]="f.cuspp" [disabled]="f.regimen !== 'AFP'"></label>
+      <label class="nx-field">Tipo de comisión
+        <select class="nx-select" name="comision" [(ngModel)]="f.comision" [disabled]="f.regimen !== 'AFP'"><option>Flujo</option><option>Mixta</option></select>
+      </label>
+      <div></div>
+      <label class="nx-field">Banco<select class="nx-select" name="banco" [(ngModel)]="f.banco"><option>BCP</option><option>BBVA</option><option>Interbank</option><option>Scotiabank</option><option>Banco de la Nación</option></select></label>
+      <label class="nx-field">Tipo de cuenta<select class="nx-select" name="tipoCuenta" [(ngModel)]="f.tipoCuenta"><option>Ahorros</option><option>Corriente</option></select></label>
+      <label class="nx-field">Número de cuenta<input class="nx-input" name="cuenta" inputmode="numeric" placeholder="Ej. 19312345678012" [(ngModel)]="f.cuenta"></label>
+      <label class="nx-field">Forma de pago<select class="nx-select" name="formaPago" [(ngModel)]="f.formaPago"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option></select></label>
+    </div>
+
+    <!-- Paso 3 -->
+    <div *ngIf="step === 2" class="nx-form-grid">
+      <label class="nx-field">Empresa<select class="nx-select"><option>{{ data.empresa }}</option></select></label>
+      <label class="nx-field">Cargo*
+        <select class="nx-select" name="cargo" [(ngModel)]="f.cargo" [class.is-invalid]="errors['cargo']">
+          <option value="">Seleccionar</option><option *ngFor="let c of cargos">{{ c }}</option>
+        </select>
+        <span *ngIf="errors['cargo']" class="nx-error">{{ errors['cargo'] }}</span>
+      </label>
+      <label class="nx-field">Supervisor
+        <select class="nx-select" name="supervisor" [(ngModel)]="f.supervisor"><option value="">Seleccionar</option><option *ngFor="let s of supervisores">{{ s }}</option></select>
+      </label>
+      <label class="nx-field">División
+        <select class="nx-select" name="division" [(ngModel)]="f.division" (ngModelChange)="onDivision()"><option *ngFor="let d of divisiones">{{ d.nombre }}</option></select>
+      </label>
+      <label class="nx-field">Área
+        <select class="nx-select" name="area" [(ngModel)]="f.area" (ngModelChange)="onArea()"><option *ngFor="let a of areas">{{ a.nombre }}</option></select>
+      </label>
+      <label class="nx-field">Sub-área
+        <select class="nx-select" name="subArea" [(ngModel)]="f.subArea"><option *ngFor="let s of subAreas">{{ s.nombre }}</option></select>
+      </label>
+      <ng-container *ngTemplateOutlet="date; context: { k: 'ingreso', label: 'Fecha de ingreso*' }"></ng-container>
+      <label class="nx-field">Tipo de contrato
+        <select class="nx-select" name="contrato" [(ngModel)]="f.contrato"><option>Indefinido</option><option>Plazo fijo</option><option>Por obra o servicio</option></select>
+      </label>
+      <div *ngIf="f.contrato === 'Plazo fijo'; else noPlazo" class="nx-field-stack">
+        <ng-container *ngTemplateOutlet="date; context: { k: 'termino', label: 'Fecha de término*' }"></ng-container>
+        <span class="nx-hint">Solo para contratos a plazo fijo</span>
+      </div>
+      <ng-template #noPlazo><div></div></ng-template>
+      <label class="nx-field">Jornada / periodicidad
+        <select class="nx-select" name="jornada" [(ngModel)]="f.jornada">
+          <option>Mensual · 43.0 hrs (L, M, M, J, V)</option><option>Mensual · 48.0 hrs (L a S)</option><option>Part-time · 24.0 hrs</option>
+        </select>
+      </label>
+      <label class="nx-field">Sueldo base*
+        <span class="nx-input-group"><span>S/</span>
+          <input class="nx-input" name="sueldo" inputmode="decimal" placeholder="0.00" [(ngModel)]="f.sueldo" [class.is-invalid]="errors['sueldo']">
+        </span>
+        <span *ngIf="errors['sueldo']" class="nx-error">{{ errors['sueldo'] }}</span>
+      </label>
+      <label class="nx-field">Moneda<select class="nx-select"><option>Soles (PEN)</option><option>Dólares (USD)</option></select></label>
+      <label class="nx-field">Centro de costo<select class="nx-select"><option>CC-120 Administración</option><option>CC-200 Operaciones</option><option>CC-300 Comercial</option><option>CC-400 Tecnología</option></select></label>
+      <label class="nx-field">Sindicalizado<select class="nx-select"><option>No</option><option>Sí</option></select></label>
+      <label class="nx-field">Política de vacaciones<select class="nx-select"><option>General · 30 días calendario</option></select></label>
+    </div>
+
+    <ng-template #text let-k="k" let-label="label" let-ph="ph" let-type="type">
+      <label class="nx-field">{{ label }}
+        <input class="nx-input" [type]="type || 'text'" [name]="k" [attr.name]="k" [placeholder]="ph" [(ngModel)]="$any(f)[k]"
+               [class.is-invalid]="errors[k]" [attr.aria-invalid]="!!errors[k]">
+        <span *ngIf="errors[k]" class="nx-error">{{ errors[k] }}</span>
+      </label>
+    </ng-template>
+    <ng-template #date let-k="k" let-label="label">
+      <label class="nx-field">{{ label }}
+        <span class="nx-input-icon nx-input-icon--end">
+          <input class="nx-input" [name]="k" [attr.name]="k" placeholder="DD/MM/YYYY" [(ngModel)]="$any(f)[k]" [class.is-invalid]="errors[k]" [attr.aria-invalid]="!!errors[k]">
+          <app-icon name="calendar" [size]="16"></app-icon>
+        </span>
+        <span *ngIf="errors[k]" class="nx-error">{{ errors[k] }}</span>
+      </label>
+    </ng-template>
+   </div>
+
+    <div class="nx-wizard__foot">
+      <a class="nx-btn nx-btn--outline" routerLink="/admin/colaboradores/vigentes">Cancelar</a>
+      <div class="nx-grow"></div>
+      <button *ngIf="step > 0" type="button" class="nx-btn nx-btn--outline" (click)="back()">Volver</button>
+      <button type="submit" class="nx-btn nx-btn--primary">{{ step === 2 ? 'Crear Colaborador' : 'Siguiente' }}</button>
+    </div>
+  </form>
+</section>

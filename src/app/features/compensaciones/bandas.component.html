@@ -1,0 +1,140 @@
+<app-page-header title="Bandas Salariales" [crumbs]="['Administrativo', 'Compensaciones']">
+  <span header-badge class="nx-navbadge nx-navbadge--new">Nuevo</span>
+</app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<app-data-table *ngIf="tab === 0" [columns]="cols" [rows]="rows" createLabel="Crear Banda Salarial" [rowActions]="actions" [showBulk]="false"
+                [selectable]="false" [showAdvancedFilter]="false" tableLabel="Bandas por cargo" minWidth="1400px" exportName="bandas-por-cargo"
+                (create)="nuevaBanda()" (action)="onBanda($event.action, $event.row)"></app-data-table>
+<app-data-table *ngIf="tab === 1" [columns]="ncols" [rows]="nrows" [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false"
+                tableLabel="Bandas por nivel" minWidth="900px" exportName="bandas-por-nivel"></app-data-table>
+
+<!-- Colaboradores -->
+<ng-container *ngIf="tab === 2">
+  <div *ngIf="banner" class="nx-banner" role="note">
+    <app-icon name="info" [size]="19"></app-icon>
+    <span class="nx-grow">Haz tu análisis salarial más preciso: registra la Compensación Teórica de tus colaboradores con el lápiz de cada fila.</span>
+    <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="banner = false"><app-icon name="x" [size]="16"></app-icon></button>
+  </div>
+  <div class="nx-grid nx-grid--4 nx-mb-16">
+    <div class="nx-card nx-stat"><span>Colaboradores sin banda</span><b>{{ sinBanda }}</b></div>
+    <div class="nx-card nx-stat"><span>Colaboradores sobre la banda</span><b>{{ pct('Sobre la banda') }} %</b></div>
+    <div class="nx-card nx-stat"><span>Colaboradores bajo la banda</span><b>{{ pct('Bajo la banda') }} %</b></div>
+    <div class="nx-card nx-stat"><span>Compa ratio promedio</span><b>{{ compaPromedio }}</b></div>
+  </div>
+  <form class="nx-ai-filter" (ngSubmit)="filtrar()">
+    <app-icon class="nx-primary" name="sparkle" [size]="18"></app-icon>
+    <input name="consulta" aria-label="Filtro en lenguaje natural" placeholder="Filtra en lenguaje natural, por ejemplo: colaboradores sobre la banda en Comercial" [(ngModel)]="consulta">
+    <button type="submit" class="nx-btn nx-btn--primary nx-btn--sm">Filtrar</button>
+    <button type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="limpiar()">Limpiar</button>
+  </form>
+  <div *ngIf="filtro" class="nx-filter-chip" role="status">{{ filtro.texto }}<button type="button" aria-label="Quitar filtro" (click)="limpiar()"><app-icon name="x" [size]="13"></app-icon></button></div>
+
+  <div class="nx-card nx-dt__scroll">
+    <table class="nx-table" aria-label="Colaboradores y bandas">
+      <thead>
+        <tr><th>Colaborador</th><th>Cargo</th><th>Sub-área</th><th class="nx-num">Sueldo Base</th><th>Ubicación en banda</th><th>Posición y compa ratio</th>
+          <th class="nx-num">Compa Ratio</th><th class="nx-num">Mínimo de la banda</th><th class="nx-num">Máximo de la banda</th><th>Última modificación del sueldo base</th><th>Resultado de la última evaluación</th><th><span class="visually-hidden">Acciones</span></th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let f of visibles">
+          <td><a class="nx-strong-link" [routerLink]="['/admin/colaboradores/ficha', f.colaborador.id]">{{ f.colaborador.apellidos }}, {{ f.colaborador.nombres }}</a></td>
+          <td>{{ f.colaborador.cargo }}</td>
+          <td>{{ f.colaborador.subArea }}</td>
+          <td class="nx-num">{{ soles(f.base) }}<span *ngIf="f.rem.compTeorica" class="nx-muted nx-small"> (teórica)</span></td>
+          <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone[f.ubicacion]">{{ f.ubicacion }}</span></td>
+          <td>
+            <span class="nx-bandbar" role="img" [attr.aria-label]="'Compa ratio ' + f.compa.toFixed(2)">
+              <span class="nx-bandbar__low" [style.width.%]="f.bar.bajo"></span>
+              <span class="nx-bandbar__in" [style.width.%]="f.bar.dentro"></span>
+              <span class="nx-bandbar__high"></span>
+              <span class="nx-bandbar__mark" [style.left.%]="f.bar.marca"></span>
+            </span>
+          </td>
+          <td class="nx-num"><b>{{ f.compa.toFixed(2) }}</b></td>
+          <td class="nx-num">{{ soles(f.min) }}</td>
+          <td class="nx-num">{{ soles(f.max) }}</td>
+          <td>{{ f.rem.ultimaModificacion }}</td>
+          <td>{{ f.rem.evaluacion }}</td>
+          <td><button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Editar compensación teórica" title="Editar compensación teórica" (click)="abrirComp(f)"><app-icon name="edit" [size]="16"></app-icon></button></td>
+        </tr>
+        <tr *ngIf="!visibles.length"><td colspan="12"><div class="nx-empty nx-empty--compact"><b>No hay colaboradores con ese filtro</b></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="nx-legend-row">
+    <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--yellow"></span>Bajo la banda</span>
+    <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--green"></span>En la banda</span>
+    <span class="nx-legend"><span class="nx-legend__dot"></span>Sobre la banda</span>
+    <span class="nx-muted nx-small">Compa ratio = sueldo / sueldo objetivo de la banda</span>
+  </div>
+</ng-container>
+
+<!-- Analítica -->
+<div *ngIf="tab === 3" class="nx-grid nx-grid--2">
+  <section class="nx-card nx-section">
+    <h2 class="nx-section__title">Ubicación en banda</h2>
+    <div *ngFor="let u of ubicaciones" class="nx-hbar">
+      <span class="nx-hbar__label">{{ u }}</span>
+      <span class="nx-hbar__track"><span [ngClass]="'nx-tone-' + tone[u]" [style.width.%]="pct(u)"></span></span>
+      <span class="nx-hbar__value">{{ count(u) }} · {{ pct(u) }}%</span>
+    </div>
+  </section>
+  <section class="nx-card nx-section">
+    <h2 class="nx-section__title">Compa ratio por cargo</h2>
+    <div *ngFor="let f of filas" class="nx-hbar">
+      <span class="nx-hbar__label">{{ f.colaborador.cargo }}</span>
+      <span class="nx-hbar__track nx-hbar__track--ratio"><span class="nx-hbar__fill" [style.width.%]="f.compa / 1.5 * 100"></span><span class="nx-hbar__one"></span></span>
+      <span class="nx-hbar__value">{{ f.compa.toFixed(2) }}</span>
+    </div>
+    <p class="nx-muted nx-small">La línea marca 1.00 = sueldo igual al objetivo de la banda.</p>
+  </section>
+</div>
+
+<app-modal *ngIf="bandaModal as m" [title]="m.id === null ? 'Crear Banda Salarial' : 'Editar Banda Salarial'" width="640px" (closed)="bandaModal = null">
+  <form id="banda-form" class="nx-form" (ngSubmit)="guardarBanda()">
+    <p class="nx-muted nx-mt-0">Selecciona el cargo, define el sueldo objetivo y los porcentajes que determinan el rango mínimo y máximo. Estas bandas son referenciales y no afectan los procesos de remuneración.</p>
+    <label class="nx-field">Cargo*
+      <select class="nx-select" name="cargo" [(ngModel)]="m.cargo" [disabled]="m.id !== null">
+        <option value="">Seleccionar</option><option *ngFor="let c of cargos">{{ c }}</option>
+      </select>
+    </label>
+    <label class="nx-field">Sueldo objetivo*
+      <span class="nx-input-group"><span>S/</span><input class="nx-input" name="objetivo" inputmode="decimal" placeholder="0.00" [(ngModel)]="m.objetivo"></span>
+    </label>
+    <button type="button" class="nx-link-btn" (click)="calcularObjetivo()">Calcular automáticamente según la mediana actual</button>
+    <div class="nx-grid nx-grid--2 nx-grid--16">
+      <label class="nx-field">Sueldo mínimo* (% del objetivo)<input class="nx-input" name="pmin" inputmode="decimal" [(ngModel)]="m.pctMin"></label>
+      <label class="nx-field">Sueldo máximo* (% del objetivo)<input class="nx-input" name="pmax" inputmode="decimal" [(ngModel)]="m.pctMax"></label>
+    </div>
+    <div class="nx-band-preview">
+      <span>Mínimo: <b>{{ soles(num(m.objetivo) * num(m.pctMin) / 100) }}</b></span>
+      <span>Objetivo: <b>{{ soles(num(m.objetivo)) }}</b></span>
+      <span>Máximo: <b>{{ soles(num(m.objetivo) * num(m.pctMax) / 100) }}</b></span>
+    </div>
+    <span *ngIf="intento && errBanda" class="nx-error">{{ errBanda }}</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="bandaModal = null">Cancelar</button>
+    <button type="submit" form="banda-form" class="nx-btn nx-btn--primary">Guardar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="compModal as m" title="Editar compensación teórica" width="520px" (closed)="compModal = null">
+  <form id="comp-form" class="nx-form" (ngSubmit)="guardarComp()">
+    <p class="nx-muted nx-mt-0">{{ m.fila.colaborador.apellidos }}, {{ m.fila.colaborador.nombres }} · {{ m.fila.colaborador.cargo }}</p>
+    <label class="nx-field">Compensación Total Teórica*
+      <span class="nx-input-group"><span>S/</span><input class="nx-input" name="monto" inputmode="decimal" [(ngModel)]="m.monto" [class.is-invalid]="intento && num(m.monto) <= 0"></span>
+      <span *ngIf="intento && num(m.monto) <= 0" class="nx-error">Ingresa un monto mayor a 0.</span>
+    </label>
+    <label class="nx-field">Comentario<textarea class="nx-input nx-textarea" name="comentario" [(ngModel)]="m.comentario"></textarea></label>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="compModal = null">Cancelar</button>
+    <button type="submit" form="comp-form" class="nx-btn nx-btn--primary">Guardar</button>
+  </ng-container>
+</app-modal>

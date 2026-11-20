@@ -1,0 +1,93 @@
+<app-page-header title="Configuraciones" [crumbs]="['Administrativo', 'Gestión de Activos']"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of ['Categorías', 'Productos']; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+<div class="nx-row nx-row--right">
+  <a class="nx-btn nx-btn--outline" routerLink="/rep/importadores"><app-icon name="upload" [size]="16"></app-icon>Importador masivo</a>
+</div>
+
+<ng-container *ngIf="tab === 0">
+  <app-data-table [columns]="ccols" [rows]="catRows" [pageSize]="50" createLabel="Crear Categoría" [rowActions]="actions"
+                  [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false" tableLabel="Categorías" minWidth="800px"
+                  exportName="categorias-activos" (create)="newCategoria()" (action)="onCatAction($event.action, $event.row)"></app-data-table>
+  <p class="nx-muted nx-small nx-mt-12">Una categoría solo se puede eliminar si tiene 0 productos.</p>
+</ng-container>
+
+<app-data-table *ngIf="tab === 1" [columns]="pcols" [rows]="prodRows" [pageSize]="50" createLabel="Crear Producto" [rowActions]="actions"
+                [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false" tableLabel="Productos" minWidth="800px"
+                exportName="productos-activos" (create)="newProducto()" (action)="onProdAction($event.action, $event.row)"></app-data-table>
+
+<app-modal *ngIf="catModal as m" [title]="m.id === null ? 'Crear Categoría' : 'Editar Categoría'" width="480px" (closed)="catModal = null">
+  <form id="cat-form" class="nx-form" (ngSubmit)="saveCategoria()">
+    <label class="nx-field">Nombre*
+      <input class="nx-input" name="nombre" placeholder="Ej. Mobiliario" [(ngModel)]="m.nombre" [class.is-invalid]="intento && !m.nombre.trim()">
+      <span *ngIf="intento && !m.nombre.trim()" class="nx-error">Campo obligatorio.</span>
+    </label>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="catModal = null">Cancelar</button>
+    <button type="submit" form="cat-form" class="nx-btn nx-btn--primary">Guardar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="prodModal" title="Crear Producto" width="720px" (closed)="prodModal = false">
+  <form id="prod-form" class="nx-form" (ngSubmit)="saveProducto()">
+    <div class="nx-form-grid">
+      <label class="nx-field">Categoría
+        <select class="nx-select" name="categoria" [(ngModel)]="prod.categoria"><option *ngFor="let c of categorias">{{ c.nombre }}</option></select>
+      </label>
+      <label class="nx-field">Nombre*
+        <input class="nx-input" name="nombre" placeholder="Ej. Laptop ThinkPad E14" [(ngModel)]="prod.nombre" [class.is-invalid]="intento && !prod.nombre.trim()">
+        <span *ngIf="intento && !prod.nombre.trim()" class="nx-error">Campo obligatorio.</span>
+      </label>
+      <label class="nx-field">Marca*
+        <input class="nx-input" name="marca" placeholder="Ej. Lenovo" [(ngModel)]="prod.marca" [class.is-invalid]="intento && !prod.marca.trim()">
+        <span *ngIf="intento && !prod.marca.trim()" class="nx-error">Campo obligatorio.</span>
+      </label>
+    </div>
+
+    <div class="nx-subcard">
+      <div class="nx-subcard__head"><b class="nx-grow">Atributos personalizados</b><a routerLink="/configuracion/atributos" (click)="prodModal = false">Ir a atributos personalizados</a></div>
+      <div class="nx-grid nx-grid--2 nx-grid--16">
+        <label class="nx-field">Precio<span class="nx-input-group"><span>S/</span><input class="nx-input" inputmode="decimal" placeholder="0.00"></span></label>
+        <label class="nx-field">Vencimiento de garantía<input class="nx-input" placeholder="DD/MM/YYYY"></label>
+      </div>
+    </div>
+
+    <div class="nx-collapse">
+      <button type="button" class="nx-collapse__btn" [attr.aria-expanded]="avanzado" (click)="avanzado = !avanzado">
+        <span class="nx-grow">Opciones avanzadas</span>
+        <span class="nx-rot" [class.is-flipped]="avanzado"><app-icon name="chevron-down" [size]="18"></app-icon></span>
+      </button>
+      <div *ngIf="avanzado" class="nx-collapse__body nx-form">
+        <b>Respaldo documental</b>
+        <label class="nx-switch-row">
+          <button type="button" role="switch" class="nx-switch" [class.is-on]="docsAuto" [attr.aria-checked]="docsAuto"
+                  aria-label="Habilitar la generación automática de documentos" (click)="docsAuto = !docsAuto"><span></span></button>
+          Habilitar la generación automática de documentos
+        </label>
+        <label *ngIf="docsAuto" class="nx-field">Plantilla de acta de recepción
+          <select class="nx-select"><option>Acta de entrega de activos</option><option>Acta de entrega de EPP</option></select>
+          <span class="nx-hint">Se puede firmar con el módulo de Documentos y Firma.</span>
+        </label>
+        <b>Áreas y Cargos</b>
+        <div class="nx-grid nx-grid--2 nx-grid--16">
+          <label class="nx-field">Sub-áreas<select class="nx-select"><option>Todas</option><option>Tesorería</option><option>Almacén Central</option></select></label>
+          <label class="nx-field">Cargos<select class="nx-select"><option>Todos</option><option>Analista Finanzas</option><option>Desarrollador Senior</option></select></label>
+        </div>
+        <span class="nx-hint">Si se deja vacío, el producto está disponible para todos.</span>
+        <b>Recordatorios automáticos</b>
+        <div class="nx-grid nx-grid--2 nx-grid--16">
+          <label class="nx-field">Tipo<select class="nx-select"><option>Mantenimiento</option><option>Renovación</option></select></label>
+          <label class="nx-field">Cada<select class="nx-select"><option>6 meses</option><option>12 meses</option></select></label>
+        </div>
+      </div>
+    </div>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="prodModal = false">Cancelar</button>
+    <button type="submit" form="prod-form" class="nx-btn nx-btn--primary">Crear Producto</button>
+  </ng-container>
+</app-modal>

@@ -1,0 +1,119 @@
+<app-page-header title="Planificación de headcount" [crumbs]="['Administrativo', 'Headcount']"></app-page-header>
+<p class="nx-page-lead">Planifica y proyecta la dotación de tu empresa según tus objetivos y necesidades.</p>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<!-- Áreas y cargos -->
+<ng-container *ngIf="tab === 0">
+  <div class="nx-filterbar">
+    <div class="nx-pills" role="group" aria-label="Agrupar por">
+      <button type="button" [class.is-on]="sub === 0" [attr.aria-pressed]="sub === 0" (click)="sub = 0">{{ nivelLabel === 'Área' ? 'Áreas' : nivelLabel === 'División' ? 'Divisiones' : 'Sub-áreas' }}</button>
+      <button type="button" [class.is-on]="sub === 1" [attr.aria-pressed]="sub === 1" (click)="sub = 1">Puestos de trabajo</button>
+    </div>
+    <div class="nx-grow"></div>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="abrirModal()"><app-icon name="plus" [size]="16"></app-icon>Crear posición</button>
+  </div>
+  <div class="nx-grid nx-grid--4 nx-mb-16">
+    <div class="nx-card nx-stat"><span>Headcount actual esperado</span><b>{{ esperado }}</b></div>
+    <div class="nx-card nx-stat"><span>Headcount actual</span><b>{{ actual }}</b></div>
+    <div class="nx-card nx-stat"><span>Colaboradores sin posición</span><b>{{ sinPosicion }}</b></div>
+    <div class="nx-card nx-stat"><span>Headcount vacante hoy</span><b>{{ vacantes }}</b></div>
+  </div>
+  <div class="nx-card nx-dt__scroll">
+    <table class="nx-table" [attr.aria-label]="sub === 0 ? 'Headcount por ' + nivelLabel.toLowerCase() : 'Headcount por puesto de trabajo'">
+      <thead><tr>
+        <th>{{ sub === 0 ? nivelLabel : 'Puesto de trabajo' }}</th>
+        <th>{{ sub === 1 ? 'Sub-área' : nivelLabel === 'Sub-área' ? 'Área' : 'Definición del Centro de Costo' }}</th>
+        <th>Estado del headcount</th><th class="nx-num">Headcount actual esperado</th><th class="nx-num">Headcount actual</th><th class="nx-num">Headcount vacante hoy</th>
+      </tr></thead>
+      <tbody>
+        <tr *ngFor="let l of (sub === 0 ? lineasNivel : lineasCargo)">
+          <td><b>{{ l.nombre }}</b></td><td>{{ l.detalle }}</td>
+          <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone[l.estado]">{{ l.estado }}</span></td>
+          <td class="nx-num">{{ l.esperado }}</td><td class="nx-num">{{ l.actual }}</td><td class="nx-num">{{ l.vacante }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div *ngIf="alerta && sub === 0" class="nx-banner nx-banner--warning nx-banner--compact nx-mt-12" role="note">
+    <app-icon name="alert" [size]="18"></app-icon><span>{{ alerta }}</span>
+  </div>
+  <p class="nx-muted nx-small nx-mt-12">Agrupado por {{ nivelLabel.toLowerCase() }}. Puedes cambiar el nivel en <a routerLink="/admin/headcount/configuraciones">Headcount › Configuraciones</a>.</p>
+</ng-container>
+
+<!-- Posiciones -->
+<ng-container *ngIf="tab === 1">
+  <div class="nx-segmented nx-mb-16" role="group" aria-label="Estado de las posiciones">
+    <button type="button" [class.is-on]="seg === 0" [attr.aria-pressed]="seg === 0" (click)="pickSeg(0)">Vigentes</button>
+    <button type="button" [class.is-on]="seg === 1" [attr.aria-pressed]="seg === 1" (click)="pickSeg(1)">Terminadas</button>
+  </div>
+  <div class="nx-grid nx-grid--4 nx-mb-16">
+    <div class="nx-card nx-stat"><span>Headcount planificado total</span><b>{{ planificado }}</b></div>
+    <div class="nx-card nx-stat"><span>Headcount actual</span><b>{{ actual }}</b></div>
+  </div>
+  <app-data-table [columns]="pcols" [rows]="prows" createLabel="Crear posición" [rowActions]="actions" [showBulk]="false" [selectable]="false"
+                  [showAdvancedFilter]="false" tableLabel="Posiciones" minWidth="1200px" exportName="posiciones-headcount"
+                  (create)="abrirModal()" (action)="onPosicion($event.action, $event.row)"></app-data-table>
+</ng-container>
+
+<!-- Analítica -->
+<ng-container *ngIf="tab === 2">
+  <div class="nx-grid nx-grid--2">
+    <section class="nx-card nx-section">
+      <div class="nx-section__head"><h2>Headcount con ingreso planificado vs. ingresos reales</h2>
+        <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Descargar datos en CSV" title="Descargar datos en CSV" (click)="descargar('ingresos')"><app-icon name="download" [size]="16"></app-icon></button></div>
+      <div class="nx-legend-row nx-mb-12"><span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--light"></span>Ingreso planificado</span><span class="nx-legend"><span class="nx-legend__dot"></span>Ingresos reales</span></div>
+      <div class="nx-colchart" role="img" [attr.aria-label]="'Ingresos planificados vs reales'">
+        <div *ngFor="let m of meses; let i = index" class="nx-colchart__group">
+          <div class="nx-colchart__bars">
+            <span class="is-light" [style.height.%]="planificados[i] / maxIngresos * 100" [title]="m + ' · Ingreso planificado: ' + planificados[i]"></span>
+            <span [style.height.%]="ingresosReales[i] / maxIngresos * 100" [title]="m + ' · Ingresos reales: ' + ingresosReales[i]"></span>
+          </div>
+          <span class="nx-colchart__label">{{ m }}</span>
+        </div>
+      </div>
+    </section>
+    <section class="nx-card nx-section">
+      <div class="nx-section__head"><h2>Headcount esperado vs. actual por {{ nivelLabel.toLowerCase() }}</h2>
+        <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Descargar datos en CSV" title="Descargar datos en CSV" (click)="descargar('areas')"><app-icon name="download" [size]="16"></app-icon></button></div>
+      <div class="nx-legend-row nx-mb-12"><span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--light"></span>Esperado</span><span class="nx-legend"><span class="nx-legend__dot"></span>Actual</span></div>
+      <div class="nx-colchart nx-colchart--dense" role="img" aria-label="Headcount esperado vs actual">
+        <div *ngFor="let l of lineasNivel" class="nx-colchart__group">
+          <div class="nx-colchart__bars">
+            <span class="is-light" [style.height.%]="l.esperado / maxArea * 100" [title]="l.nombre + ' · Esperado: ' + l.esperado"></span>
+            <span [style.height.%]="l.actual / maxArea * 100" [title]="l.nombre + ' · Actual: ' + l.actual"></span>
+          </div>
+          <span class="nx-colchart__label" [title]="l.nombre">{{ l.nombre }}</span>
+        </div>
+      </div>
+    </section>
+  </div>
+  <p class="nx-muted nx-small nx-mt-12">Los ingresos reales y el headcount actual se calculan con los colaboradores vigentes; el ingreso planificado viene del plan del período.</p>
+</ng-container>
+
+<app-modal *ngIf="modal as m" title="Crear posición" width="620px" (closed)="modal = null">
+  <form id="pos-form" class="nx-form" (ngSubmit)="guardar()">
+    <label class="nx-field">Área
+      <select class="nx-select" name="area" [(ngModel)]="m.area">
+        <option *ngFor="let a of areas" [value]="a.division + '|' + a.area + '|' + a.subArea">{{ a.division }} › {{ a.area }} › {{ a.subArea }}</option>
+      </select>
+    </label>
+    <label class="nx-field">Cargo
+      <select class="nx-select" name="cargo" [(ngModel)]="m.cargo"><option *ngFor="let c of cargos">{{ c }}</option></select>
+    </label>
+    <div class="nx-grid nx-grid--2 nx-grid--16">
+      <label class="nx-field">Fecha de ingreso proyectada*<input class="nx-input" name="ingreso" placeholder="DD/MM/YYYY" [(ngModel)]="m.ingreso"></label>
+      <label class="nx-field">Fecha de término<input class="nx-input" name="termino" placeholder="DD/MM/YYYY" [(ngModel)]="m.termino">
+        <span class="nx-hint">Si no se define fecha de término, la posición será indefinida.</span></label>
+    </div>
+    <label class="nx-field">Cantidad de posiciones a crear*<input class="nx-input" type="number" min="1" max="20" name="cantidad" [(ngModel)]="m.cantidad"></label>
+    <span *ngIf="intento && errModal" class="nx-error">{{ errModal }}</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="modal = null">Cancelar</button>
+    <button type="submit" form="pos-form" class="nx-btn nx-btn--primary">Guardar</button>
+  </ng-container>
+</app-modal>

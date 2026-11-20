@@ -1,0 +1,108 @@
+<app-page-header title="Procesos" [crumbs]="['Remuneraciones']"></app-page-header>
+
+<label class="nx-inline-field nx-mb-16">Mostrar año
+  <select class="nx-select nx-select--bold" [(ngModel)]="anio"><option>2026</option><option>2025</option></select>
+</label>
+
+<div class="nx-stack">
+  <section *ngFor="let p of visibles; let i = index" class="nx-card nx-period">
+    <button type="button" class="nx-accordion__btn nx-period__btn" [attr.aria-expanded]="open.has(i)" (click)="toggle(i)">
+      <span class="nx-lock-dot" [class.is-open]="p.abierto"><app-icon name="lock" [size]="15"></app-icon></span>
+      <span class="nx-grow">{{ p.label }} · <span class="nx-period-state" [class.is-open]="p.abierto">{{ p.abierto ? 'Abierto' : 'Cerrado' }}</span></span>
+      <span class="nx-rot" [class.is-flipped]="open.has(i)"><app-icon name="chevron-down" [size]="18"></app-icon></span>
+    </button>
+
+    <div *ngIf="open.has(i)" class="nx-period__body">
+      <div *ngIf="p.abierto" class="nx-row nx-row--right">
+        <button type="button" class="nx-btn nx-btn--outline"><app-icon name="plus" [size]="16"></app-icon>Nuevo Proceso</button>
+        <button type="button" class="nx-btn nx-btn--outline nx-btn--danger" (click)="cerrarModal = true"><app-icon name="lock" [size]="16"></app-icon>Cerrar Período</button>
+      </div>
+      <div *ngIf="p.abierto && p.boletasSinProceso && !procesado" class="nx-banner nx-banner--warning nx-banner--compact" role="note">
+        <app-icon name="alert" [size]="18"></app-icon>
+        <span class="nx-grow">{{ p.boletasSinProceso }} Boletas de Pago sin proceso de sueldo</span>
+        <a routerLink="/admin/colaboradores/vigentes">Ver boletas</a>
+      </div>
+
+      <div class="nx-dt__scroll nx-period__table">
+        <table class="nx-table" [attr.aria-label]="'Procesos de ' + p.label">
+          <thead><tr><th>Nombre</th><th>Responsable</th><th class="nx-num">Colaboradores</th><th>Fecha de pago</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let pr of p.procesos">
+              <td><a *ngIf="p.abierto; else nombre" href="#" (click)="$event.preventDefault()" class="nx-strong-link">{{ pr.nombre }}</a><ng-template #nombre>{{ pr.nombre }}</ng-template></td>
+              <td>{{ pr.responsable }}</td>
+              <td class="nx-num">{{ pr.colaboradores }}</td>
+              <td>{{ pr.fechaPago }}</td>
+              <td>
+                <span *ngIf="p.abierto; else cerrado" class="nx-badge" [ngClass]="procesado ? 'nx-tone-success' : 'nx-tone-info'">{{ procesado ? 'Procesado' : 'Iniciado' }}</span>
+                <ng-template #cerrado><span class="nx-badge nx-tone-gray">Cerrado</span></ng-template>
+              </td>
+              <td class="nx-dt__actions">
+                <ng-container *ngIf="p.abierto; else ver">
+                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Editar" title="Editar"><app-icon name="edit" [size]="16"></app-icon></button>
+                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Eliminar" title="Eliminar"><app-icon name="trash" [size]="16"></app-icon></button>
+                </ng-container>
+                <ng-template #ver>
+                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Ver" title="Ver"><app-icon name="eye" [size]="16"></app-icon></button>
+                </ng-template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-container *ngIf="p.archivos">
+        <div class="nx-period__general">
+          <h3 class="nx-grow">Proceso general</h3>
+          <button type="button" class="nx-btn nx-btn--outline">Más Acciones<app-icon name="chevron-down" [size]="16"></app-icon></button>
+          <button type="button" class="nx-btn nx-btn--primary" [disabled]="!p.abierto" (click)="procesarModal = true"><app-icon name="refresh" [size]="16"></app-icon>Procesar</button>
+        </div>
+        <div *ngIf="procesado" class="nx-ok-note nx-mb-12" role="status">
+          <app-icon name="checkcircle" [size]="18"></app-icon>Proceso terminado: se recalcularon 13 boletas y se generaron los archivos.
+        </div>
+        <div class="nx-filecards">
+          <div *ngFor="let a of p.archivos" class="nx-filecard">
+            <div class="nx-filecard__top">
+              <span class="nx-iconbox nx-iconbox--36"><app-icon name="file" [size]="18"></app-icon></span>
+              <div class="nx-grow"><b>{{ a.nombre }}</b><span>{{ a.detalle }}</span></div>
+              <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Más opciones" title="Más opciones"><app-icon name="more" [size]="16"></app-icon></button>
+            </div>
+            <div class="nx-filecard__foot">
+              <span class="nx-badge" [ngClass]="'nx-tone-' + tone[a.estado]">{{ a.estado }}</span>
+              <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" [disabled]="a.estado === 'No generado'"
+                      [attr.aria-label]="'Descargar ' + a.nombre" [title]="a.estado === 'No generado' ? 'Archivo no generado' : 'Descargar ' + a.nombre">
+                <app-icon name="download" [size]="16"></app-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </section>
+  <div *ngIf="!visibles.length" class="nx-card nx-empty nx-empty--compact"><b>No hay procesos en {{ anio }}</b></div>
+</div>
+
+<app-modal *ngIf="procesarModal" title="Proceso Marzo ’26" width="600px" (closed)="procesarModal = false">
+  <div class="nx-form">
+    <div class="nx-stage">
+      <b>Etapa 1 – Recálculo de boletas de pago</b>
+      <label class="nx-check nx-check--plain"><input type="checkbox" [(ngModel)]="etapas.recalcular">Recalcular boletas de pago</label>
+    </div>
+    <div class="nx-stage">
+      <b>Etapa 2 – Generación de archivos (Libro de Remuneraciones, Contabilidad, PLAME y Sueldos)</b>
+      <label class="nx-check nx-check--plain"><input type="checkbox" [(ngModel)]="etapas.archivos">Generar archivos</label>
+    </div>
+    <p class="nx-muted nx-mt-0">Al terminar se generan las boletas y los archivos del período.</p>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="procesarModal = false">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--primary" [disabled]="!etapas.recalcular && !etapas.archivos" (click)="procesar()">Procesar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="cerrarModal" title="Cerrar período Marzo ’26" width="520px" (closed)="cerrarModal = false">
+  <p class="nx-mt-0">Al cerrar el período ya no podrás modificar sus procesos ni regenerar sus archivos.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="cerrarModal = false">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--danger-solid" (click)="cerrarPeriodo()">Cerrar Período</button>
+  </ng-container>
+</app-modal>

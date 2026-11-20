@@ -1,0 +1,63 @@
+<app-page-header title="Documentos" [crumbs]="['Administrativo', 'Documentos y Firma']"></app-page-header>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="pickTab(i)">{{ t }}</button>
+</div>
+
+<app-data-table *ngIf="tab <= 2" [columns]="pendCols" [rows]="rows" createLabel="Generar documentos" createLink="/admin/documentos/plantillas"
+                [rowActions]="pendActions" [bulkActions]="bulk" [showAdvancedFilter]="false" tableLabel="Documentos pendientes"
+                minWidth="1400px" exportName="documentos-pendientes" emptyTitle="No tienes documentos pendientes"
+                emptyText="Cuando haya documentos por firmar o revisar aparecerán aquí"
+                (action)="onAction($event.action, $event.row)" (bulk)="onBulk($event.action, $event.rows)"></app-data-table>
+
+<app-data-table *ngIf="tab === 3" [columns]="allCols" [rows]="rows" createLabel="Generar documentos" createLink="/admin/documentos/plantillas"
+                [rowActions]="allActions" [bulkActions]="bulk" [showAdvancedFilter]="false" tableLabel="Todos los documentos"
+                minWidth="1100px" exportName="documentos"
+                (action)="onAction($event.action, $event.row)" (bulk)="onBulk($event.action, $event.rows)"></app-data-table>
+
+<ng-container *ngIf="tab === 4">
+  <div class="nx-banner" role="note">
+    <app-icon name="info" [size]="19"></app-icon>
+    <span class="nx-grow">Los documentos eliminados se mantienen 60 días en la papelera.</span>
+  </div>
+  <app-data-table [columns]="trashCols" [rows]="trash" [showBulk]="false" [showAdvancedFilter]="false"
+                  tableLabel="Papelera" minWidth="1300px" exportName="papelera"></app-data-table>
+</ng-container>
+
+<app-modal *ngIf="paso" title="Firma electrónica" width="560px" (closed)="paso = 0">
+  <div *ngIf="paso === 1" class="nx-sign nx-sign--center">
+    <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round"><app-icon name="filesig" [size]="26"></app-icon></span>
+    <b>Estás firmando electrónicamente {{ firmarIds.length }} documento(s)</b>
+    <span class="nx-muted">La firma tiene la misma validez que tu firma manuscrita. Funciona desde el teléfono o cualquier otro dispositivo.</span>
+  </div>
+
+  <fieldset *ngIf="paso === 2" class="nx-sign">
+    <legend>Selecciona un método de envío</legend>
+    <label *ngFor="let m of metodos; let i = index" class="nx-radio-card" [class.is-on]="metodo === i">
+      <input type="radio" name="metodo" [checked]="metodo === i" (change)="metodo = i">
+      <span><b>{{ m.label }}</b><span class="nx-muted">{{ m.dest }}</span></span>
+    </label>
+    <a href="#" (click)="$event.preventDefault()">Editar mi teléfono</a>
+  </fieldset>
+
+  <div *ngIf="paso === 3" class="nx-sign nx-sign--center">
+    <label for="sign-code"><b>Ingresa el código que enviamos a {{ metodos[metodo].dest }}</b></label>
+    <input id="sign-code" class="nx-input nx-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••"
+           [value]="codigo" (input)="setCodigo($any($event.target).value); $any($event.target).value = codigo">
+    <span class="nx-muted nx-small">¿No has recibido el código? <b>Reenviar en 02:28</b></span>
+  </div>
+
+  <div *ngIf="paso === 4" class="nx-sign nx-sign--center" role="status">
+    <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round nx-iconbox--success"><app-icon name="check" [size]="28"></app-icon></span>
+    <b>Documentos firmados</b>
+    <span class="nx-muted">Se agregó el bloque de firma con nombre, documento, email, fecha, IP y token único.</span>
+  </div>
+
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="paso = 0">{{ paso === 4 ? 'Cerrar' : 'Cancelar' }}</button>
+    <button *ngIf="paso < 4" type="button" class="nx-btn nx-btn--primary" [disabled]="paso === 3 && codigo.length !== 6" (click)="siguiente()">
+      {{ siguienteLabel }}
+    </button>
+  </ng-container>
+</app-modal>

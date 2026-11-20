@@ -1,18 +1,14 @@
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * The content below * * * * * * * * * * * -->
-<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * -->
-<!-- * * * * * * * * * * and can be replaced. * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * Delete the template below * * * * * * * * * * -->
-<!-- * * * * * * * to get started with your project! * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * The content above * * * * * * * * * * * -->
-<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * -->
-<!-- * * * * * * * * * * and can be replaced. * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * End of Placeholder * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-
-<router-outlet></router-outlet>
+<a class="nx-skip" href="#nx-main">Saltar al contenido</a>
+<div class="nx-app" [class.nx-nav-collapsed]="ui.navCollapsed$ | async">
+  <app-topbar></app-topbar>
+  <div class="nx-body">
+    <app-nav></app-nav>
+    <main id="nx-main" class="nx-main" tabindex="-1">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+  <app-drawers></app-drawers>
+  <div *ngIf="ui.toast$ | async as msg" class="nx-toast" role="status">
+    <app-icon name="checkcircle" [size]="18"></app-icon>{{ msg }}
+  </div>
+</div>

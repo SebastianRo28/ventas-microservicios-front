@@ -1,0 +1,91 @@
+<app-page-header title="Estudio salarial" [crumbs]="['Administrativo', 'Compensaciones']"></app-page-header>
+
+<div class="nx-banner" role="note">
+  <app-icon name="info" [size]="19"></app-icon>
+  <span class="nx-grow">Datos del estudio salarial actualizados al 01/07/2026. <a href="#" (click)="$event.preventDefault()">Consulta nuestra guía salarial</a>, construida con boletas reales procesadas en Nexo RH.</span>
+</div>
+
+<div class="nx-tabs" role="tablist">
+  <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab"
+          [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+</div>
+
+<ng-container *ngIf="tab === 0">
+  <app-data-table [columns]="cols" [rows]="rows" [rowActions]="actions" [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false"
+                  tableLabel="Estudio salarial" minWidth="1600px" exportName="estudio-salarial" (action)="onAction($event.row)"></app-data-table>
+  <p class="nx-muted nx-small nx-mt-12">Usa el botón de emparejar para vincular un cargo Nexo con un cargo interno; en cargos ya emparejados el mismo botón permite desemparejarlos.</p>
+</ng-container>
+
+<ng-container *ngIf="tab === 1">
+  <div class="nx-grid nx-grid--4 nx-mb-16">
+    <div class="nx-card nx-stat"><span>Cargos internos emparejados</span><b>{{ pctEmparejados() }} %</b></div>
+    <div class="nx-card nx-stat"><span>Sueldo objetivo sobre la banda</span><b>{{ pct('Sobre la banda') }} %</b></div>
+    <div class="nx-card nx-stat"><span>Sueldo objetivo bajo la banda</span><b>{{ pct('Bajo la banda') }} %</b></div>
+    <div class="nx-card nx-stat"><span>Compa ratio promedio</span><b>{{ compaPromedio }}</b></div>
+  </div>
+  <div class="nx-card nx-dt__scroll">
+    <table class="nx-table" aria-label="Comparación de cargos">
+      <thead><tr><th>Cargo interno</th><th class="nx-num">Colaboradores dentro del cargo</th><th class="nx-num">Sueldo objetivo</th><th>Cargo Nexo</th>
+        <th>Ubicación del sueldo objetivo en la banda</th><th>Posición y compa ratio</th><th class="nx-num">Compa Ratio</th><th>Industria</th>
+        <th>Tamaño de empresa</th><th class="nx-num">P25</th><th class="nx-num">P50</th><th><span class="visually-hidden">Acciones</span></th></tr></thead>
+      <tbody>
+        <tr *ngFor="let c of comparaciones">
+          <td>{{ c.banda.cargo }}</td><td class="nx-num">{{ c.n }}</td><td class="nx-num">{{ soles(c.banda.objetivo) }}</td>
+          <td>{{ c.mercado?.cargo ?? '—' }}</td>
+          <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone[c.ubicacion]">{{ c.ubicacion }}</span></td>
+          <td>
+            <span *ngIf="c.bar as b; else sinBar" class="nx-bandbar" role="img" [attr.aria-label]="'Compa ratio ' + c.compa">
+              <span class="nx-bandbar__low" [style.width.%]="b.bajo"></span><span class="nx-bandbar__in" [style.width.%]="b.dentro"></span>
+              <span class="nx-bandbar__high"></span><span class="nx-bandbar__mark" [style.left.%]="b.marca"></span>
+            </span>
+            <ng-template #sinBar>—</ng-template>
+          </td>
+          <td class="nx-num">{{ c.compa !== null ? c.compa.toFixed(2) : '—' }}</td>
+          <td>{{ c.mercado?.industria ?? '—' }}</td><td>{{ c.mercado?.tamano ?? '—' }}</td>
+          <td class="nx-num">{{ c.mercado ? soles(c.mercado.p25) : '—' }}</td><td class="nx-num">{{ c.mercado ? soles(c.mercado.p50) : '—' }}</td>
+          <td>
+            <button *ngIf="c.mercado" type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Desemparejar" title="Desemparejar"
+                    (click)="desemparejar = c.mercado"><app-icon name="x" [size]="16"></app-icon></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="nx-muted nx-small nx-mt-12">Banda de mercado = P25 a P75 del cargo Nexo emparejado. Compa ratio = sueldo objetivo / P50.</p>
+</ng-container>
+
+<section *ngIf="tab === 2" class="nx-card nx-dt__scroll">
+  <table class="nx-table" aria-label="Colaboradores vs. mercado">
+    <thead><tr><th>Colaborador</th><th>Cargo interno</th><th>Cargo Nexo</th><th class="nx-num">Sueldo Base</th><th class="nx-num">P50 mercado</th><th class="nx-num">Diferencia vs. P50</th></tr></thead>
+    <tbody>
+      <tr *ngFor="let v of vsMercado">
+        <td><a class="nx-strong-link" [routerLink]="['/admin/colaboradores/ficha', v.c.id]">{{ v.c.apellidos }}, {{ v.c.nombres }}</a></td>
+        <td>{{ v.c.cargo }}</td><td>{{ v.m.cargo }}</td><td class="nx-num">{{ soles(v.base) }}</td><td class="nx-num">{{ soles(v.m.p50) }}</td>
+        <td class="nx-num"><b [class.nx-up]="v.diff > 0" [class.nx-down]="v.diff < 0">{{ v.diff > 0 ? '+' : '' }}{{ v.diff }} %</b></td>
+      </tr>
+      <tr *ngIf="!vsMercado.length"><td colspan="6"><div class="nx-empty nx-empty--compact"><b>No hay colaboradores en cargos emparejados</b><span>Empareja cargos en la pestaña Estudio salarial.</span></div></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<app-modal *ngIf="emparejar as e" title="Emparejar cargo" width="520px" (closed)="emparejar = null">
+  <div class="nx-form">
+    <span>Cargo Nexo: <b>{{ e.mercado.cargo }}</b></span>
+    <label class="nx-field">Cargo interno
+      <select class="nx-select" [(ngModel)]="e.interno"><option value="">Seleccionar</option><option *ngFor="let c of libres">{{ c }}</option></select>
+      <span class="nx-hint">Solo aparecen cargos con banda salarial que aún no están emparejados.</span>
+    </label>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="emparejar = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--primary" [disabled]="!e.interno" (click)="confirmarEmparejar()">Emparejar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="desemparejar as d" title="Desemparejar cargos" width="480px" (closed)="desemparejar = null">
+  <p class="nx-mt-0">¿Quieres desemparejar “{{ d.interno }}” de “{{ d.cargo }}”? Dejará de compararse con el mercado.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="desemparejar = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--danger-solid" (click)="confirmarDesemparejar()">Desemparejar</button>
+  </ng-container>
+</app-modal>
