@@ -91,8 +91,8 @@
         <select class="nx-select" [(ngModel)]="ubicacion"><option *ngFor="let r of recintos" [ngValue]="r.id">{{ r.nombre }}</option></select>
       </label>
       <div class="nx-grid nx-grid--2 nx-grid--10">
-        <button type="button" class="nx-btn nx-btn--primary" (click)="marcar('Entrada')"><app-icon name="login" [size]="16"></app-icon>Entrada</button>
-        <button type="button" class="nx-btn nx-btn--orange" (click)="marcar('Salida')"><app-icon name="logout" [size]="16"></app-icon>Salida</button>
+        <button type="button" class="nx-btn nx-btn--primary" [disabled]="marcando" (click)="marcar('Entrada')"><app-icon name="login" [size]="16"></app-icon>Entrada</button>
+        <button type="button" class="nx-btn nx-btn--orange" [disabled]="marcando" (click)="marcar('Salida')"><app-icon name="logout" [size]="16"></app-icon>Salida</button>
       </div>
       <div *ngIf="marca" class="nx-ok-note" [class.nx-ok-note--warn]="marcaError" role="status"><app-icon [name]="marcaError ? 'alert' : 'checkcircle'" [size]="16"></app-icon>{{ marca }}</div>
     </section>

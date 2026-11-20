@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, of } from 'rxjs';
+import { AuthService, mensajeError } from './auth.service';
 import { skip } from 'rxjs/operators';
 import { AsistenciaService, fmtFecha } from './asistencia.service';
 import { AuditService } from './audit.service';
@@ -8,14 +9,13 @@ import { GenericosService } from './genericos.service';
 import { HrDataService } from './hr-data.service';
 import { ItemsService } from './items.service';
 import { Colaborador } from './models';
-import { Ausencia, FECHA_CORTE, RECARGOS, Vacacion } from './sample/asistencia';
+import { Ausencia, FECHA_CORTE, Vacacion } from './sample/asistencia';
+import { AprobacionApi, AsistenciaApi, AsistenciaDatos, PerfilAsistencia } from './asistencia-api.service';
 import { CONFIG_FORMS } from './sample/config-forms';
 import {
-  AprobacionHhee, ASIGNACIONES_TURNO, AsignacionTurno, CAMBIOS_TURNO, CambioTurno, CODIGOS_DIA, CodigoDia, CONTRATOS, EstadoHhee, EstadoJornada,
-  HORA_CORTE, INICIO_MARCAS, LineaHhee, Marca, MARCAS_FALLIDAS, MARCAS_MANUALES, MarcaFallida, MetodoMarca, NOTAS_SUPERVISOR, NotaSupervisor,
-  RECINTO_PRINCIPAL, Recinto, RECINTOS, TipoContrato, Turno, TURNOS, USA_APP
+  AprobacionHhee, AsignacionTurno, CambioTurno, CODIGOS_DIA, CodigoDia, EstadoHhee, EstadoJornada, HORA_CORTE, INICIO_MARCAS, LineaHhee, Marca,
+  MarcaFallida, MetodoMarca, NotaSupervisor, Recinto, TipoContrato, Turno
 } from './sample/control-asistencia';
-import { JEFES } from './sample/portal';
 
 const DIA = 86_400_000;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -44,8 +44,6 @@ export const DIAS_CORTOS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 export const diaSemana = (f: string): number => parseFecha(f)!.getDay();
 const nombreCol = (c: Colaborador) => `${c.apellidos}, ${c.nombres}`;
 
-/** Deterministic pseudo-random generator, so the sample punches are the same on every load. */
-const rng = (seed: number) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
 /** Calculated working day of one collaborator (the `workday` of the data model). */
 export interface Jornada {
@@ -93,20 +91,26 @@ export interface FiltroCa { recintoId: number; fecha: string; area: string; carg
 /**
  * Control de Asistencia (module 04): recintos, shifts, punches, calculated working days and overtime. It reads the same
  * collaborators, absences and vacations as Administrativo, so changes show up at once (no synchronization).
- * In memory until there is an API; every change is audited.
+ * Data comes from the API (GET /api/asistencia, through AsistenciaApi); the working days and overtime are calculated here.
+ * Changes apply at once and are sent to the API, which validates them, applies the role limits and audits them.
  */
 @Injectable({ providedIn: 'root' })
 export class ControlAsistenciaService {
-  readonly corte = FECHA_CORTE;
-  readonly horaCorte = HORA_CORTE;
-  readonly inicio = INICIO_MARCAS;
-  readonly recintos$ = new BehaviorSubject<Recinto[]>(RECINTOS);
-  readonly turnos$ = new BehaviorSubject<Turno[]>(TURNOS);
-  readonly asignaciones: AsignacionTurno[] = ASIGNACIONES_TURNO;
-  readonly cambiosTurno: CambioTurno[] = CAMBIOS_TURNO;
-  readonly fallidas$ = new BehaviorSubject<MarcaFallida[]>(MARCAS_FALLIDAS);
-  readonly notas$ = new BehaviorSubject<NotaSupervisor[]>(NOTAS_SUPERVISOR);
-  readonly recintoDe: Record<number, number> = RECINTO_PRINCIPAL;
+  /** "Today" of the module, the clock time of today's calculations and the first day with punches (from the API). */
+  corte = FECHA_CORTE;
+  horaCorte = HORA_CORTE;
+  inicio = INICIO_MARCAS;
+  /** The user may manage someone's attendance (administrators, and supervisors over their team). */
+  puedeGestionar = false;
+  readonly recintos$ = new BehaviorSubject<Recinto[]>([]);
+  readonly turnos$ = new BehaviorSubject<Turno[]>([]);
+  readonly asignaciones: AsignacionTurno[] = [];
+  readonly cambiosTurno: CambioTurno[] = [];
+  readonly fallidas$ = new BehaviorSubject<MarcaFallida[]>([]);
+  readonly notas$ = new BehaviorSubject<NotaSupervisor[]>([]);
+  readonly recintoDe: Record<number, number> = {};
+  private perfiles = new Map<number, PerfilAsistencia>();
+  private tmp = -1;
   /** Emits after any change that affects the calculated days; screens recalculate on it. */
   readonly cambios$ = new BehaviorSubject<number>(0);
   /** Shared header filters (P-04.0), kept while moving between screens of the module. */
@@ -119,16 +123,12 @@ export class ControlAsistenciaService {
   private porDia = new Map<string, Marca[]>();
   private cache = new Map<string, Jornada>();
   private excesosCache: Exceso[] | null = null;
-  private readonly aprobaciones = new Map<string, AprobacionHhee>();
+  private readonly aprobaciones = new Map<string, AprobacionHhee | AprobacionApi>();
 
   constructor(private data: HrDataService, private asis: AsistenciaService, private audit: AuditService, private genericos: GenericosService,
-              private items: ItemsService) {
-    // Collaborators come from the API, possibly after this service starts: the sample punches are generated once they arrive.
-    data.colaboradores().subscribe((cs) => {
-      this.colaboradores = cs;
-      if (cs.length && !this.marcas.length) { this.generarMarcas(); this.sembrarAprobaciones(); }
-      this.invalidar();
-    });
+              private items: ItemsService, private api: AsistenciaApi, private auth: AuthService) {
+    data.colaboradores().subscribe((cs) => { this.colaboradores = cs; this.invalidar(); });
+    api.datos$.subscribe((d) => this.cargarDatos(d));
     asis.ausencias$.pipe(skip(1)).subscribe(() => this.invalidar());
     asis.vacaciones$.pipe(skip(1)).subscribe(() => this.invalidar());
     genericos.configCambio$.subscribe((k) => { if (k.startsWith('ca-')) this.invalidar(); });
@@ -138,6 +138,30 @@ export class ControlAsistenciaService {
   get tol(): Record<string, string | number | boolean> { return this.genericos.valores(CONFIG_FORMS['ca-tolerancias']); }
   get metodos(): Record<string, string | number | boolean> { return this.genericos.valores(CONFIG_FORMS['ca-metodos']); }
 
+  /** Replaces the local data with what the API returned (also undoes a change the API rejected). */
+  private cargarDatos(d: AsistenciaDatos | null): void {
+    const corteAnterior = this.corte;
+    this.corte = d?.corte ?? FECHA_CORTE;
+    this.horaCorte = d?.horaCorte ?? HORA_CORTE;
+    this.inicio = d?.inicioMarcas ?? INICIO_MARCAS;
+    this.puedeGestionar = !!d?.puedeGestionar;
+    if (this.filtro.fecha === corteAnterior) this.filtro.fecha = this.corte;
+    this.recintos$.next(d?.recintos ?? []);
+    this.turnos$.next(d?.turnos ?? []);
+    this.asignaciones.splice(0, this.asignaciones.length, ...(d?.asignaciones ?? []));
+    this.cambiosTurno.splice(0, this.cambiosTurno.length, ...(d?.cambiosTurno ?? []));
+    this.fallidas$.next(d?.fallidas ?? []);
+    this.notas$.next(d?.notas ?? []);
+    this.perfiles = new Map((d?.perfiles ?? []).map((p) => [p.colaboradorId, p]));
+    for (const k of Object.keys(this.recintoDe)) delete this.recintoDe[+k];
+    for (const p of d?.perfiles ?? []) if (p.recintoId != null) this.recintoDe[p.colaboradorId] = p.recintoId;
+    this.marcas = d?.marcas ?? [];
+    this.indexar();
+    this.aprobaciones.clear();
+    for (const a of d?.aprobaciones ?? []) this.aprobaciones.set(`${a.colaboradorId}|${a.fecha}`, a);
+    this.invalidar();
+  }
+
   private invalidar(): void {
     this.cache.clear();
     this.excesosCache = null;
@@ -145,14 +169,21 @@ export class ControlAsistenciaService {
   }
   setFiltro(p: Partial<FiltroCa>): void { Object.assign(this.filtro, p); this.cambios$.next(this.cambios$.value + 1); }
 
+  /** May approve or correct this person's attendance: administrators, or supervisors over their team (never themselves). */
+  gestiona(colId: number): boolean {
+    if (this.auth.esAdmin) return true;
+    return this.puedeGestionar && colId !== this.auth.usuario?.colaboradorId && this.perfiles.has(colId);
+  }
+  get esAdmin(): boolean { return this.auth.esAdmin; }
+
   // --- Collaborators -----------------------------------------------------------------------------------------------
   col(id: number): Colaborador | undefined { return this.colaboradores.find((c) => c.id === id); }
   nombre(id: number): string { const c = this.col(id); return c ? nombreCol(c) : '—'; }
   recinto(id: number): Recinto | undefined { return this.recintos$.value.find((r) => r.id === id); }
   recintoNombre(colId: number): string { return this.recinto(this.recintoDe[colId])?.nombre ?? 'Sin recinto'; }
-  contrato(id: number): TipoContrato { return (this.col(id)?.detalle?.contrato as TipoContrato) || CONTRATOS[id] || 'Indefinido'; }
-  supervisor(id: number): string { const j = JEFES[id]; return j == null ? '—' : this.nombre(j); }
-  usaApp(id: number): boolean { return USA_APP.has(id); }
+  contrato(id: number): TipoContrato { return this.perfiles.get(id)?.contrato || (this.col(id)?.detalle?.contrato as TipoContrato) || 'Indefinido'; }
+  supervisor(id: number): string { const j = this.col(id)?.jefeId; return j == null ? '—' : this.nombre(j); }
+  usaApp(id: number): boolean { return !!this.perfiles.get(id)?.usaApp; }
   /** Collaborators of the selected recinto that match the quick filters. */
   visibles(f: FiltroCa = this.filtro, recintoId = f.recintoId): Colaborador[] {
     return this.colaboradores.filter((c) => (!recintoId || this.recintoDe[c.id] === recintoId) && (!f.area || c.area === f.area) && (!f.cargo || c.cargo === f.cargo)
@@ -198,10 +229,12 @@ export class ControlAsistenciaService {
     if (t.id != null) {
       res = Object.assign(list.find((x) => x.id === t.id)!, t);
       this.registrar('—', '—', `Turno ${res.sigla}`, 'Modificar', `${res.nombre} · ${this.horarioTurno(res)}`);
+      this.api.enviar(this.api.put<Turno>(`turnos/${res.id}`, res), (x) => Object.assign(res, x));
     } else {
-      res = { ...t, id: Math.max(0, ...list.map((x) => x.id)) + 1 };
+      res = { ...t, id: this.tmp-- };
       list.push(res);
       this.registrar('—', '—', `Turno ${res.sigla}`, 'Crear', `${res.nombre} · ${this.horarioTurno(res)}`);
+      this.api.enviar(this.api.post<Turno>('turnos', res), (x) => Object.assign(res, x));
     }
     this.turnos$.next([...list]);
     this.invalidar();
@@ -213,6 +246,7 @@ export class ControlAsistenciaService {
     t.activo = !t.activo;
     this.registrar('—', '—', `Turno ${t.sigla}`, 'Modificar', t.activo ? 'Activo' : 'Inactivo', 'estado');
     this.turnos$.next([...this.turnos$.value]);
+    this.api.enviar(this.api.post(`turnos/${t.id}/estado`, { activo: t.activo }));
     return '';
   }
 
@@ -232,7 +266,7 @@ export class ControlAsistenciaService {
           else if (!a.hasta || cmpFecha(a.hasta, p.fecha) >= 0) a.hasta = sumarDias(p.fecha, -1);
         }
         const t = this.turno(p.valor)!;
-        this.asignaciones.push({ id: Math.max(0, ...this.asignaciones.map((x) => x.id)) + 1, colaboradorId: id, turnoId: p.valor, desde: p.fecha, hasta: '',
+        this.asignaciones.push({ id: this.tmp--, colaboradorId: id, turnoId: p.valor, desde: p.fecha, hasta: '',
           cicloInicio: t.tipo === 'Rotativo' ? p.fecha : undefined, creadoPor: this.data.usuario.nombre });
         for (let i = this.cambiosTurno.length - 1; i >= 0; i--) {
           const x = this.cambiosTurno[i];
@@ -252,6 +286,18 @@ export class ControlAsistenciaService {
       n++;
     }
     this.invalidar();
+    // The API answers with the resulting assignments of those people (with their real ids).
+    const validos = ids.filter((id) => this.col(id));
+    this.api.enviar(this.api.post<{ asignaciones: AsignacionTurno[]; cambiosTurno: CambioTurno[] }>('asignaciones', {
+      colaboradorIds: validos, fecha: p.fecha, modo: p.modo, hasta: p.hasta, dias: p.dias,
+      turnoId: typeof p.valor === 'number' ? p.valor : null, codigo: typeof p.valor === 'number' ? null : p.valor,
+    }), (r) => {
+      const set = new Set(validos);
+      const a = this.asignaciones.filter((x) => !set.has(x.colaboradorId)), b = this.cambiosTurno.filter((x) => !set.has(x.colaboradorId));
+      this.asignaciones.splice(0, this.asignaciones.length, ...a, ...r.asignaciones);
+      this.cambiosTurno.splice(0, this.cambiosTurno.length, ...b, ...r.cambiosTurno);
+      this.invalidar();
+    });
     return n;
   }
   historialTurnos(colId: number): { fecha: string; texto: string; autor: string }[] {
@@ -280,10 +326,12 @@ export class ControlAsistenciaService {
         this.registrar('—', '—', `Recinto · ${actual.nombre}`, 'Modificar', fmt(k, (r as Recinto)[k]), label, fmt(k, actual[k]));
       }
       res = Object.assign(actual, r);
+      this.api.enviar(this.api.put<Recinto>(`recintos/${res.id}`, res), (x) => Object.assign(res, x));
     } else {
-      res = { ...r, id: Math.max(0, ...list.map((x) => x.id)) + 1 };
+      res = { ...r, id: this.tmp-- };
       list.push(res);
       this.registrar('—', '—', `Recinto · ${res.nombre}`, 'Crear', `${res.direccion}, ${res.distrito} · radio ${res.radio} m`);
+      this.api.enviar(this.api.post<Recinto>('recintos', res), (x) => Object.assign(res, x));
     }
     this.recintos$.next([...list]);
     this.invalidar();
@@ -311,108 +359,39 @@ export class ControlAsistenciaService {
     for (const l of this.porDia.values()) l.sort((a, b) => aMin(a.hora) - aMin(b.hora));
   }
 
-  private coords(recintoId: number, r: () => number, dentro = true): { lat: number; lng: number } {
-    const rc = this.recinto(recintoId)!;
-    const m = dentro ? rc.radio * 0.7 : rc.radio * 3;
-    return { lat: rc.lat + ((r() - 0.5) * 2 * m) / 111_000, lng: rc.lng + ((r() - 0.5) * 2 * m) / 108_000 };
-  }
-
-  /** Sample punches from 01/02/2026 to the cut-off, consistent with shifts, absences, vacations and Sunday work. */
-  private generarMarcas(): void {
-    const out: Marca[] = [];
-    let id = 1;
-    const fechas = rangoFechas(INICIO_MARCAS, FECHA_CORTE);
-    const ausente = (c: number, f: string) => this.asis.ausencias$.value.some((a: Ausencia) => a.colaboradorId === c && enRango(f, a.desde, a.hasta))
-      || this.asis.vacaciones$.value.some((v: Vacacion) => v.colaboradorId === c && enRango(f, v.desde, v.hasta));
-    const NO_MARCA = new Set(['10|02/03/2026', '10|09/03/2026', '14|16/03/2026']);
-    const SIN_SALIDA = new Set(['14|13/03/2026', '8|13/03/2026']);
-    const SIN_FOTO = new Set(['7|05/03/2026', '7|06/03/2026', '4|11/03/2026']);
-    const ahora = aMin(HORA_CORTE);
-    for (const c of this.colaboradores) {
-      const recintoId = this.recintoDe[c.id];
-      fechas.forEach((f, di) => {
-        if (cmpFecha(f, c.ingreso) < 0 || ausente(c.id, f) || this.asis.esFeriado(f) || NO_MARCA.has(`${c.id}|${f}`)) return;
-        const r = rng(c.id * 7919 + di * 104729 + 17);
-        if (c.id !== 0 && f !== FECHA_CORTE && r() < 0.035) return;
-        const { turno: t } = this.turnoDe(c.id, f);
-        const dow = diaSemana(f), marzo = f.endsWith('/03/2026');
-        let ent: number, sal: number;
-        if (!t) {
-          const rec = RECARGOS.find((x) => x.colaboradorId === c.id && x.fecha === f);
-          if (!rec) return;
-          ent = 8 * 60 - 5 + Math.floor(r() * 10);
-          sal = ent + rec.horas * 60 + Math.floor(r() * 8);
-        } else {
-          const ini = aMin(t.entrada);
-          let fin = aMin(t.salida); if (fin <= ini) fin += 1440;
-          if (t.tipo === 'Flexible') ent = ini - 30 + Math.floor(r() * 50);
-          else ent = ini - 14 + Math.floor(r() * 15);
-          if (t.tipo !== 'Flexible' && r() < 0.07) ent = ini + t.tolerancia + 3 + Math.floor(r() * 22);
-          if (c.id === 9 && ['03/03/2026', '05/03/2026', '12/03/2026'].includes(f)) ent = ini + 22 + Math.floor(r() * 8);
-          sal = (t.tipo === 'Flexible' ? ent + (fin - ini) : fin) + Math.floor(r() * 9);
-          if (r() < 0.04) sal -= 20 + Math.floor(r() * 30);
-          // Overtime patterns.
-          if (c.id === 7 && (dow === 2 || dow === 4)) sal += marzo ? 100 + Math.floor(r() * 50) : 70 + Math.floor(r() * 30);
-          if (c.id === 1 && dow === 5) sal += 60 + Math.floor(r() * 25);
-          if (c.id === 13 && dow === 3) sal += 45 + Math.floor(r() * 20);
-          if (c.id === 3 && dow === 3) sal += 60 + Math.floor(r() * 35);
-          if (c.id === 9 && dow === 6) sal += 50 + Math.floor(r() * 15);
-          if (c.id === 2 && f === '13/03/2026') sal += 75;
-        }
-        const metodo: MetodoMarca = c.id === 13 ? 'QR' : this.usaApp(c.id) ? 'App' : 'Web';
-        const conFoto = metodo !== 'Web' && !SIN_FOTO.has(`${c.id}|${f}`);
-        const nueva = (tipo: Marca['tipo'], min: number): Marca => ({
-          id: id++, colaboradorId: c.id, recintoId, fecha: f, hora: aHora(min), tipo, metodo,
-          ...(metodo === 'Web' ? { lat: this.recinto(recintoId)!.lat, lng: this.recinto(recintoId)!.lng } : this.coords(recintoId, r)),
-          dentroRadio: true, foto: conFoto, observacion: '',
-        });
-        if (f === FECHA_CORTE) { if (ent <= ahora) out.push(nueva('Entrada', ent)); return; }
-        out.push(nueva('Entrada', ent));
-        if (!SIN_SALIDA.has(`${c.id}|${f}`)) out.push(nueva('Salida', sal));
-      });
-    }
-    for (const m of MARCAS_MANUALES) {
-      const i = out.findIndex((x) => x.colaboradorId === m.colaboradorId && x.fecha === m.fecha && x.tipo === m.tipo);
-      const rc = this.recinto(this.recintoDe[m.colaboradorId])!;
-      const manual: Marca = { ...m, id: id++, recintoId: rc.id, lat: rc.lat, lng: rc.lng, dentroRadio: true, foto: false };
-      if (i >= 0) out.splice(i, 1, manual); else out.push(manual);
-    }
-    this.marcas = out;
-    this.indexar();
-  }
-
-  /** Punch from Mi Portal (widget Registrar Asistencia) or the app; rejected punches go to Marcas Fallidas. */
-  marcar(colId: number, recintoId: number, tipo: Marca['tipo'], metodo: MetodoMarca, hora: string): { ok: boolean; mensaje: string } {
+  /**
+   * Own punch from Mi Portal (widget Registrar Asistencia) or the app. The API sets the date and time; punches rejected
+   * on the device (method disabled) go to Marcas Fallidas.
+   */
+  marcar(colId: number, recintoId: number, tipo: Marca['tipo'], metodo: MetodoMarca): Observable<{ ok: boolean; mensaje: string }> {
     const c = this.col(colId), rc = this.recinto(recintoId);
-    if (!c || !rc) return { ok: false, mensaje: 'Selecciona un recinto.' };
+    if (!c || !rc) return of({ ok: false, mensaje: 'Selecciona un recinto.' });
     const clave: Record<string, string> = { Web: 'web', App: 'app', QR: 'qr', Foto: 'foto' };
-    const fallar = (motivo: MarcaFallida['motivo'], mensaje: string) => {
-      const list = this.fallidas$.value;
-      this.fallidas$.next([{ id: Math.max(0, ...list.map((x) => x.id)) + 1, colaboradorId: colId, recintoId, fecha: this.corte, hora, tipo, metodo, motivo }, ...list]);
-      return { ok: false, mensaje };
-    };
-    if (clave[metodo] && !this.metodos[clave[metodo]]) return fallar('Método no permitido', `La marcación por ${metodo === 'Web' ? 'portal web' : metodo} está desactivada. Avisa a RR.HH.`);
-    const previas = this.marcasDe(colId, this.corte);
-    const ultima = previas[previas.length - 1];
-    if (tipo === 'Salida' && (!ultima || ultima.tipo === 'Salida')) return { ok: false, mensaje: 'Primero registra tu entrada de hoy.' };
-    if (tipo === 'Entrada' && ultima?.tipo === 'Entrada') return { ok: false, mensaje: `Ya registraste tu entrada a las ${ultima.hora}.` };
-    if (ultima && aMin(hora) < aMin(ultima.hora)) return { ok: false, mensaje: `La hora no puede ser anterior a tu última marca (${ultima.hora}).` };
-    const m: Marca = { id: Math.max(0, ...this.marcas.map((x) => x.id)) + 1, colaboradorId: colId, recintoId, fecha: this.corte, hora, tipo, metodo,
-      lat: rc.lat, lng: rc.lng, dentroRadio: true, foto: false, observacion: 'Desde Mi Portal' };
-    this.marcas.push(m);
-    this.indexar();
-    this.invalidar();
-    return { ok: true, mensaje: `${tipo} registrada a las ${hora} · ${rc.nombre}` };
+    if (clave[metodo] && !this.metodos[clave[metodo]]) {
+      this.api.enviar(this.api.post<MarcaFallida>('fallidas', { tipo, metodo, recintoId, motivo: 'Método no permitido' }),
+        (f) => this.fallidas$.next([f, ...this.fallidas$.value]));
+      return of({ ok: false, mensaje: `La marcación por ${metodo === 'Web' ? 'portal web' : metodo} está desactivada. Avisa a RR.HH.` });
+    }
+    return this.api.post<Marca>('marcar', { tipo, metodo, recintoId }).pipe(
+      map((m) => {
+        this.marcas.push(m);
+        this.indexar();
+        this.invalidar();
+        return { ok: true, mensaje: `${tipo} registrada a las ${m.hora} · ${rc.nombre}` };
+      }),
+      catchError((e) => of({ ok: false, mensaje: mensajeError(e) })),
+    );
   }
 
   agregarManual(c: Colaborador, p: { fecha: string; hora: string; tipo: Marca['tipo']; motivo: string }): Marca {
     const rc = this.recinto(this.recintoDe[c.id]) ?? this.recintos$.value[0];
-    const m: Marca = { id: Math.max(0, ...this.marcas.map((x) => x.id)) + 1, colaboradorId: c.id, recintoId: rc.id, fecha: p.fecha, hora: p.hora, tipo: p.tipo,
+    const m: Marca = { id: this.tmp--, colaboradorId: c.id, recintoId: rc.id, fecha: p.fecha, hora: p.hora, tipo: p.tipo,
       metodo: 'Manual', lat: rc.lat, lng: rc.lng, dentroRadio: true, foto: false, observacion: '', creadoPor: this.data.usuario.nombre, motivo: p.motivo };
     this.marcas.push(m);
     this.indexar();
-    this.registrar(nombreCol(c), c.documento, `Marca manual #${m.id}`, 'Crear', `${p.tipo} ${p.fecha} ${p.hora} · ${p.motivo}`);
+    this.registrar(nombreCol(c), c.documento, 'Marca manual', 'Crear', `${p.tipo} ${p.fecha} ${p.hora} · ${p.motivo}`);
     this.invalidar();
+    this.api.enviar(this.api.post<Marca>('marcas', { colaboradorId: c.id, ...p }), (x) => Object.assign(m, x));
     return m;
   }
   eliminarMarca(m: Marca): void {
@@ -421,6 +400,7 @@ export class ControlAsistenciaService {
     this.indexar();
     this.registrar(c ? nombreCol(c) : '—', c?.documento ?? '—', `Marca manual #${m.id}`, 'Eliminar', undefined, undefined, `${m.tipo} ${m.fecha} ${m.hora}`);
     this.invalidar();
+    this.api.enviar(this.api.eliminar(`marcas/${m.id}`));
   }
 
   // --- Working days ------------------------------------------------------------------------------------------------
@@ -532,7 +512,7 @@ export class ControlAsistenciaService {
     if (this.excesosCache) return this.excesosCache;
     const out: Exceso[] = [];
     for (const c of this.colaboradores) {
-      for (const f of rangoFechas(INICIO_MARCAS, this.corte)) {
+      for (const f of rangoFechas(this.inicio, this.corte)) {
         const j = this.jornada(c.id, f);
         if (!j.exceso || j.trabajando) continue;
         const t = j.turno;
@@ -581,6 +561,7 @@ export class ControlAsistenciaService {
     this.registrar(nombreCol(c), c.documento, `Horas extras ${e.fecha}`, 'Modificar', `${estado} · ${dur(total)} h`, 'estado', previo.estado);
     if (previo.enviado) this.reenviar(e.colaboradorId, this.periodoDe(e.fecha));
     this.invalidar();
+    this.decidir(e, 'aprobar', lineas, observacion);
     return estado;
   }
   rechazar(e: Exceso, observacion: string): void {
@@ -590,6 +571,7 @@ export class ControlAsistenciaService {
     this.registrar(nombreCol(c), c.documento, `Horas extras ${e.fecha}`, 'Modificar', 'Rechazado', 'estado', previo.estado);
     if (previo.enviado) this.reenviar(e.colaboradorId, this.periodoDe(e.fecha));
     this.invalidar();
+    this.decidir(e, 'rechazar', [], observacion);
   }
   revertir(e: Exceso): void {
     const previo = this.aprobacion(e);
@@ -598,6 +580,10 @@ export class ControlAsistenciaService {
     this.registrar(nombreCol(c), c.documento, `Horas extras ${e.fecha}`, 'Modificar', 'En espera', 'estado', previo.estado);
     if (previo.enviado) this.reenviar(e.colaboradorId, this.periodoDe(e.fecha));
     this.invalidar();
+    this.decidir(e, 'revertir', [], '');
+  }
+  private decidir(e: Exceso, accion: 'aprobar' | 'rechazar' | 'revertir', lineas: LineaHhee[], observacion: string): void {
+    this.api.enviar(this.api.post('hhee', { colaboradorId: e.colaboradorId, fecha: e.fecha, accion, lineas, observacion, minutosExceso: e.minutos }));
   }
 
   /**
@@ -625,6 +611,8 @@ export class ControlAsistenciaService {
     }
     for (const id of tocados) this.reenviar(id, this.periodoAbierto);
     this.invalidar();
+    const items = lista.filter((e) => tocados.has(e.colaboradorId) && this.aprobacion(e).enviado).map((e) => ({ colaboradorId: e.colaboradorId, fecha: e.fecha }));
+    if (items.length) this.api.enviar(this.api.post('hhee/enviar', { items }));
     return { enviados, omitidos };
   }
   /** Recalculates the HEX items of a collaborator for a period from every overtime already sent. */
@@ -642,23 +630,6 @@ export class ControlAsistenciaService {
       if (min) {
         const monto = Math.round((min / 60) * this.asis.valorHora(c) * (1 + pct / 100) * 100) / 100;
         this.items.asignar(c, { tipoId, monto, desde: periodo, hasta: periodo, observacion: `Control de Asistencia · ${dur(min)} h al ${pct} %` });
-      }
-    }
-  }
-
-  private sembrarAprobaciones(): void {
-    for (const e of this.excesos()) {
-      const recargo = RECARGOS.find((r) => r.colaboradorId === e.colaboradorId && r.fecha === e.fecha);
-      if (recargo) {
-        this.aprobaciones.set(e.key, recargo.descansoSustitutorio
-          ? { estado: 'Rechazado', lineas: [], observacion: 'Se otorgó descanso sustitutorio', aprobadoPor: 'Lucía Cáceres', enviado: false }
-          : { estado: 'Aprobado', lineas: this.sugeridas(e), observacion: 'Registrado en Recargo Domingo', aprobadoPor: 'Lucía Cáceres', enviado: true });
-      } else if (e.fecha.endsWith('/02/2026')) {
-        this.aprobaciones.set(e.key, { estado: 'Aprobado', lineas: this.sugeridas(e), observacion: '', aprobadoPor: 'Lucía Cáceres', enviado: true });
-      } else if (cmpFecha(e.fecha, '06/03/2026') <= 0) {
-        if (e.colaboradorId === 13) this.aprobaciones.set(e.key, { estado: 'Rechazado', lineas: [], observacion: 'No fue solicitada por la jefatura', aprobadoPor: 'Diego Benavides', enviado: false });
-        else if (e.colaboradorId === 3) this.aprobaciones.set(e.key, { estado: 'Aprobado parcial', lineas: [{ minutos: 60, tipo: 25 }], observacion: 'Se aprueba 1 hora; el resto no fue coordinado', aprobadoPor: 'Lucía Cáceres', enviado: false });
-        else this.aprobaciones.set(e.key, { estado: 'Aprobado', lineas: this.sugeridas(e), observacion: '', aprobadoPor: 'Lucía Cáceres', enviado: false });
       }
     }
   }
@@ -721,13 +692,16 @@ export class ControlAsistenciaService {
   // --- Supervisor notes --------------------------------------------------------------------------------------------
   agregarNota(c: Colaborador, texto: string): void {
     const list = this.notas$.value;
-    this.notas$.next([{ id: Math.max(0, ...list.map((x) => x.id)) + 1, colaboradorId: c.id, fecha: fmtFecha(new Date()), texto, autor: this.data.usuario.nombre }, ...list]);
+    const nota: NotaSupervisor = { id: this.tmp--, colaboradorId: c.id, fecha: fmtFecha(new Date()), texto, autor: this.data.usuario.nombre };
+    this.notas$.next([nota, ...list]);
     this.registrar(nombreCol(c), c.documento, 'Observación del supervisor', 'Crear', texto.slice(0, 60));
+    this.api.enviar(this.api.post<NotaSupervisor>('notas', { colaboradorId: c.id, texto }), (x) => Object.assign(nota, x));
   }
 
   // --- Misc ----------------------------------------------------------------------------------------------------------
   monto(n: number): string { return soles(Math.round(n * 100) / 100); }
+  /** Shows the change in Historial at once; the API records it (so it is not sent from here). */
   private registrar(colaborador: string, documento: string, entidad: string, accion: 'Crear' | 'Modificar' | 'Eliminar', actual?: string, propiedad?: string, anterior?: string): void {
-    this.audit.registrar({ colaborador, documento, entidad, accion, actual, propiedad, anterior });
+    this.audit.registrar({ colaborador, documento, entidad, accion, actual, propiedad, anterior }, false);
   }
 }

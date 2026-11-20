@@ -25,7 +25,8 @@ export class AuditService {
     );
   }
 
-  registrar(c: { colaborador: string; documento: string; entidad: string; accion: AccionCambio; propiedad?: string; anterior?: string; actual?: string }): void {
+  /** `enviar` = false: the API already records this change (it only shows it here until the next reload). */
+  registrar(c: { colaborador: string; documento: string; entidad: string; accion: AccionCambio; propiedad?: string; anterior?: string; actual?: string }, enviar = true): void {
     const fecha = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
     const u = this.auth.usuario;
     this.cambios.unshift({
@@ -33,6 +34,6 @@ export class AuditService {
       propiedad: c.propiedad ?? '—', anterior: c.anterior ?? '—', actual: c.actual ?? '—',
       colaborador: c.colaborador, documento: c.documento, entidad: c.entidad, accion: c.accion,
     });
-    if (this.auth.autenticado) this.http.post(`${API_URL}/cambios`, c).pipe(catchError(() => of(null))).subscribe();
+    if (enviar && this.auth.autenticado) this.http.post(`${API_URL}/cambios`, c).pipe(catchError(() => of(null))).subscribe();
   }
 }

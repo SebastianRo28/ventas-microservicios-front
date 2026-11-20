@@ -92,7 +92,8 @@ const ESTADOS: (EstadoHhee | 'Todos')[] = ['Todos', 'En espera', 'Aprobado', 'Ap
 export class CaHorasExtrasComponent implements OnDestroy {
   readonly cols = COLS;
   readonly acciones: RowAction[] = ['editar', 'aprobar', 'rechazar'];
-  readonly bulk = ['Aprobar seleccionadas', 'Rechazar seleccionadas', 'Enviar a planilla'];
+  /** Sending to payroll is for administrators. */
+  get bulk(): string[] { return this.ca.esAdmin ? ['Aprobar seleccionadas', 'Rechazar seleccionadas', 'Enviar a planilla'] : ['Aprobar seleccionadas', 'Rechazar seleccionadas']; }
   readonly estados = ESTADOS;
   readonly tipos: TipoHhee[] = [25, 35, 100];
   readonly dur = dur;
@@ -166,6 +167,7 @@ export class CaHorasExtrasComponent implements OnDestroy {
   onAction(a: RowAction, row: Row): void {
     const e = this.exceso(row.id);
     if (!e) return;
+    if (!this.ca.gestiona(e.colaboradorId)) { this.ui.toast('Tus propias horas extras las aprueba tu jefatura o RR.HH.'); return; }
     if (a === 'editar') {
       const ap = this.ca.aprobacion(e);
       this.edIntento = false;
@@ -181,7 +183,9 @@ export class CaHorasExtrasComponent implements OnDestroy {
   }
 
   onBulk(accion: string, rows: Row[]): void {
-    const es = rows.map((r) => this.exceso(r.id)).filter((e): e is Exceso => !!e);
+    const todas = rows.map((r) => this.exceso(r.id)).filter((e): e is Exceso => !!e);
+    const es = todas.filter((e) => this.ca.gestiona(e.colaboradorId));
+    if (es.length < todas.length) this.ui.toast('Se omitieron tus propias horas extras: las aprueba tu jefatura o RR.HH.');
     if (!es.length) return;
     if (accion === 'Aprobar seleccionadas') {
       const pendientes = es.filter((e) => this.ca.aprobacion(e).estado === 'En espera');

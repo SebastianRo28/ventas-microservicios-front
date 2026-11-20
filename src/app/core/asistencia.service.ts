@@ -1,11 +1,13 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { AsistenciaApi } from './asistencia-api.service';
 import { AuditService } from './audit.service';
+import { AuthService } from './auth.service';
 import { parseFecha } from './format';
 import { Colaborador } from './models';
 import {
-  AUSENCIAS, AUSENCIA_CON_GOCE, Ausencia, CONFIG_ASISTENCIA, ConfigAsistencia, DIAS_VACACIONES_ANUALES, FERIADOS_2026, JORNALES, RECARGOS, RecargoDomingo, FECHA_CORTE, FECHA_SALDO_INICIAL, SALDOS_INICIALES, LICENCIAS, LicenciaMedica, SOLICITUDES_ASISTENCIA,
-  SolicitudAsistencia, TipoAusencia, VACACIONES, Vacacion
+  AUSENCIA_CON_GOCE, Ausencia, CONFIG_ASISTENCIA, ConfigAsistencia, DIAS_VACACIONES_ANUALES, FECHA_CORTE, FECHA_SALDO_INICIAL, Feriado, LicenciaMedica,
+  RecargoDomingo, SolicitudAsistencia, TipoAusencia, Vacacion
 } from './sample/asistencia';
 
 const DIA = 86_400_000;
@@ -36,27 +38,52 @@ export const fmtFecha = (d: Date): string =>
 const nombre = (c: Colaborador) => `${c.apellidos}, ${c.nombres}`;
 
 /**
- * Vacations, absences, medical certificates and attendance requests. In memory until there is an API;
- * every change goes to the audit log so it shows in Historial de cambios.
+ * Vacations, absences, medical certificates, attendance requests and Sunday surcharges, stored by the API
+ * (GET /api/asistencia). Changes apply here at once and are sent to the API, which validates them, checks the role
+ * and records them in Historial de cambios; when it rejects one, the data is reloaded from the server.
  */
 @Injectable({ providedIn: 'root' })
 export class AsistenciaService {
-  readonly corte = FECHA_CORTE;
-  readonly vacaciones$ = new BehaviorSubject<Vacacion[]>(VACACIONES);
-  readonly ausencias$ = new BehaviorSubject<Ausencia[]>(AUSENCIAS);
-  readonly licencias$ = new BehaviorSubject<LicenciaMedica[]>(LICENCIAS);
-  readonly solicitudes$ = new BehaviorSubject<SolicitudAsistencia[]>(SOLICITUDES_ASISTENCIA);
-  readonly recargos$ = new BehaviorSubject<RecargoDomingo[]>(RECARGOS);
+  readonly vacaciones$ = new BehaviorSubject<Vacacion[]>([]);
+  readonly ausencias$ = new BehaviorSubject<Ausencia[]>([]);
+  readonly licencias$ = new BehaviorSubject<LicenciaMedica[]>([]);
+  readonly solicitudes$ = new BehaviorSubject<SolicitudAsistencia[]>([]);
+  readonly recargos$ = new BehaviorSubject<RecargoDomingo[]>([]);
   readonly config: ConfigAsistencia = CONFIG_ASISTENCIA;
   /** Daily wage of collaborators paid by the day; others are monthly. */
-  readonly jornales: Record<number, number> = JORNALES;
+  readonly jornales: Record<number, number> = {};
+  private feriados: Feriado[] = [];
+  private saldos: Record<number, number> = {};
+  private corteApi = FECHA_CORTE;
+  /** Temporary ids for records not yet confirmed by the API. */
+  private tmp = -1;
 
-  constructor(private audit: AuditService) {}
+  constructor(private audit: AuditService, private api: AsistenciaApi, private auth: AuthService) {
+    api.datos$.subscribe((d) => {
+      this.corteApi = d?.corte ?? FECHA_CORTE;
+      this.feriados = d?.feriados ?? [];
+      for (const k of Object.keys(this.jornales)) delete this.jornales[+k];
+      this.saldos = {};
+      for (const p of d?.perfiles ?? []) {
+        if (p.jornal != null) this.jornales[p.colaboradorId] = p.jornal;
+        this.saldos[p.colaboradorId] = p.saldoInicial;
+      }
+      this.licencias$.next(d?.licencias ?? []);
+      this.solicitudes$.next(d?.solicitudes ?? []);
+      this.recargos$.next(d?.recargos ?? []);
+      this.vacaciones$.next(d?.vacaciones ?? []);
+      this.ausencias$.next(d?.ausencias ?? []);
+    });
+  }
+
+  /** "Today" of the module (cut-off date). */
+  get corte(): string { return this.corteApi; }
+  private get firma(): string { return this.auth.usuario?.nombre ?? '—'; }
 
   // --- Vacation balance -----------------------------------------------------
   readonly fechaSaldoInicial = FECHA_SALDO_INICIAL;
   /** Opening balance imported at FECHA_SALDO_INICIAL (0 for people hired later). */
-  saldoInicial(c: Colaborador): number { return SALDOS_INICIALES[c.id] ?? 0; }
+  saldoInicial(c: Colaborador): number { return this.saldos[c.id] ?? 0; }
   /** Opening balance plus days accrued since then (or since hire): 30 per year, proportional. */
   devengado(c: Colaborador): number {
     const ingreso = parseFecha(c.ingreso), corte = parseFecha(this.corte)!, inicio = parseFecha(FECHA_SALDO_INICIAL)!;
@@ -91,7 +118,7 @@ export class AsistenciaService {
 
   // --- Pay values ----------------------------------------------------------
   /** Monthly base: sueldo base when known, otherwise the payroll amount on file. */
-  base(c: Colaborador): number { return c.detalle?.sueldoBase ?? c.sueldoNeto; }
+  base(c: Colaborador): number { return c.detalle?.sueldoBase ?? c.sueldoNeto ?? 0; }
   esDiario(c: Colaborador): boolean { return this.jornales[c.id] !== undefined; }
   /** Daily value: the jornal, or monthly base / 30 (Peruvian payroll uses 30-day months). */
   valorDia(c: Colaborador): number { return Math.round((this.esDiario(c) ? this.jornales[c.id] : this.base(c) / 30) * 100) / 100; }
@@ -103,7 +130,7 @@ export class AsistenciaService {
       .reduce((s, a) => s + diasEnMes(a.desde, a.hasta, anio, mes), 0);
   }
 
-  esFeriado(fecha: string): string | undefined { return FERIADOS_2026.find((f) => f.fecha === fecha)?.nombre; }
+  esFeriado(fecha: string): string | undefined { return this.feriados.find((f) => f.fecha === fecha)?.nombre; }
 
   /** Surcharge amount: hours × hourly value × sobretasa, unless a substitute rest day was granted. */
   montoRecargo(r: RecargoDomingo, c: Colaborador): number {
@@ -111,92 +138,115 @@ export class AsistenciaService {
     return Math.round(r.horas * this.valorHora(c) * (1 + this.config.sobretasaDomingo / 100) * 100) / 100;
   }
 
-  // --- Mutations ------------------------------------------------------------
+  // --- Mutations (local first, then the API) --------------------------------
+  private vacacionLocal(c: Colaborador, desde: string, hasta: string, origen: Vacacion['origen'], observacion: string): Vacacion {
+    const nueva: Vacacion = { id: this.tmp--, colaboradorId: c.id, desde, hasta, dias: diasCalendario(desde, hasta), origen, observacion };
+    this.vacaciones$.next([...this.vacaciones$.value, nueva]);
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: 'Vacaciones', accion: 'Crear', actual: `${nueva.dias} días (${desde} al ${hasta})` }, false);
+    return nueva;
+  }
+  private ausenciaLocal(c: Colaborador, tipo: TipoAusencia, desde: string, hasta: string, observacion: string): Ausencia {
+    const nueva: Ausencia = { id: this.tmp--, colaboradorId: c.id, tipo, desde, hasta, dias: diasCalendario(desde, hasta), observacion };
+    this.ausencias$.next([nueva, ...this.ausencias$.value]);
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: 'Ausencia', accion: 'Crear', actual: `${tipo} · ${nueva.dias} días` }, false);
+    return nueva;
+  }
+
   registrarVacacion(c: Colaborador, desde: string, hasta: string, origen: Vacacion['origen'], observacion: string): Vacacion {
-    const list = this.vacaciones$.value;
-    const nueva: Vacacion = { id: Math.max(0, ...list.map((x) => x.id)) + 1, colaboradorId: c.id, desde, hasta, dias: diasCalendario(desde, hasta), origen, observacion };
-    this.vacaciones$.next([...list, nueva]);
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Vacaciones #${nueva.id}`, accion: 'Crear', actual: `${nueva.dias} días (${desde} al ${hasta})` });
+    const nueva = this.vacacionLocal(c, desde, hasta, origen, observacion);
+    this.api.enviar(this.api.post<Vacacion>('vacaciones', { colaboradorId: c.id, desde, hasta, origen, observacion }), (r) => (nueva.id = r.id));
     return nueva;
   }
 
   eliminarVacacion(v: Vacacion, c: Colaborador): void {
     this.vacaciones$.next(this.vacaciones$.value.filter((x) => x !== v));
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Vacaciones #${v.id}`, accion: 'Eliminar', anterior: `${v.dias} días (${v.desde})` });
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Vacaciones #${v.id}`, accion: 'Eliminar', anterior: `${v.dias} días (${v.desde})` }, false);
+    this.api.enviar(this.api.eliminar(`vacaciones/${v.id}`));
   }
 
   registrarAusencia(c: Colaborador, tipo: TipoAusencia, desde: string, hasta: string, observacion: string): Ausencia {
-    const list = this.ausencias$.value;
-    const nueva: Ausencia = { id: Math.max(0, ...list.map((x) => x.id)) + 1, colaboradorId: c.id, tipo, desde, hasta, dias: diasCalendario(desde, hasta), observacion };
-    this.ausencias$.next([nueva, ...list]);
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Ausencia #${nueva.id}`, accion: 'Crear', actual: `${tipo} · ${nueva.dias} días` });
+    const nueva = this.ausenciaLocal(c, tipo, desde, hasta, observacion);
+    this.api.enviar(this.api.post<Ausencia>('ausencias', { colaboradorId: c.id, tipo, desde, hasta, observacion }), (r) => (nueva.id = r.id));
     return nueva;
   }
 
   eliminarAusencia(x: Ausencia, c: Colaborador): void {
     this.ausencias$.next(this.ausencias$.value.filter((a) => a !== x));
     for (const l of this.licencias$.value) if (l.ausenciaId === x.id) delete l.ausenciaId;
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Ausencia #${x.id}`, accion: 'Eliminar', anterior: `${x.tipo} · ${x.dias} días` });
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Ausencia #${x.id}`, accion: 'Eliminar', anterior: `${x.tipo} · ${x.dias} días` }, false);
+    this.api.enviar(this.api.eliminar(`ausencias/${x.id}`));
   }
 
   crearSolicitud(c: Colaborador, tipo: SolicitudAsistencia['tipo'], desde: string, hasta: string, motivo: string): SolicitudAsistencia {
-    const list = this.solicitudes$.value;
     const nueva: SolicitudAsistencia = {
-      id: Math.max(0, ...list.map((x) => x.id)) + 1, colaboradorId: c.id, tipo, desde, hasta, dias: diasCalendario(desde, hasta),
-      motivo, creada: fmtFecha(new Date()), estado: 'Pendiente', aprobador: 'Rodrigo Paredes', comentario: '',
+      id: this.tmp--, colaboradorId: c.id, tipo, desde, hasta, dias: diasCalendario(desde, hasta),
+      motivo, creada: fmtFecha(new Date()), estado: 'Pendiente', aprobador: '', comentario: '',
     };
-    this.solicitudes$.next([nueva, ...list]);
+    this.solicitudes$.next([nueva, ...this.solicitudes$.value]);
+    this.api.enviar(this.api.post<SolicitudAsistencia>('solicitudes', { colaboradorId: c.id, tipo, desde, hasta, motivo }), (r) => Object.assign(nueva, r));
     return nueva;
   }
 
-  /** Approves or rejects a request; approved vacations/permissions are written to the calendar. */
+  /** Approves or rejects a request; approved vacations/permissions are written to the calendar (by the API too). */
   resolverSolicitud(s: SolicitudAsistencia, c: Colaborador, aprobar: boolean, comentario: string): void {
     s.estado = aprobar ? 'Aprobada' : 'Rechazada';
     s.comentario = comentario;
-    s.aprobador = 'Rodrigo Paredes';
+    s.aprobador = this.firma;
+    let vac: Vacacion | undefined, aus: Ausencia | undefined;
     if (aprobar) {
-      if (s.tipo === 'Vacaciones') this.registrarVacacion(c, s.desde, s.hasta, 'Solicitud', s.motivo);
-      else this.registrarAusencia(c, s.tipo, s.desde, s.hasta, s.motivo);
-    } else {
-      this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Solicitud #${s.id}`, accion: 'Modificar', propiedad: 'estado', anterior: 'Pendiente', actual: 'Rechazada' });
+      if (s.tipo === 'Vacaciones') vac = this.vacacionLocal(c, s.desde, s.hasta, 'Solicitud', s.motivo);
+      else aus = this.ausenciaLocal(c, s.tipo, s.desde, s.hasta, s.motivo);
     }
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Solicitud #${s.id}`, accion: 'Modificar', propiedad: 'estado', anterior: 'Pendiente', actual: s.estado }, false);
     this.solicitudes$.next([...this.solicitudes$.value]);
+    this.api.enviar(this.api.post<{ vacacion?: Vacacion; ausencia?: Ausencia }>(`solicitudes/${s.id}/resolver`, { aprobar, comentario }), (r) => {
+      if (vac && r.vacacion) vac.id = r.vacacion.id;
+      if (aus && r.ausencia) aus.id = r.ausencia.id;
+    });
   }
 
   registrarRecargo(c: Colaborador, r: Omit<RecargoDomingo, 'id' | 'colaboradorId'>): RecargoDomingo {
-    const list = this.recargos$.value;
-    const nuevo: RecargoDomingo = { ...r, id: Math.max(0, ...list.map((x) => x.id)) + 1, colaboradorId: c.id };
-    this.recargos$.next([nuevo, ...list]);
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Recargo domingo #${nuevo.id}`, accion: 'Crear', actual: `${r.fecha} · ${r.horas} h` });
+    const nuevo: RecargoDomingo = { ...r, id: this.tmp--, colaboradorId: c.id };
+    this.recargos$.next([nuevo, ...this.recargos$.value]);
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: 'Recargo domingo', accion: 'Crear', actual: `${r.fecha} · ${r.horas} h` }, false);
+    this.api.enviar(this.api.post<RecargoDomingo>('recargos', { ...r, colaboradorId: c.id }), (x) => (nuevo.id = x.id));
     return nuevo;
   }
   eliminarRecargo(r: RecargoDomingo, c: Colaborador): void {
     this.recargos$.next(this.recargos$.value.filter((x) => x !== r));
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Recargo domingo #${r.id}`, accion: 'Eliminar', anterior: `${r.fecha} · ${r.horas} h` });
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Recargo domingo #${r.id}`, accion: 'Eliminar', anterior: `${r.fecha} · ${r.horas} h` }, false);
+    this.api.enviar(this.api.eliminar(`recargos/${r.id}`));
   }
   cambiarJornal(c: Colaborador, jornal: number | null): void {
     const anterior = this.esDiario(c) ? `Diario S/ ${this.jornales[c.id].toFixed(2)}` : 'Mensual';
     if (jornal === null) delete this.jornales[c.id]; else this.jornales[c.id] = jornal;
     this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Trabajo · ${c.cargo}`, accion: 'Modificar', propiedad: 'tipo_remuneracion',
-      anterior, actual: jornal === null ? 'Mensual' : `Diario S/ ${jornal.toFixed(2)}` });
+      anterior, actual: jornal === null ? 'Mensual' : `Diario S/ ${jornal.toFixed(2)}` }, false);
+    this.api.enviar(this.api.put(`jornal/${c.id}`, { jornal }));
   }
 
-  /** Validating a certificate creates the matching "Descanso médico" absence. */
+  /** Validating a certificate creates the matching "Descanso médico" absence (the API does the same). */
   cambiarEstadoLicencia(l: LicenciaMedica, c: Colaborador, estado: LicenciaMedica['estado']): void {
     const anterior = l.estado;
     l.estado = estado;
+    let aus: Ausencia | undefined;
     if (estado === 'Validada' && l.ausenciaId === undefined) {
-      l.ausenciaId = this.registrarAusencia(c, 'Descanso médico', l.desde, l.hasta, `${l.emisor} · ${l.folio}`).id;
+      aus = this.ausenciaLocal(c, 'Descanso médico', l.desde, l.hasta, `${l.emisor} · ${l.folio}`);
+      l.ausenciaId = aus.id;
     }
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Licencia ${l.folio}`, accion: 'Modificar', propiedad: 'estado', anterior, actual: estado });
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Licencia ${l.folio}`, accion: 'Modificar', propiedad: 'estado', anterior, actual: estado }, false);
     this.licencias$.next([...this.licencias$.value]);
+    this.api.enviar(this.api.post<{ ausencia?: Ausencia }>(`licencias/${l.id}/estado`, { estado }), (r) => {
+      if (aus && r.ausencia) { aus.id = r.ausencia.id; l.ausenciaId = r.ausencia.id; }
+    });
   }
 
   agregarLicencia(l: Omit<LicenciaMedica, 'id' | 'dias' | 'estado' | 'recibida'>, c: Colaborador): LicenciaMedica {
-    const list = this.licencias$.value;
-    const nueva: LicenciaMedica = { ...l, id: Math.max(0, ...list.map((x) => x.id)) + 1, dias: diasCalendario(l.desde, l.hasta), estado: 'Recibida', recibida: fmtFecha(new Date()) };
-    this.licencias$.next([nueva, ...list]);
-    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Licencia ${nueva.folio}`, accion: 'Crear', actual: 'Recibida' });
+    const nueva: LicenciaMedica = { ...l, id: this.tmp--, dias: diasCalendario(l.desde, l.hasta), estado: 'Recibida', recibida: fmtFecha(new Date()) };
+    this.licencias$.next([nueva, ...this.licencias$.value]);
+    this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Licencia ${nueva.folio}`, accion: 'Crear', actual: 'Recibida' }, false);
+    this.api.enviar(this.api.post<LicenciaMedica>('licencias', { colaboradorId: c.id, folio: l.folio, emisor: l.emisor, diagnostico: l.diagnostico, desde: l.desde, hasta: l.hasta }),
+      (r) => Object.assign(nueva, r));
     return nueva;
   }
 }

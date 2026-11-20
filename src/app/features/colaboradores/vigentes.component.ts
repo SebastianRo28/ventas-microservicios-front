@@ -44,7 +44,8 @@ export class VigentesComponent {
         id: c.id,
         nombre: { text: `${c.apellidos}, ${c.nombres}`, chip: 'F1', link: `/admin/colaboradores/ficha/${c.id}` },
         doc: c.documento, cargo: c.cargo, div: c.division, area: c.area, sub: c.subArea, ing: c.ingreso,
-        neto: 'S/ ' + c.sueldoNeto.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+        // Reserved records (outside the user's team) come without salary.
+        neto: c.sueldoNeto == null ? '—' : 'S/ ' + c.sueldoNeto.toLocaleString('en-US', { minimumFractionDigits: 2 }),
       }));
     });
   }

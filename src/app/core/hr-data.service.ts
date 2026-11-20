@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, forkJoin, map, of, switchMap, tap } from 'rxjs';
 import { API_URL } from './api';
+import { AsistenciaApi } from './asistencia-api.service';
 import { AuditService } from './audit.service';
 import { AuthService } from './auth.service';
 import { UiStateService } from './ui-state.service';
@@ -42,7 +43,8 @@ export class HrDataService {
   /** Organizational level used by Headcount (Headcount › Configuraciones). */
   hcNivel: 'division' | 'area' | 'subarea' = 'area';
 
-  constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService) {
+  constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService,
+              private asistenciaApi: AsistenciaApi) {
     // Page reloaded with a session still open: load the data again.
     if (auth.autenticado) this.cargar().subscribe();
     auth.usuario$.subscribe((u) => { if (!u) this.colaboradores$.next([]); });
@@ -58,7 +60,7 @@ export class HrDataService {
   /** Loads what comes from the API (collaborators and, for administrators, the change log). */
   cargar(): Observable<void> {
     if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
-    return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar()]).pipe(
+    return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar(), this.asistenciaApi.cargar()]).pipe(
       map(([cs]) => { this.colaboradores$.next(cs); }),
       catchError(() => { this.ui.toast('No se pudo cargar la información desde el servidor de Nexo RH'); return of(undefined); }),
     );

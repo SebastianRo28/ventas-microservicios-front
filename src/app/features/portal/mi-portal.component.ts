@@ -123,13 +123,18 @@ export class MiPortalComponent {
 
   toggleLike(p: Post): void { this.liked.has(p.id) ? this.liked.delete(p.id) : this.liked.add(p.id); }
 
+  /** A punch is being sent to the API. */
+  marcando = false;
   /** Punch from the portal (method Web); it shows up in Control de Asistencia at once. */
   marcar(tipo: 'Entrada' | 'Salida'): void {
-    // The sample data lives on 16/03/2026; its clock (ca.horaCorte) is used so the punch fits the day already on file.
+    // The API sets the date and time of the punch.
     if (this.portal.yoId < 0) { this.marca = 'Tu usuario no está vinculado a un colaborador, así que no puede registrar asistencia.'; this.marcaError = true; return; }
-    const r = this.ca.marcar(this.portal.yoId, +this.ubicacion, tipo, 'Web', this.ca.horaCorte);
-    this.marca = r.mensaje;
-    this.marcaError = !r.ok;
+    this.marcando = true;
+    this.ca.marcar(this.portal.yoId, +this.ubicacion, tipo, 'Web').subscribe((r) => {
+      this.marcando = false;
+      this.marca = r.mensaje;
+      this.marcaError = !r.ok;
+    });
   }
 
   openRecon(): void { this.recon = 1; this.valor = 0; this.reconWho = ['Chávez Quispe, Renato']; this.reconMsg = ''; }

@@ -54,7 +54,7 @@ export class LoginComponent {
       next: () => {
         this.password = '';
         if (this.auth.debeCambiarPassword) { this.router.navigate(['/cambiar-password'], { queryParams: { vuelta: this.vuelta } }); return; }
-        this.data.cargar().subscribe({ complete: () => this.router.navigateByUrl(this.vuelta.startsWith('/login') ? '/' : this.vuelta) });
+        this.data.cargar().subscribe({ complete: () => this.router.navigateByUrl(this.vuelta === '/' || this.vuelta.startsWith('/login') ? this.auth.inicio : this.vuelta) });
       },
       error: (e) => { this.cargando = false; this.error = mensajeError(e); },
     });
