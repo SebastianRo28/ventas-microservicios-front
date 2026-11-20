@@ -7,7 +7,7 @@ import { AuditService } from './audit.service';
 import { AuthService } from './auth.service';
 import { UiStateService } from './ui-state.service';
 import {
-  Boleta, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PeriodoRem, Serie, UsuarioCreado, UsuarioCuenta, UsuarioGuardar
+  Boleta, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PerfilCuenta, PerfilGuardar, PeriodoRem, Serie, UsuarioCreado, UsuarioCuenta, UsuarioGuardar
 } from './models';
 import { ARCHIVOS_PAGOS, ArchivoPago, PERIODOS_PROCESOS, PeriodoProcesos } from './sample/remuneraciones';
 import { PlantillaWf, SOLICITUDES_WF, SolicitudWf } from './sample/workflow';
@@ -27,7 +27,7 @@ import {
   Publicacion, RECONOCIMIENTOS, REPORTES, Reconocimiento, Reporte
 } from './sample/reportes';
 import {
-  BANDAS, Banda, CargoMercado, ESTUDIO_SALARIAL, NIVELES_BANDA, NivelBanda, PERFILES, Perfil, REMUNERACIONES, Remuneracion
+  BANDAS, Banda, CargoMercado, ESTUDIO_SALARIAL, NIVELES_BANDA, NivelBanda, REMUNERACIONES, Remuneracion
 } from './sample/compensaciones';
 
 /**
@@ -143,7 +143,10 @@ export class HrDataService {
   importadores(): Observable<Importador[]> { return of(IMPORTADORES); }
   reportes(): Observable<Reporte[]> { return of(REPORTES); }
   historialReportes(): Observable<EjecucionReporte[]> { return of(HISTORIAL_REPORTES); }
-  perfiles(): Observable<Perfil[]> { return of(PERFILES); }
+  perfiles(): Observable<PerfilCuenta[]> { return this.http.get<PerfilCuenta[]>(`${API_URL}/perfiles`); }
+  crearPerfil(p: PerfilGuardar): Observable<PerfilCuenta> { return this.http.post<PerfilCuenta>(`${API_URL}/perfiles`, p); }
+  modificarPerfil(id: number, p: PerfilGuardar): Observable<PerfilCuenta> { return this.http.put<PerfilCuenta>(`${API_URL}/perfiles/${id}`, p); }
+  eliminarPerfil(id: number): Observable<unknown> { return this.http.delete(`${API_URL}/perfiles/${id}`); }
   usuarios(): Observable<UsuarioCuenta[]> { return this.http.get<UsuarioCuenta[]>(`${API_URL}/usuarios`); }
   crearUsuario(u: UsuarioGuardar): Observable<UsuarioCreado> { return this.http.post<UsuarioCreado>(`${API_URL}/usuarios`, u); }
   modificarUsuario(id: number, u: UsuarioGuardar): Observable<UsuarioCuenta> { return this.http.put<UsuarioCuenta>(`${API_URL}/usuarios/${id}`, u); }

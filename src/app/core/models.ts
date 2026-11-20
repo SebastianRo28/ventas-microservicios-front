@@ -87,6 +87,7 @@ export interface UsuarioCuenta {
   correo: string;
   rol: 'Administrador' | 'Supervisor' | 'Colaborador';
   perfil: string;
+  perfilId: number | null;
   colaboradorId: number | null;
   colaborador: string | null;
   activo: boolean;
@@ -94,6 +95,13 @@ export interface UsuarioCuenta {
   bloqueado: boolean;
   debeCambiarPassword: boolean;
 }
-export interface UsuarioGuardar { nombre: string; correo: string; rol: string; colaboradorId: number | null; }
+/** The role comes from the profile (perfilId). */
+export interface UsuarioGuardar { nombre: string; correo: string; perfilId: number; colaboradorId: number | null; }
+/** User profile (Administración › Perfiles): a name plus the base role that defines access. */
+export interface PerfilCuenta {
+  id: number; nombre: string; rol: 'Administrador' | 'Supervisor' | 'Colaborador'; predefinido: boolean; descripcion: string;
+  usuarios: number; creado: string; actualizado: string; modificadoPor: string;
+}
+export interface PerfilGuardar { nombre: string; rol: string; descripcion: string; }
 /** Answer to creating an account or resetting its password: the temporary password is shown only once. */
 export interface UsuarioCreado { usuario: UsuarioCuenta; passwordTemporal: string; }

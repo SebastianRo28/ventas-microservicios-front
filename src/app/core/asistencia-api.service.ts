@@ -35,6 +35,8 @@ export interface AsistenciaDatos {
   solicitudes: SolicitudAsistencia[];
   recargos: RecargoDomingo[];
   aprobaciones: AprobacionApi[];
+  /** Settings of the module ('ca-tolerancias', 'ca-metodos'). */
+  configuracion: Record<string, Record<string, string | number | boolean>>;
 }
 
 /**
@@ -61,6 +63,10 @@ export class AsistenciaApi {
 
   post<T>(ruta: string, cuerpo: unknown): Observable<T> { return this.http.post<T>(`${API_URL}/asistencia/${ruta}`, cuerpo); }
   put<T>(ruta: string, cuerpo: unknown): Observable<T> { return this.http.put<T>(`${API_URL}/asistencia/${ruta}`, cuerpo); }
+  /** Saves fields of a module setting (PUT /api/configuracion/{clave}; administrators only). */
+  guardarConfiguracion(clave: string, valores: Record<string, string | number | boolean>): Observable<unknown> {
+    return this.http.put(`${API_URL}/configuracion/${clave}`, valores);
+  }
   eliminar(ruta: string): Observable<unknown> { return this.http.delete(`${API_URL}/asistencia/${ruta}`); }
 
   /** Sends a change already applied locally; on rejection shows why and reloads the server data. */

@@ -154,7 +154,7 @@ export class AsistenciaService {
 
   registrarVacacion(c: Colaborador, desde: string, hasta: string, origen: Vacacion['origen'], observacion: string): Vacacion {
     const nueva = this.vacacionLocal(c, desde, hasta, origen, observacion);
-    this.api.enviar(this.api.post<Vacacion>('vacaciones', { colaboradorId: c.id, desde, hasta, origen, observacion }), (r) => (nueva.id = r.id));
+    this.api.enviar(this.api.post<Vacacion>('vacaciones', { colaboradorId: c.id, desde, hasta, origen, observacion }), (r) => { nueva.id = r.id; this.vacaciones$.next([...this.vacaciones$.value]); });
     return nueva;
   }
 
@@ -166,7 +166,7 @@ export class AsistenciaService {
 
   registrarAusencia(c: Colaborador, tipo: TipoAusencia, desde: string, hasta: string, observacion: string): Ausencia {
     const nueva = this.ausenciaLocal(c, tipo, desde, hasta, observacion);
-    this.api.enviar(this.api.post<Ausencia>('ausencias', { colaboradorId: c.id, tipo, desde, hasta, observacion }), (r) => (nueva.id = r.id));
+    this.api.enviar(this.api.post<Ausencia>('ausencias', { colaboradorId: c.id, tipo, desde, hasta, observacion }), (r) => { nueva.id = r.id; this.ausencias$.next([...this.ausencias$.value]); });
     return nueva;
   }
 
@@ -183,7 +183,7 @@ export class AsistenciaService {
       motivo, creada: fmtFecha(new Date()), estado: 'Pendiente', aprobador: '', comentario: '',
     };
     this.solicitudes$.next([nueva, ...this.solicitudes$.value]);
-    this.api.enviar(this.api.post<SolicitudAsistencia>('solicitudes', { colaboradorId: c.id, tipo, desde, hasta, motivo }), (r) => Object.assign(nueva, r));
+    this.api.enviar(this.api.post<SolicitudAsistencia>('solicitudes', { colaboradorId: c.id, tipo, desde, hasta, motivo }), (r) => { Object.assign(nueva, r); this.solicitudes$.next([...this.solicitudes$.value]); });
     return nueva;
   }
 
@@ -200,8 +200,8 @@ export class AsistenciaService {
     this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Solicitud #${s.id}`, accion: 'Modificar', propiedad: 'estado', anterior: 'Pendiente', actual: s.estado }, false);
     this.solicitudes$.next([...this.solicitudes$.value]);
     this.api.enviar(this.api.post<{ vacacion?: Vacacion; ausencia?: Ausencia }>(`solicitudes/${s.id}/resolver`, { aprobar, comentario }), (r) => {
-      if (vac && r.vacacion) vac.id = r.vacacion.id;
-      if (aus && r.ausencia) aus.id = r.ausencia.id;
+      if (vac && r.vacacion) { vac.id = r.vacacion.id; this.vacaciones$.next([...this.vacaciones$.value]); }
+      if (aus && r.ausencia) { aus.id = r.ausencia.id; this.ausencias$.next([...this.ausencias$.value]); }
     });
   }
 
@@ -209,7 +209,7 @@ export class AsistenciaService {
     const nuevo: RecargoDomingo = { ...r, id: this.tmp--, colaboradorId: c.id };
     this.recargos$.next([nuevo, ...this.recargos$.value]);
     this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: 'Recargo domingo', accion: 'Crear', actual: `${r.fecha} · ${r.horas} h` }, false);
-    this.api.enviar(this.api.post<RecargoDomingo>('recargos', { ...r, colaboradorId: c.id }), (x) => (nuevo.id = x.id));
+    this.api.enviar(this.api.post<RecargoDomingo>('recargos', { ...r, colaboradorId: c.id }), (x) => { nuevo.id = x.id; this.recargos$.next([...this.recargos$.value]); });
     return nuevo;
   }
   eliminarRecargo(r: RecargoDomingo, c: Colaborador): void {
@@ -237,7 +237,7 @@ export class AsistenciaService {
     this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Licencia ${l.folio}`, accion: 'Modificar', propiedad: 'estado', anterior, actual: estado }, false);
     this.licencias$.next([...this.licencias$.value]);
     this.api.enviar(this.api.post<{ ausencia?: Ausencia }>(`licencias/${l.id}/estado`, { estado }), (r) => {
-      if (aus && r.ausencia) { aus.id = r.ausencia.id; l.ausenciaId = r.ausencia.id; }
+      if (aus && r.ausencia) { aus.id = r.ausencia.id; l.ausenciaId = r.ausencia.id; this.ausencias$.next([...this.ausencias$.value]); this.licencias$.next([...this.licencias$.value]); }
     });
   }
 
@@ -246,7 +246,7 @@ export class AsistenciaService {
     this.licencias$.next([nueva, ...this.licencias$.value]);
     this.audit.registrar({ colaborador: nombre(c), documento: c.documento, entidad: `Licencia ${nueva.folio}`, accion: 'Crear', actual: 'Recibida' }, false);
     this.api.enviar(this.api.post<LicenciaMedica>('licencias', { colaboradorId: c.id, folio: l.folio, emisor: l.emisor, diagnostico: l.diagnostico, desde: l.desde, hasta: l.hasta }),
-      (r) => Object.assign(nueva, r));
+      (r) => { Object.assign(nueva, r); this.licencias$.next([...this.licencias$.value]); });
     return nueva;
   }
 }

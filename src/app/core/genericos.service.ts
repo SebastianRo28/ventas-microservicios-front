@@ -1,10 +1,17 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { AsistenciaApi } from './asistencia-api.service';
 import { AuditService } from './audit.service';
 import { CatalogoConfig, ConfigFormDef, FilaCatalogo } from './genericos';
 import { FERIADOS_2026 } from './sample/asistencia';
 
-/** Rows of the generic catalogs and values of the generic settings forms, in memory until there is an API. */
+/** Settings forms stored by the API (GET/PUT /api/configuracion/{clave}); the rest stay in memory for now. */
+const EN_SERVIDOR = new Set(['ca-tolerancias', 'ca-metodos']);
+
+/**
+ * Rows of the generic catalogs and values of the generic settings forms. The attendance settings come from the API
+ * (with the attendance data) and are saved there; the others are in memory until their module has an API.
+ */
 @Injectable({ providedIn: 'root' })
 export class GenericosService {
   private readonly catalogos = new Map<string, BehaviorSubject<FilaCatalogo[]>>();
@@ -13,7 +20,18 @@ export class GenericosService {
   /** Emits the key of a settings form when it is saved, so the modules that read it can recalculate. */
   readonly configCambio$ = new Subject<string>();
 
-  constructor(private audit: AuditService) {}
+  constructor(private audit: AuditService, private api: AsistenciaApi) {
+    api.datos$.subscribe((d) => {
+      for (const clave of EN_SERVIDOR) {
+        const v = d?.configuracion?.[clave];
+        if (!v) continue;
+        // Same object, so screens holding it see the new values.
+        const actual = this.configs.get(clave);
+        if (actual) Object.assign(actual, v); else this.configs.set(clave, { ...v });
+        this.configCambio$.next(clave);
+      }
+    });
+  }
 
   /** Rows of a catalog, seeded from its config the first time it is opened. */
   filas$(cfg: CatalogoConfig): BehaviorSubject<FilaCatalogo[]> {
@@ -70,7 +88,9 @@ export class GenericosService {
     const actual = this.valores(def);
     const cambios = Object.keys(valores).filter((k) => String(valores[k]) !== String(actual[k]));
     Object.assign(actual, valores);
-    if (cambios.length) this.audit.registrar({ colaborador: '—', documento: '—', entidad: titulo, accion: 'Modificar', propiedad: cambios.join(', ') });
+    const servidor = EN_SERVIDOR.has(def.clave);
+    if (cambios.length) this.audit.registrar({ colaborador: '—', documento: '—', entidad: titulo, accion: 'Modificar', propiedad: cambios.join(', ') }, !servidor);
+    if (cambios.length && servidor) this.api.enviar(this.api.guardarConfiguracion(def.clave, Object.fromEntries(cambios.map((k) => [k, valores[k]]))));
     if (cambios.length) this.configCambio$.next(def.clave);
     return cambios;
   }

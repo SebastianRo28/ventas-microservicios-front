@@ -229,12 +229,12 @@ export class ControlAsistenciaService {
     if (t.id != null) {
       res = Object.assign(list.find((x) => x.id === t.id)!, t);
       this.registrar('—', '—', `Turno ${res.sigla}`, 'Modificar', `${res.nombre} · ${this.horarioTurno(res)}`);
-      this.api.enviar(this.api.put<Turno>(`turnos/${res.id}`, res), (x) => Object.assign(res, x));
+      this.api.enviar(this.api.put<Turno>(`turnos/${res.id}`, res), (x) => { Object.assign(res, x); this.turnos$.next([...this.turnos$.value]); });
     } else {
       res = { ...t, id: this.tmp-- };
       list.push(res);
       this.registrar('—', '—', `Turno ${res.sigla}`, 'Crear', `${res.nombre} · ${this.horarioTurno(res)}`);
-      this.api.enviar(this.api.post<Turno>('turnos', res), (x) => Object.assign(res, x));
+      this.api.enviar(this.api.post<Turno>('turnos', res), (x) => { Object.assign(res, x); this.turnos$.next([...this.turnos$.value]); });
     }
     this.turnos$.next([...list]);
     this.invalidar();
@@ -326,12 +326,12 @@ export class ControlAsistenciaService {
         this.registrar('—', '—', `Recinto · ${actual.nombre}`, 'Modificar', fmt(k, (r as Recinto)[k]), label, fmt(k, actual[k]));
       }
       res = Object.assign(actual, r);
-      this.api.enviar(this.api.put<Recinto>(`recintos/${res.id}`, res), (x) => Object.assign(res, x));
+      this.api.enviar(this.api.put<Recinto>(`recintos/${res.id}`, res), (x) => { Object.assign(res, x); this.recintos$.next([...this.recintos$.value]); });
     } else {
       res = { ...r, id: this.tmp-- };
       list.push(res);
       this.registrar('—', '—', `Recinto · ${res.nombre}`, 'Crear', `${res.direccion}, ${res.distrito} · radio ${res.radio} m`);
-      this.api.enviar(this.api.post<Recinto>('recintos', res), (x) => Object.assign(res, x));
+      this.api.enviar(this.api.post<Recinto>('recintos', res), (x) => { Object.assign(res, x); this.recintos$.next([...this.recintos$.value]); });
     }
     this.recintos$.next([...list]);
     this.invalidar();
@@ -391,7 +391,7 @@ export class ControlAsistenciaService {
     this.indexar();
     this.registrar(nombreCol(c), c.documento, 'Marca manual', 'Crear', `${p.tipo} ${p.fecha} ${p.hora} · ${p.motivo}`);
     this.invalidar();
-    this.api.enviar(this.api.post<Marca>('marcas', { colaboradorId: c.id, ...p }), (x) => Object.assign(m, x));
+    this.api.enviar(this.api.post<Marca>('marcas', { colaboradorId: c.id, ...p }), (x) => { Object.assign(m, x); this.invalidar(); });
     return m;
   }
   eliminarMarca(m: Marca): void {
@@ -695,7 +695,7 @@ export class ControlAsistenciaService {
     const nota: NotaSupervisor = { id: this.tmp--, colaboradorId: c.id, fecha: fmtFecha(new Date()), texto, autor: this.data.usuario.nombre };
     this.notas$.next([nota, ...list]);
     this.registrar(nombreCol(c), c.documento, 'Observación del supervisor', 'Crear', texto.slice(0, 60));
-    this.api.enviar(this.api.post<NotaSupervisor>('notas', { colaboradorId: c.id, texto }), (x) => Object.assign(nota, x));
+    this.api.enviar(this.api.post<NotaSupervisor>('notas', { colaboradorId: c.id, texto }), (x) => { Object.assign(nota, x); this.notas$.next([...this.notas$.value]); });
   }
 
   // --- Misc ----------------------------------------------------------------------------------------------------------

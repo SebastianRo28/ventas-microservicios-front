@@ -13,8 +13,8 @@
   <div class="nx-filterbar">
     <div class="nx-card nx-stat nx-stat--inline"><span>Perfiles sin usuarios asignados</span><b>{{ sinUsuarios }}</b></div>
     <div class="nx-grow"></div>
-    <button type="button" class="nx-btn nx-btn--outline" (click)="resumen = perfiles[1]; resumenArea = 0">Configuración de perfil Normal</button>
-    <button type="button" class="nx-btn nx-btn--primary" (click)="intento = false; perfilModal = { nombre: '' }"><app-icon name="plus" [size]="16"></app-icon>Crear Perfil</button>
+    <button *ngIf="perfilNormal as n" type="button" class="nx-btn nx-btn--outline" (click)="resumen = n; resumenArea = 0">Configuración de perfil Normal</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="nuevoPerfil()"><app-icon name="plus" [size]="16"></app-icon>Crear Perfil</button>
   </div>
   <app-data-table [columns]="pcols" [rows]="pRows" [rowActions]="pActions" [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false"
                   tableLabel="Perfiles" minWidth="900px" exportName="perfiles" (action)="onPerfil($event.action, $event.row)"></app-data-table>
@@ -24,39 +24,45 @@
   <div class="nx-picker nx-picker--short">
     <div class="nx-picker__side" role="group" aria-label="Secciones del perfil">
       <button type="button" [class.is-on]="resumenArea === 0" (click)="resumenArea = 0">Resumen general</button>
-      <button *ngFor="let a of areas; let i = index" type="button" [class.is-on]="resumenArea === i + 1" (click)="resumenArea = i + 1">{{ a }}</button>
+      <button type="button" [class.is-on]="resumenArea === 1" (click)="resumenArea = 1">Accesos</button>
     </div>
     <div class="nx-picker__main">
-      <ng-container *ngIf="resumenArea === 0; else areaTpl">
+      <ng-container *ngIf="resumenArea === 0; else accesosTpl">
         <div class="nx-fieldrow"><span>Nombre del perfil</span><span>{{ p.nombre }}</span></div>
         <div class="nx-fieldrow"><span>Tipo de perfil</span><span><span class="nx-badge" [ngClass]="p.predefinido ? 'nx-tone-info' : 'nx-tone-neutral'">{{ p.predefinido ? 'Predefinido' : 'Personalizado' }}</span></span></div>
-        <div class="nx-fieldrow"><span>Usuarios asignados</span><span>{{ count(p.nombre) }}</span></div>
+        <div class="nx-fieldrow"><span>Rol base</span><span>{{ p.rol }}</span></div>
+        <div class="nx-fieldrow"><span>Descripción</span><span>{{ p.descripcion || '—' }}</span></div>
+        <div class="nx-fieldrow"><span>Usuarios asignados</span><span>{{ p.usuarios }}</span></div>
         <div class="nx-fieldrow"><span>Fecha de creación</span><span>{{ p.creado }}</span></div>
         <div class="nx-fieldrow"><span>Última modificación</span><span>{{ p.actualizado }}</span></div>
-        <div class="nx-fieldrow"><span>Modificado por Usuario</span><span>{{ p.modificadoPor }}</span></div>
+        <div class="nx-fieldrow"><span>Modificado por Usuario</span><span>{{ p.modificadoPor || '—' }}</span></div>
       </ng-container>
-      <ng-template #areaTpl>
-        <h3 class="nx-section__title">{{ areas[resumenArea - 1] }}</h3>
-        <div *ngFor="let perm of permisos(p, areas[resumenArea - 1])" class="nx-perm">
-          <span class="nx-grow">{{ perm[0] }}</span>
-          <span class="nx-badge" [ngClass]="perm[1] === 'No' ? 'nx-tone-gray' : perm[1] === 'Lectura' ? 'nx-tone-info' : 'nx-tone-success'">{{ perm[1] }}</span>
+      <ng-template #accesosTpl>
+        <h3 class="nx-section__title">Accesos del rol {{ p.rol }}</h3>
+        <p class="nx-small nx-muted nx-mt-0">Los define el rol base del perfil; se aplican en el menú, en las rutas y en el servidor.</p>
+        <div *ngFor="let mod of modulos" class="nx-perm">
+          <span class="nx-grow">{{ mod.nombre }}</span>
+          <span class="nx-badge" [ngClass]="puede(p.rol, mod.ruta) ? 'nx-tone-success' : 'nx-tone-gray'">{{ puede(p.rol, mod.ruta) ? 'Sí' : 'No' }}</span>
         </div>
+        <div class="nx-fieldrow nx-mt-12"><span>Datos que ve</span><span>{{ alcance[p.rol] }}</span></div>
       </ng-template>
     </div>
   </div>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="resumen = null">Cerrar</button>
-    <button type="button" class="nx-btn nx-btn--primary" (click)="ui.toast('El editor de perfiles llegará en la próxima versión')">Editar perfil</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="editarPerfil(p)">Editar perfil</button>
   </ng-container>
 </app-modal>
 
 <app-modal *ngIf="userModal as m" [title]="m.id === null ? 'Crear Usuario' : 'Editar Usuario'" width="560px" (closed)="userModal = null">
   <form id="user-form" class="nx-form" (ngSubmit)="guardarUsuario()">
-    <label class="nx-field">Rol*
-      <select class="nx-select" name="rol" [(ngModel)]="m.rol"><option *ngFor="let r of roles" [value]="r">{{ r }}</option></select>
-      <span class="nx-hint">Administrador: todo Nexo RH · Supervisor: su portal, su equipo y su asistencia · Colaborador: solo su portal.</span>
+    <label class="nx-field">Perfil*
+      <select class="nx-select" name="perfil" [(ngModel)]="m.perfilId" [class.is-invalid]="intento && m.perfilId === null">
+        <option *ngFor="let p of perfiles" [ngValue]="p.id">{{ p.nombre }} · rol {{ p.rol }}</option>
+      </select>
+      <span class="nx-hint">El rol del perfil define el acceso. Administrador: todo Nexo RH · Supervisor: su portal, su equipo y su asistencia · Colaborador: solo su portal.</span>
     </label>
-    <label class="nx-field">Colaborador vinculado{{ m.rol === 'Administrador' ? '' : '*' }}
+    <label class="nx-field">Colaborador vinculado{{ rolElegido === 'Administrador' ? '' : '*' }}
       <select class="nx-select" name="colaborador" [ngModel]="m.colaboradorId" (ngModelChange)="elegirColaborador($event)" [class.is-invalid]="intento && faltaColaborador">
         <option [ngValue]="null">— Sin vincular —</option>
         <option *ngFor="let c of colaboradoresLibres" [ngValue]="c.id">{{ c.apellidos }}, {{ c.nombres }} · {{ c.cargo }}</option>
@@ -81,18 +87,38 @@
   </ng-container>
 </app-modal>
 
-<app-modal *ngIf="perfilModal as m" title="Crear Perfil" width="480px" (closed)="perfilModal = null">
-  <form id="perfil-form" class="nx-form" (ngSubmit)="crearPerfil()">
+<app-modal *ngIf="perfilModal as m" [title]="m.id === null ? 'Crear Perfil' : 'Editar Perfil'" width="520px" (closed)="perfilModal = null">
+  <form id="perfil-form" class="nx-form" (ngSubmit)="guardarPerfil()">
     <label class="nx-field">Nombre del perfil*
-      <input class="nx-input" name="nombre" placeholder="Ej. Analista de planillas" [(ngModel)]="m.nombre" [class.is-invalid]="intento && (!m.nombre.trim() || perfilDuplicado)">
+      <input class="nx-input" name="nombre" placeholder="Ej. Analista de planillas" [(ngModel)]="m.nombre" [disabled]="m.predefinido"
+             [class.is-invalid]="intento && (!m.nombre.trim() || perfilDuplicado)">
       <span *ngIf="intento && !m.nombre.trim()" class="nx-error">Campo obligatorio.</span>
       <span *ngIf="intento && m.nombre.trim() && perfilDuplicado" class="nx-error">Ya existe un perfil con ese nombre.</span>
     </label>
-    <span class="nx-hint">Los permisos se configuran en el editor de perfiles.</span>
+    <label class="nx-field">Rol base*
+      <select class="nx-select" name="rol" [(ngModel)]="m.rol" [disabled]="m.predefinido"><option *ngFor="let r of roles" [value]="r">{{ r }}</option></select>
+      <span class="nx-hint">{{ alcance[m.rol] }}</span>
+    </label>
+    <label class="nx-field">Descripción
+      <textarea class="nx-input" name="descripcion" rows="2" maxlength="300" [(ngModel)]="m.descripcion"></textarea>
+    </label>
+    <span *ngIf="m.predefinido" class="nx-hint">Es un perfil predefinido: solo se puede cambiar su descripción.</span>
+    <div *ngIf="cambiaRolConUsuarios" class="nx-banner nx-banner--warning nx-banner--compact" role="note">
+      <app-icon name="alert" [size]="17"></app-icon><span>Cambiará el rol de {{ m.usuarios }} usuario(s) y se cerrarán sus sesiones abiertas.</span>
+    </div>
+    <span *ngIf="errorApi" class="nx-error" role="alert">{{ errorApi }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="perfilModal = null">Cancelar</button>
-    <button type="submit" form="perfil-form" class="nx-btn nx-btn--primary">Crear Perfil</button>
+    <button type="submit" form="perfil-form" class="nx-btn nx-btn--primary" [disabled]="guardando">{{ guardando ? 'Guardando…' : m.id === null ? 'Crear Perfil' : 'Guardar' }}</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="eliminarPerfilConfirmar as p" title="Eliminar perfil" width="480px" (closed)="eliminarPerfilConfirmar = null">
+  <p class="nx-mt-0">Se eliminará el perfil <b>{{ p.nombre }}</b>. No tiene usuarios asignados.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="eliminarPerfilConfirmar = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--danger-solid" (click)="eliminarPerfil()">Eliminar</button>
   </ng-container>
 </app-modal>
 
