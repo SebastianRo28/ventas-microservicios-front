@@ -88,28 +88,25 @@
           <table class="nx-table" aria-label="Boletas de pago">
             <thead>
               <tr>
-                <th>Mes</th><th class="nx-num">Sueldo Bruto</th><th class="nx-num">Sueldo Neto</th><th class="nx-num">Aporte Empleador</th>
-                <th class="nx-num">Horas Extras</th><th class="nx-num">Recargos</th><th class="nx-num">Horas no Trabajadas</th>
-                <th class="nx-num">Días no Trabajados</th><th>Proceso</th><th>Acciones</th>
+                <th>Período</th><th class="nx-num">Ingresos</th><th class="nx-num">Descuentos</th><th class="nx-num">Neto</th><th class="nx-num">Aporte Empleador</th>
+                <th class="nx-num">Horas Extras</th><th class="nx-num">Recargos</th><th class="nx-num">Días no Trabajados</th><th>Estado</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let bo of boletas">
-                <td>{{ bo.mes }}</td><td class="nx-num">{{ soles(bo.bruto) }}</td><td class="nx-num">{{ soles(bo.neto) }}</td>
-                <td class="nx-num">{{ soles(bo.aporteEmpleador) }}</td><td class="nx-num">{{ bo.horasExtras.toFixed(1) }}</td>
-                <td class="nx-num">{{ soles(bo.recargos) }}</td><td class="nx-num">{{ bo.horasNoTrabajadas.toFixed(1) }}</td>
-                <td class="nx-num">{{ bo.diasNoTrabajados }}</td><td>{{ bo.proceso }}</td>
+                <td>{{ bo.periodo }}</td><td class="nx-num">{{ soles(bo.ingresos) }}</td><td class="nx-num">{{ soles(bo.descuentos) }}</td>
+                <td class="nx-num"><b>{{ soles(bo.neto) }}</b></td><td class="nx-num">{{ soles(bo.aportes) }}</td>
+                <td class="nx-num">{{ soles(bo.horasExtras) }}</td><td class="nx-num">{{ soles(bo.recargos) }}</td><td class="nx-num">{{ bo.diasNoTrabajados }}</td>
+                <td><span class="nx-badge" [ngClass]="bo.definitiva ? 'nx-tone-gray' : 'nx-tone-info'">{{ bo.definitiva ? 'Cerrada' : 'Borrador' }}</span></td>
                 <td class="nx-dt__actions">
-                  <span *ngIf="bo.abierto" class="nx-open-dot" title="Proceso abierto"><app-icon name="lock" [size]="14"></app-icon></span>
-                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Ver boleta" title="Ver boleta"><app-icon name="eye" [size]="16"></app-icon></button>
-                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Descargar" title="Descargar"><app-icon name="download" [size]="16"></app-icon></button>
+                  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Ver boleta" title="Ver boleta" (click)="boletaVer = bo.id"><app-icon name="eye" [size]="16"></app-icon></button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
         <ng-template #sinBoletas>
-          <div class="nx-empty nx-empty--compact"><b>Aún no hay boletas</b><span>Las boletas aparecen cuando se procesa la planilla del colaborador.</span></div>
+          <div class="nx-empty nx-empty--compact"><b>Aún no hay boletas</b><span>{{ colabView ? 'Tus boletas aparecen aquí cuando se cierra la planilla del mes.' : 'Las boletas aparecen cuando se procesa la planilla del colaborador.' }}</span></div>
         </ng-template>
       </div>
 
@@ -178,3 +175,5 @@
     <a class="nx-btn nx-btn--outline" routerLink="/admin/colaboradores/vigentes">Ir a Vigentes</a>
   </div>
 </ng-template>
+
+<app-boleta-modal *ngIf="boletaVer !== null" [boletaId]="boletaVer" (closed)="boletaVer = null"></app-boleta-modal>

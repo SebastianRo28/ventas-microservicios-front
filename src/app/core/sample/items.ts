@@ -17,6 +17,8 @@ export interface TipoItem {
   /** Items computed by Nexo RH from other modules cannot be assigned by hand. */
   automatico: boolean;
   activo: boolean;
+  /** Computed by the payroll (basic pay, overtime, pension, taxes): never assigned by hand. */
+  calculado?: boolean;
 }
 
 const t = (id: number, codigo: string, nombre: string, clase: ClaseItem, plame: string, [essalud, pension, quinta]: boolean[], automatico = false, activo = true): TipoItem =>

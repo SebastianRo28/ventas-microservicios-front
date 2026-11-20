@@ -7,7 +7,6 @@ import { AuditService } from './audit.service';
 import { parseFecha, soles } from './format';
 import { GenericosService } from './genericos.service';
 import { HrDataService } from './hr-data.service';
-import { ItemsService } from './items.service';
 import { Colaborador } from './models';
 import { Ausencia, FECHA_CORTE, Vacacion } from './sample/asistencia';
 import { AprobacionApi, AsistenciaApi, AsistenciaDatos, PerfilAsistencia } from './asistencia-api.service';
@@ -126,7 +125,7 @@ export class ControlAsistenciaService {
   private readonly aprobaciones = new Map<string, AprobacionHhee | AprobacionApi>();
 
   constructor(private data: HrDataService, private asis: AsistenciaService, private audit: AuditService, private genericos: GenericosService,
-              private items: ItemsService, private api: AsistenciaApi, private auth: AuthService) {
+              private api: AsistenciaApi, private auth: AuthService) {
     data.colaboradores().subscribe((cs) => { this.colaboradores = cs; this.invalidar(); });
     api.datos$.subscribe((d) => this.cargarDatos(d));
     asis.ausencias$.pipe(skip(1)).subscribe(() => this.invalidar());
@@ -559,7 +558,6 @@ export class ControlAsistenciaService {
     this.aprobaciones.set(e.key, { estado, lineas: lineas.map((l) => ({ ...l })), observacion, aprobadoPor: this.data.usuario.nombre, enviado: false });
     const c = this.col(e.colaboradorId)!;
     this.registrar(nombreCol(c), c.documento, `Horas extras ${e.fecha}`, 'Modificar', `${estado} · ${dur(total)} h`, 'estado', previo.estado);
-    if (previo.enviado) this.reenviar(e.colaboradorId, this.periodoDe(e.fecha));
     this.invalidar();
     this.decidir(e, 'aprobar', lineas, observacion);
     return estado;
@@ -569,7 +567,6 @@ export class ControlAsistenciaService {
     this.aprobaciones.set(e.key, { estado: 'Rechazado', lineas: [], observacion, aprobadoPor: this.data.usuario.nombre, enviado: false });
     const c = this.col(e.colaboradorId)!;
     this.registrar(nombreCol(c), c.documento, `Horas extras ${e.fecha}`, 'Modificar', 'Rechazado', 'estado', previo.estado);
-    if (previo.enviado) this.reenviar(e.colaboradorId, this.periodoDe(e.fecha));
     this.invalidar();
     this.decidir(e, 'rechazar', [], observacion);
   }
@@ -578,7 +575,6 @@ export class ControlAsistenciaService {
     this.aprobaciones.delete(e.key);
     const c = this.col(e.colaboradorId)!;
     this.registrar(nombreCol(c), c.documento, `Horas extras ${e.fecha}`, 'Modificar', 'En espera', 'estado', previo.estado);
-    if (previo.enviado) this.reenviar(e.colaboradorId, this.periodoDe(e.fecha));
     this.invalidar();
     this.decidir(e, 'revertir', [], '');
   }
@@ -587,8 +583,8 @@ export class ControlAsistenciaService {
   }
 
   /**
-   * Sends approved overtime of the open period to payroll: HHEE 25 % and 35 % become items HEX-25 / HEX-35 of the
-   * period (one per collaborator, recalculated with everything sent); 100 % becomes a Recargo Domingo record.
+   * Sends approved overtime of the open period to payroll: the payroll pays HHEE 25 % and 35 % (HEX-25 / HEX-35) when it
+   * is processed; 100 % becomes a Recargo Domingo record (paid as REC-DOM).
    */
   enviarAPlanilla(lista: Exceso[]): { enviados: number; omitidos: string[] } {
     const omitidos: string[] = [];
@@ -609,31 +605,11 @@ export class ControlAsistenciaService {
       }
       enviados++;
     }
-    for (const id of tocados) this.reenviar(id, this.periodoAbierto);
     this.invalidar();
     const items = lista.filter((e) => tocados.has(e.colaboradorId) && this.aprobacion(e).enviado).map((e) => ({ colaboradorId: e.colaboradorId, fecha: e.fecha }));
     if (items.length) this.api.enviar(this.api.post('hhee/enviar', { items }));
     return { enviados, omitidos };
   }
-  /** Recalculates the HEX items of a collaborator for a period from every overtime already sent. */
-  private reenviar(colId: number, periodo: string): void {
-    if (periodo !== this.periodoAbierto) return;
-    const c = this.col(colId);
-    if (!c) return;
-    const sum = (tipo: number) => this.excesos().filter((e) => e.colaboradorId === colId && this.periodoDe(e.fecha) === periodo && this.aprobacion(e).enviado)
-      .flatMap((e) => this.aprobacion(e).lineas).filter((l) => l.tipo === tipo).reduce((s, l) => s + l.minutos, 0);
-    for (const [tipoId, pct] of [[3, 25], [4, 35]]) {
-      for (const a of this.items.asignaciones$.value.filter((x) => x.colaboradorId === colId && x.tipoId === tipoId && x.desde === periodo && x.observacion.startsWith('Control de Asistencia'))) {
-        this.items.quitar(a, c);
-      }
-      const min = sum(pct);
-      if (min) {
-        const monto = Math.round((min / 60) * this.asis.valorHora(c) * (1 + pct / 100) * 100) / 100;
-        this.items.asignar(c, { tipoId, monto, desde: periodo, hasta: periodo, observacion: `Control de Asistencia · ${dur(min)} h al ${pct} %` });
-      }
-    }
-  }
-
   // --- Alerts ------------------------------------------------------------------------------------------------------
   /** Day before `fecha` with a working shift for most people (skips Sundays). */
   diaHabilAnterior(fecha: string): string { let f = sumarDias(fecha, -1); while (diaSemana(f) === 0) f = sumarDias(f, -1); return f; }

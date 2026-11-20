@@ -1,48 +1,89 @@
 import { Component } from '@angular/core';
+import { mensajeError } from '../../core/auth.service';
+import { soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
-import { ESTADO_TONE, PeriodoProcesos } from '../../core/sample/remuneraciones';
+import { Boleta, PeriodoPlanilla } from '../../core/models';
 import { UiStateService } from '../../core/ui-state.service';
+import { nombrePeriodo } from '../../shared/boleta/boleta-modal.component';
 
-/** P-03.2 Procesos, with P-03.3 modal "Procesar". */
+/**
+ * P-03.2 Procesos: payroll periods from the API. The open period is processed (payslips recalculated with the current
+ * data: salary, absences, vacations, items, overtime sent from Control de Asistencia, pension and taxes) as many times
+ * as needed; closing it makes its payslips final, publishes them to each person and opens the next month.
+ */
 @Component({
   selector: 'app-procesos',
   templateUrl: './procesos.component.html'
 })
 export class ProcesosComponent {
-  readonly tone = ESTADO_TONE;
-  anio = '2026';
-  periodos: PeriodoProcesos[] = [];
-  open = new Set<number>([0]);
-  procesado = false;
+  readonly soles = soles;
+  readonly nombrePeriodo = nombrePeriodo;
+  anio = '';
+  anios: string[] = [];
+  periodos: PeriodoPlanilla[] = [];
+  open = new Set<string>();
+  boletas = new Map<string, Boleta[]>();
   procesarModal = false;
   cerrarModal = false;
-  etapas = { recalcular: true, archivos: true };
+  ocupado = false;
+  boletaVer: number | null = null;
 
-  constructor(data: HrDataService, private ui: UiStateService) {
-    data.periodosProcesos().subscribe((p) => (this.periodos = p));
+  constructor(private data: HrDataService, private ui: UiStateService) { this.cargar(); }
+
+  private cargar(): void {
+    this.data.periodosPlanilla().subscribe({
+      next: (p) => {
+        this.periodos = p;
+        this.anios = [...new Set(p.map((x) => x.periodo.slice(3)))];
+        if (!this.anio) this.anio = this.abierto?.periodo.slice(3) ?? this.anios[0] ?? '';
+        if (!this.open.size && this.abierto) this.toggle(this.abierto.periodo);
+      },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 
-  get visibles(): PeriodoProcesos[] {
-    return this.periodos.filter((p) => p.label.endsWith(this.anio.slice(2)));
+  get abierto(): PeriodoPlanilla | undefined { return this.periodos.find((p) => !p.cerrado); }
+  get visibles(): PeriodoPlanilla[] { return this.periodos.filter((p) => p.periodo.endsWith(this.anio)); }
+
+  toggle(periodo: string): void {
+    if (this.open.has(periodo)) { this.open.delete(periodo); return; }
+    this.open.add(periodo);
+    this.cargarBoletas(periodo);
   }
+  private cargarBoletas(periodo: string): void {
+    this.data.boletasPeriodo(periodo).subscribe({ next: (b) => this.boletas.set(periodo, b), error: () => this.boletas.set(periodo, []) });
+  }
+  conObservaciones(periodo: string): number { return (this.boletas.get(periodo) ?? []).filter((b) => b.observaciones.length).length; }
 
-  toggle(i: number): void { this.open.has(i) ? this.open.delete(i) : this.open.add(i); }
-
-  /** Runs the selected stages of the general process for the open period. */
   procesar(): void {
-    const abierto = this.periodos.find((p) => p.abierto);
-    if (!abierto || (!this.etapas.recalcular && !this.etapas.archivos)) return;
-    if (this.etapas.archivos) abierto.archivos?.forEach((a) => (a.estado = 'Actualizado'));
-    this.procesado = true;
-    this.procesarModal = false;
+    const p = this.abierto;
+    if (!p || this.ocupado) return;
+    this.ocupado = true;
+    this.data.procesarPeriodo(p.periodo).subscribe({
+      next: (r) => {
+        this.ocupado = false;
+        this.procesarModal = false;
+        this.ui.toast(`Planilla de ${nombrePeriodo(r.periodo)} procesada: ${r.boletas} boletas, neto ${soles(r.neto)}`);
+        this.cargar();
+        this.cargarBoletas(r.periodo);
+      },
+      error: (e) => { this.ocupado = false; this.ui.toast(mensajeError(e)); },
+    });
   }
 
   cerrarPeriodo(): void {
-    const abierto = this.periodos.find((p) => p.abierto);
-    if (abierto) {
-      abierto.abierto = false;
-      this.ui.toast(`Período ${abierto.label} cerrado`);
-    }
-    this.cerrarModal = false;
+    const p = this.abierto;
+    if (!p || this.ocupado) return;
+    this.ocupado = true;
+    this.data.cerrarPeriodo(p.periodo).subscribe({
+      next: (r) => {
+        this.ocupado = false;
+        this.cerrarModal = false;
+        this.ui.toast(`Período ${nombrePeriodo(r.periodo)} cerrado: ${r.boletas} boletas publicadas`);
+        this.open.clear();
+        this.cargar();
+      },
+      error: (e) => { this.ocupado = false; this.ui.toast(mensajeError(e)); },
+    });
   }
 }

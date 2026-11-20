@@ -50,6 +50,8 @@ const CUMPLES: [string, [string, string, string][]][] = [
 
 /** P-01.13 Portal del Colaborador ("Mi portal"), with P-12.3 Nuevo Reconocimiento and P-12.4 calendar. */
 import { PortalService } from '../../core/portal.service';
+import { Boleta } from '../../core/models';
+import { nombrePeriodo } from '../../shared/boleta/boleta-modal.component';
 @Component({
   selector: 'app-mi-portal',
   templateUrl: './mi-portal.component.html'
@@ -113,6 +115,7 @@ export class MiPortalComponent {
       const yo = l.find((c) => c.id === this.portal.yoId);
       if (yo) this.saldoVacaciones = asistencia.saldo(yo);
     });
+    if (this.portal.yoId >= 0) data.boletas(this.portal.yoId).subscribe((bs) => (this.boletas = bs.filter((b) => b.definitiva).slice(0, 3)));
   }
 
   get visibles(): Post[] { return this.posts.filter((p) => this.feed === 'all' || p.kind === this.feed); }
@@ -123,6 +126,10 @@ export class MiPortalComponent {
 
   toggleLike(p: Post): void { this.liked.has(p.id) ? this.liked.delete(p.id) : this.liked.add(p.id); }
 
+  /** Last three final payslips of the signed-in person. */
+  boletas: Boleta[] = [];
+  boletaVer: number | null = null;
+  readonly nombrePeriodo = nombrePeriodo;
   /** A punch is being sent to the API. */
   marcando = false;
   /** Punch from the portal (method Web); it shows up in Control de Asistencia at once. */

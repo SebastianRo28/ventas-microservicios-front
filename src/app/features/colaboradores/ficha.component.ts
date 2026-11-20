@@ -40,6 +40,8 @@ export class FichaComponent implements OnDestroy {
   prevision: Field[] = [];
   trabajo: Field[] = [];
   boletas: Boleta[] = [];
+  /** Payslip open in the detail modal. */
+  boletaVer: number | null = null;
   meses: string[] = [];
   charts: Bars[] = [];
   private sub: Subscription;

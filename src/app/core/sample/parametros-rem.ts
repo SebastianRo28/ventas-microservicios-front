@@ -3,7 +3,7 @@
  * source (MTPE, SUNAT, SBS) before using them in a real payroll.
  */
 export interface ParametroGeneral {
-  clave: 'rmv' | 'uit' | 'asigFamiliarPct' | 'essaludPct' | 'onpPct' | 'afpAportePct' | 'primaSeguroPct' | 'deduccionUit';
+  clave: 'rmv' | 'uit' | 'asigFamiliarPct' | 'essaludPct' | 'onpPct' | 'afpAportePct' | 'primaSeguroPct' | 'deduccionUit' | 'remMaxAsegurable';
   nombre: string;
   valor: number;
   unidad: 'S/' | '%' | 'UIT';
@@ -32,7 +32,7 @@ export const COMISIONES_AFP: ComisionAfp[] = [
 ];
 
 /** Annual 5th-category income tax brackets, in UIT. `hasta` null = no upper limit. */
-export interface TramoRenta { desde: number; hasta: number | null; tasaPct: number; }
+export interface TramoRenta { id?: number; desde: number; hasta: number | null; tasaPct: number; }
 
 export const TRAMOS_RENTA: TramoRenta[] = [
   { desde: 0, hasta: 5, tasaPct: 8 },

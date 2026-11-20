@@ -64,18 +64,36 @@ export interface PeriodoRem { label: string; abierto: boolean; procesos: Proceso
 
 export interface Serie { titulo: string; valores: number[]; formato: 'int' | 'money' | 'hours'; }
 
+/** Payslip summary (GET /api/remuneraciones/boletas). Amounts in soles. */
 export interface Boleta {
-  /** MM-yyyy */
-  mes: string;
-  bruto: number;
+  id: number;
+  /** MM/YYYY */
+  periodo: string;
+  colaboradorId: number;
+  nombre: string;
+  documento: string;
+  cargo: string;
+  regimen: string;
+  diasLaborados: number;
+  diasVacaciones: number;
+  diasNoTrabajados: number;
+  ingresos: number;
+  descuentos: number;
+  aportes: number;
   neto: number;
-  aporteEmpleador: number;
+  /** Overtime and rest-day surcharge amounts included in ingresos. */
   horasExtras: number;
   recargos: number;
-  horasNoTrabajadas: number;
-  diasNoTrabajados: number;
-  proceso: string;
-  abierto: boolean;
+  /** Closed period (final). Drafts of the open period are only seen by administrators. */
+  definitiva: boolean;
+  observaciones: string[];
+}
+export interface LineaBoleta { codigo: string; nombre: string; clase: 'Haber' | 'Descuento' | 'Aporte empleador'; detalle: string; monto: number; }
+export interface BoletaDetalle { resumen: Boleta; lineas: LineaBoleta[]; }
+/** Payroll period (GET /api/remuneraciones/periodos). */
+export interface PeriodoPlanilla {
+  periodo: string; cerrado: boolean; procesadoEn: string | null; procesadoPor: string; cerradoEn: string | null; cerradoPor: string;
+  boletas: number; ingresos: number; descuentos: number; aportes: number; neto: number;
 }
 
 export interface Pendiente { tipo: 'sst' | 'vac' | 'aus' | 'eva' | 'otro'; etiqueta: string; tone: Tone; fecha: string; titulo: string; detalle: string; }

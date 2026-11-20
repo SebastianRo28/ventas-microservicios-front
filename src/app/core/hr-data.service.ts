@@ -3,11 +3,13 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, forkJoin, map, of, switchMap, tap } from 'rxjs';
 import { API_URL } from './api';
 import { AsistenciaApi } from './asistencia-api.service';
+import { ItemsService } from './items.service';
+import { ParametrosRemService } from './parametros-rem.service';
 import { AuditService } from './audit.service';
 import { AuthService } from './auth.service';
 import { UiStateService } from './ui-state.service';
 import {
-  Boleta, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PerfilCuenta, PerfilGuardar, PeriodoRem, Serie, UsuarioCreado, UsuarioCuenta, UsuarioGuardar
+  Boleta, BoletaDetalle, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PerfilCuenta, PerfilGuardar, PeriodoPlanilla, PeriodoRem, Serie, UsuarioCreado, UsuarioCuenta, UsuarioGuardar
 } from './models';
 import { ARCHIVOS_PAGOS, ArchivoPago, PERIODOS_PROCESOS, PeriodoProcesos } from './sample/remuneraciones';
 import { PlantillaWf, SOLICITUDES_WF, SolicitudWf } from './sample/workflow';
@@ -44,7 +46,7 @@ export class HrDataService {
   hcNivel: 'division' | 'area' | 'subarea' = 'area';
 
   constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService,
-              private asistenciaApi: AsistenciaApi) {
+              private asistenciaApi: AsistenciaApi, private items: ItemsService, private parametrosRem: ParametrosRemService) {
     // Page reloaded with a session still open: load the data again.
     if (auth.autenticado) this.cargar().subscribe();
     auth.usuario$.subscribe((u) => { if (!u) this.colaboradores$.next([]); });
@@ -60,7 +62,8 @@ export class HrDataService {
   /** Loads what comes from the API (collaborators and, for administrators, the change log). */
   cargar(): Observable<void> {
     if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
-    return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar(), this.asistenciaApi.cargar()]).pipe(
+    return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar(), this.asistenciaApi.cargar(),
+      this.items.cargar(), this.parametrosRem.cargar()]).pipe(
       map(([cs]) => { this.colaboradores$.next(cs); }),
       catchError(() => { this.ui.toast('No se pudo cargar la información desde el servidor de Nexo RH'); return of(undefined); }),
     );
@@ -161,7 +164,21 @@ export class HrDataService {
   papelera(): Observable<DocumentoEliminado[]> { return of(PAPELERA); }
 
   /** Payslips of a collaborator; the sample data only has history for Florencia Alamos (id 0). */
-  boletas(colaboradorId: number): Observable<Boleta[]> { return of(colaboradorId === 0 ? BOLETAS : []); }
+  /** Payslips of a collaborator (others only see their own, final ones). */
+  boletas(colaboradorId: number): Observable<Boleta[]> {
+    return this.http.get<Boleta[]>(`${API_URL}/remuneraciones/boletas`, { params: { colaboradorId } }).pipe(catchError(() => of([])));
+  }
+  boleta(id: number): Observable<BoletaDetalle> { return this.http.get<BoletaDetalle>(`${API_URL}/remuneraciones/boletas/${id}`); }
+  /** Payroll periods and their payslips (administrators). */
+  periodosPlanilla(): Observable<PeriodoPlanilla[]> { return this.http.get<PeriodoPlanilla[]>(`${API_URL}/remuneraciones/periodos`); }
+  boletasPeriodo(periodo: string): Observable<Boleta[]> { return this.http.get<Boleta[]>(`${API_URL}/remuneraciones/boletas`, { params: { periodo } }); }
+  /** "MM/YYYY" → "MM-YYYY" in the URL. */
+  procesarPeriodo(periodo: string): Observable<PeriodoPlanilla> {
+    return this.http.post<PeriodoPlanilla>(`${API_URL}/remuneraciones/periodos/${periodo.replace('/', '-')}/procesar`, {}).pipe(tap(() => this.audit.cargar().subscribe()));
+  }
+  cerrarPeriodo(periodo: string): Observable<PeriodoPlanilla> {
+    return this.http.post<PeriodoPlanilla>(`${API_URL}/remuneraciones/periodos/${periodo.replace('/', '-')}/cerrar`, {}).pipe(tap(() => this.audit.cargar().subscribe()));
+  }
 
   /** Last 6 months of absences and overtime for the Ficha charts. */
   asistencia(colaboradorId: number): Observable<{ meses: string[]; diasNoTrabajados: number[]; horasExtras: number[] }> {
@@ -189,19 +206,6 @@ const PERIODOS: PeriodoRem[] = [
   { label: 'Enero ’26', abierto: false, procesos: [cerrado('Pago Proceso Enero 2026', 12, '30/01/2026')] },
   { label: 'Diciembre ’25', abierto: false, procesos: [
     cerrado('Pago Proceso Diciembre 2025', 12, '22/12/2025'), cerrado('Gratificación Diciembre 2025', 12, '15/12/2025')] },
-];
-
-const b = (mes: string, bruto: number, neto: number, horasExtras: number, diasNoTrabajados: number, proceso: string, abierto = false): Boleta =>
-  ({ mes, bruto, neto, aporteEmpleador: 675, horasExtras, recargos: 0, horasNoTrabajadas: 0, diasNoTrabajados, proceso, abierto });
-const BOLETAS: Boleta[] = [
-  b('03-2026', 7500, 6240.5, 0, 5, 'Proceso Marzo 2026', true),
-  b('02-2026', 7500, 6198.2, 0, 1, 'cierre febrero'),
-  b('01-2026', 7500, 6262.4, 2, 0, 'cierre enero'),
-  b('12-2025', 15000, 12734.8, 8, 0, 'cierre diciembre'),
-  b('11-2025', 7500, 6301.1, 6.5, 1, 'cierre noviembre'),
-  b('10-2025', 7500, 6288.9, 4, 0, 'cierre octubre'),
-  b('09-2025', 7500, 6240.5, 0, 0, 'cierre septiembre'),
-  b('08-2025', 7500, 6240.5, 0, 0, 'Carga histórica'),
 ];
 
 const MESES = ['Oct 2025', 'Nov 2025', 'Dic 2025', 'Ene 2026', 'Feb 2026', 'Mar 2026'];

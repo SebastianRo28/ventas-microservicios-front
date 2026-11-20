@@ -120,7 +120,10 @@
       </div>
       <div class="nx-slips">
         <b>Últimas boletas de pago</b>
-        <div><a routerLink="/portal/mi-ficha">Febrero 2026</a><a routerLink="/portal/mi-ficha">Enero 2026</a><a routerLink="/portal/mi-ficha">Diciembre 2025</a></div>
+        <div *ngIf="boletas.length; else sinBoletas">
+          <a *ngFor="let bo of boletas" href="#" (click)="$event.preventDefault(); boletaVer = bo.id">{{ nombrePeriodo(bo.periodo) }}</a>
+        </div>
+        <ng-template #sinBoletas><span class="nx-muted nx-small">Aún no tienes boletas cerradas.</span></ng-template>
       </div>
       <ng-container *ngFor="let a of accesos">
       <a *ngIf="portal.puedeVer(a.path)" class="nx-shortcut" [routerLink]="a.path">
@@ -239,3 +242,5 @@
     <button type="button" class="nx-btn nx-btn--primary" (click)="calendario = false">Cerrar</button>
   </ng-container>
 </app-modal>
+
+<app-boleta-modal *ngIf="boletaVer !== null" [boletaId]="boletaVer" (closed)="boletaVer = null"></app-boleta-modal>
