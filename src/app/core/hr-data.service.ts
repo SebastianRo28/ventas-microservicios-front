@@ -1,6 +1,10 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, map, of } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, forkJoin, map, of, switchMap, tap } from 'rxjs';
+import { API_URL } from './api';
 import { AuditService } from './audit.service';
+import { AuthService } from './auth.service';
+import { UiStateService } from './ui-state.service';
 import {
   Boleta, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PeriodoRem, Serie
 } from './models';
@@ -38,10 +42,26 @@ export class HrDataService {
   /** Organizational level used by Headcount (Headcount › Configuraciones). */
   hcNivel: 'division' | 'area' | 'subarea' = 'area';
 
-  constructor(private audit: AuditService) {}
-  readonly usuario = { nombre: 'Rodrigo Paredes', iniciales: 'RP' };
+  constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService) {
+    // Page reloaded with a session still open: load the data again.
+    if (auth.autenticado) this.cargar().subscribe();
+    auth.usuario$.subscribe((u) => { if (!u) this.colaboradores$.next([]); });
+  }
+  /** Signed-in user (topbar, "created by" fields). */
+  get usuario(): { nombre: string; iniciales: string } {
+    const u = this.auth.usuario;
+    return { nombre: u?.nombre ?? '—', iniciales: u?.iniciales ?? '—' };
+  }
 
-  private readonly colaboradores$ = new BehaviorSubject<Colaborador[]>(COLABORADORES);
+  private readonly colaboradores$ = new BehaviorSubject<Colaborador[]>([]);
+
+  /** Loads what comes from the API (collaborators and, for administrators, the change log). */
+  cargar(): Observable<void> {
+    return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar()]).pipe(
+      map(([cs]) => { this.colaboradores$.next(cs); }),
+      catchError(() => { this.ui.toast('No se pudo cargar la información desde el servidor de Nexo RH'); return of(undefined); }),
+    );
+  }
 
   colaboradores(): Observable<Colaborador[]> { return this.colaboradores$.asObservable(); }
 
@@ -49,19 +69,19 @@ export class HrDataService {
     return this.colaboradores$.pipe(map((list) => list.find((c) => c.id === id)));
   }
 
-  /** Adds a collaborator in memory (until there is an API) and returns it with its new id. */
-  addColaborador(data: Omit<Colaborador, 'id'>): Colaborador {
-    const list = this.colaboradores$.value;
-    const nuevo: Colaborador = { ...data, id: Math.max(...list.map((c) => c.id)) + 1 };
-    this.colaboradores$.next([...list, nuevo].sort((a, b) => a.apellidos.localeCompare(b.apellidos)));
-    this.audit.registrar({ colaborador: `${nuevo.apellidos}, ${nuevo.nombres}`, documento: nuevo.documento,
-      entidad: `Colaborador #${nuevo.id}`, accion: 'Crear', actual: 'Creado' });
-    return nuevo;
+  /** Creates a collaborator in the API (it validates and records the change) and reloads the list. */
+  addColaborador(data: Omit<Colaborador, 'id'>): Observable<Colaborador> {
+    return this.http.post<Colaborador>(`${API_URL}/colaboradores`, data).pipe(
+      switchMap((nuevo) => this.cargar().pipe(map(() => nuevo))),
+    );
   }
-  cargos(): Observable<Cargo[]> { return of(CARGOS); }
-  familias(): Observable<FamiliaCargo[]> { return of(FAMILIAS); }
-  competencias(): Observable<Competencia[]> { return of(COMPETENCIAS); }
-  divisiones(): Observable<Division[]> { return of(DIVISIONES); }
+  cargos(): Observable<Cargo[]> { return this.http.get<Cargo[]>(`${API_URL}/organizacion/cargos`).pipe(catchError(() => of([]))); }
+  crearCargo(p: { nombre: string; codigo: string; familia: string; subAreas: number; descripcion: string }): Observable<Cargo> {
+    return this.http.post<Cargo>(`${API_URL}/organizacion/cargos`, p).pipe(tap(() => this.audit.cargar().subscribe()));
+  }
+  familias(): Observable<FamiliaCargo[]> { return this.http.get<FamiliaCargo[]>(`${API_URL}/organizacion/familias`).pipe(catchError(() => of([]))); }
+  competencias(): Observable<Competencia[]> { return this.http.get<Competencia[]>(`${API_URL}/organizacion/competencias`).pipe(catchError(() => of([]))); }
+  divisiones(): Observable<Division[]> { return this.http.get<Division[]>(`${API_URL}/organizacion/divisiones`).pipe(catchError(() => of([]))); }
   periodos(): Observable<PeriodoRem[]> { return of(PERIODOS); }
   periodosProcesos(): Observable<PeriodoProcesos[]> { return of(PERIODOS_PROCESOS); }
   archivosPagos(): Observable<ArchivoPago[]> { return of(ARCHIVOS_PAGOS); }
@@ -146,103 +166,9 @@ export class HrDataService {
   pendientes(): Observable<Pendiente[]> { return of(PENDIENTES); }
 
   subAreas(): string[] {
-    return DIVISIONES.flatMap((d) => d.areas.flatMap((a) => a.subAreas.map((s) => s.nombre)))
-      .filter((v, i, arr) => arr.indexOf(v) === i);
+    return [...new Set(this.colaboradores$.value.map((c) => c.subArea))].sort((a, b) => a.localeCompare(b));
   }
 }
-
-const c = (id: number, apellidos: string, nombres: string, documento: string, cargo: string, division: string,
-  area: string, subArea: string, ingreso: string, sueldoNeto: number): Colaborador =>
-  ({ id, apellidos, nombres, documento, cargo, division, area, subArea, ingreso, sueldoNeto });
-
-const ADM = 'Departamento de Administración';
-const FLORENCIA_DETALLE = {
-  tipoDocumento: 'DNI', emailCorporativo: 'f.alamos@comercialandina.pe', telefono: '51 987 654 321', nacimiento: '14/04/1997',
-  direccion: 'Av. Javier Prado Este 1250, San Isidro, Lima', carrera: 'Contabilidad y Finanzas', institucion: 'Universidad de Lima',
-  planSalud: 'EsSalud', pension: 'AFP Habitat · comisión Flujo', cuspp: '612345FARRU3', banco: 'BCP · Cuenta de ahorros ****8012',
-  formaPago: 'Transferencia', supervisor: 'Navarro Ríos, Gonzalo', sueldoBase: 7500, contrato: 'Indefinido',
-  jornada: 'Mensual 43.0 hrs (L, M, M, J, V)', sindicalizado: 'No',
-  aviso: 'El colaborador se encuentra con Licencia hasta el viernes 06 de marzo de 2026.',
-};
-
-const COLABORADORES: Colaborador[] = [
-  { ...c(0, 'Alamos Ruiz', 'Florencia', '72458193', 'Analista Finanzas', ADM, 'Finanzas', 'Tesorería', '01/06/2023', 6240.5), detalle: FLORENCIA_DETALLE },
-  c(1, 'Benavides Rojas', 'Diego', '70125864', 'Jefe de Operaciones', 'Operaciones', 'Logística', 'Almacén Central', '15/02/2021', 9870),
-  c(2, 'Cáceres Huamán', 'Lucía', '46892317', 'Analista de RR.HH.', ADM, 'Recursos Humanos', 'Compensaciones', '03/04/2022', 5312.75),
-  c(3, 'Chávez Quispe', 'Renato', '72011548', 'Desarrollador Senior', 'Tecnología', 'Desarrollo', 'Aplicaciones', '10/01/2022', 8450),
-  c(4, 'Delgado Salazar', 'Andrea', '45781236', 'Ejecutiva Comercial', 'Comercial', 'Ventas', 'Corporativo', '22/08/2023', 4980.2),
-  c(5, 'Espinoza Vargas', 'Martín', '41236987', 'Gerente General', 'Directorio', 'Gerencia General', 'Gerencia General', '01/03/2019', 18500),
-  c(6, 'Flores Mendoza', 'Carolina', '73354120', 'Contadora', ADM, 'Contabilidad', 'Contabilidad General', '05/09/2020', 6980),
-  c(7, 'Gutiérrez Paredes', 'Javier', '70458812', 'Asistente de Almacén', 'Operaciones', 'Logística', 'Almacén Central', '18/11/2024', 2150.4),
-  c(8, 'Herrera Castillo', 'Valeria', '74120369', 'Diseñadora UX', 'Tecnología', 'Desarrollo', 'Producto', '07/02/2025', 5600),
-  c(9, 'Huertas León', 'Paolo', '47896521', 'Supervisor de Ventas', 'Comercial', 'Ventas', 'Retail', '12/06/2021', 7120.85),
-  c(10, 'Medina Torres', 'Sofía', '72589634', 'Analista de Marketing', 'Comercial', 'Marketing', 'Digital', '20/01/2024', 4750),
-  c(11, 'Navarro Ríos', 'Gonzalo', '43215698', 'Jefe de Finanzas', ADM, 'Finanzas', 'Tesorería', '02/05/2018', 12340),
-  c(12, 'Ortiz Ramírez', 'Daniela', '75236981', 'Practicante Profesional', ADM, 'Recursos Humanos', 'Selección', '01/03/2026', 1130),
-  c(13, 'Pérez Soto', 'Luis', '40123578', 'Coordinador de SST', 'Operaciones', 'Seguridad y Salud', 'Prevención', '14/07/2022', 6050.3),
-  c(14, 'Ríos Calderón', 'Ana', '71458236', 'Asistente Contable', ADM, 'Contabilidad', 'Cuentas por Pagar', '09/10/2023', 3210),
-  c(15, 'Zapata Ugarte', 'Miguel', '44785123', 'Técnico de Soporte', 'Tecnología', 'Infraestructura', 'Mesa de Ayuda', '25/04/2024', 3480.6),
-];
-
-const CARGO_ROWS: [string, number, number, string, boolean][] = [
-  ['Analista Finanzas', 1, 1, 'Intermedio', true], ['Jefe de Operaciones', 1, 1, 'Jefatura', true],
-  ['Analista de RR.HH.', 2, 1, 'Intermedio', true], ['Desarrollador Senior', 2, 1, 'Senior', true],
-  ['Ejecutiva Comercial', 1, 1, 'Intermedio', true], ['Gerente General', 1, 1, 'Gerencia', true],
-  ['Contadora', 1, 1, 'Senior', true], ['Asistente de Almacén', 1, 1, 'Junior', true],
-  ['Diseñadora UX', 1, 1, 'Intermedio', true], ['Supervisor de Ventas', 2, 1, 'Jefatura', true],
-  ['Analista de Marketing', 1, 1, 'Intermedio', true], ['Jefe de Finanzas', 1, 1, 'Jefatura', true],
-  ['Practicante Profesional', 3, 1, 'Junior', true], ['Coordinador de SST', 1, 1, 'Senior', true],
-  ['Asistente Contable', 2, 1, 'Junior', true], ['Técnico de Soporte', 1, 1, 'Junior', true],
-  ['Asistente Administrativo', 2, 0, 'Junior', true], ['Auxiliar de Almacén', 1, 0, 'Junior', true],
-  ['Chofer', 1, 0, 'Junior', false], ['Recepcionista', 1, 0, 'Junior', false],
-  ['Analista de Tesorería', 1, 0, 'Intermedio', true], ['Analista Contable', 1, 0, 'Intermedio', true],
-  ['Jefe de Contabilidad', 2, 0, 'Jefatura', true], ['Jefe de RR.HH.', 3, 0, 'Jefatura', true],
-  ['Analista de Selección', 1, 0, 'Intermedio', true], ['Analista de Planillas', 1, 0, 'Intermedio', true],
-  ['Jefe Comercial', 3, 0, 'Jefatura', true], ['Ejecutivo de Cuentas', 1, 0, 'Intermedio', true],
-  ['Vendedor Retail', 1, 0, 'Junior', true], ['Analista de Datos', 1, 0, 'Intermedio', true],
-  ['Desarrollador Junior', 2, 0, 'Junior', true], ['Arquitecto de Software', 1, 0, 'Senior', true],
-  ['Jefe de Tecnología', 2, 0, 'Jefatura', true], ['Soporte Técnico Nivel 2', 1, 0, 'Intermedio', true],
-  ['Prevencionista de Riesgos', 1, 0, 'Intermedio', true], ['Supervisor de Almacén', 1, 0, 'Jefatura', true],
-  ['Analista de Compras', 1, 0, 'Intermedio', true], ['Asistente de Marketing', 1, 0, 'Junior', true],
-  ['Community Manager', 1, 0, 'Junior', true],
-];
-const CARGOS: Cargo[] = CARGO_ROWS.map(([nombre, subAreas, colaboradores, familia, activo], id) =>
-  ({ id, nombre, subAreas, colaboradores, familia, activo }));
-
-const FAMILIAS: FamiliaCargo[] = [
-  { id: 0, nombre: 'Intermedio', cargos: 14, activo: true },
-  { id: 1, nombre: 'Jefatura', cargos: 8, activo: true },
-  { id: 2, nombre: 'Senior', cargos: 4, activo: true },
-  { id: 3, nombre: 'Gerencia', cargos: 1, activo: true },
-  { id: 4, nombre: 'Junior', cargos: 12, activo: true },
-];
-
-const COMPETENCIAS: Competencia[] = [
-  { id: 0, nombre: 'Trabajo en equipo', descripcion: 'Colabora con otros para lograr objetivos comunes.', activo: true },
-  { id: 1, nombre: 'Orientación a resultados', descripcion: 'Cumple metas con calidad y en los plazos acordados.', activo: true },
-  { id: 2, nombre: 'Comunicación efectiva', descripcion: 'Transmite ideas con claridad y escucha activamente.', activo: true },
-  { id: 3, nombre: 'Liderazgo', descripcion: 'Guía y desarrolla a su equipo.', activo: true },
-  { id: 4, nombre: 'Adaptabilidad', descripcion: 'Responde con flexibilidad a los cambios.', activo: true },
-];
-
-const s = (nombre: string, colaboradores: number) => ({ nombre, colaboradores });
-const DIVISIONES: Division[] = [
-  { nombre: 'Directorio', colaboradores: 1, areas: [
-    { nombre: 'Gerencia General', colaboradores: 1, subAreas: [s('Gerencia General', 1)] }] },
-  { nombre: ADM, colaboradores: 6, areas: [
-    { nombre: 'Finanzas', colaboradores: 2, subAreas: [s('Tesorería', 2)] },
-    { nombre: 'Recursos Humanos', colaboradores: 2, subAreas: [s('Compensaciones', 1), s('Selección', 1)] },
-    { nombre: 'Contabilidad', colaboradores: 2, subAreas: [s('Contabilidad General', 1), s('Cuentas por Pagar', 1)] }] },
-  { nombre: 'Operaciones', colaboradores: 3, areas: [
-    { nombre: 'Logística', colaboradores: 2, subAreas: [s('Almacén Central', 2)] },
-    { nombre: 'Seguridad y Salud', colaboradores: 1, subAreas: [s('Prevención', 1)] }] },
-  { nombre: 'Comercial', colaboradores: 3, areas: [
-    { nombre: 'Ventas', colaboradores: 2, subAreas: [s('Corporativo', 1), s('Retail', 1)] },
-    { nombre: 'Marketing', colaboradores: 1, subAreas: [s('Digital', 1)] }] },
-  { nombre: 'Tecnología', colaboradores: 3, areas: [
-    { nombre: 'Desarrollo', colaboradores: 2, subAreas: [s('Aplicaciones', 1), s('Producto', 1)] },
-    { nombre: 'Infraestructura', colaboradores: 1, subAreas: [s('Mesa de Ayuda', 1)] }] },
-];
 
 const cerrado = (nombre: string, colaboradores: number, fechaPago: string) =>
   ({ nombre, estado: 'Cerrado', tone: 'gray' as const, colaboradores, fechaPago });

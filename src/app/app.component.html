@@ -1,5 +1,6 @@
-<a class="nx-skip" href="#nx-main">Saltar al contenido</a>
-<div class="nx-app" [class.nx-nav-collapsed]="ui.navCollapsed$ | async">
+<router-outlet *ngIf="esLogin"></router-outlet>
+<a *ngIf="!esLogin" class="nx-skip" href="#nx-main">Saltar al contenido</a>
+<div *ngIf="!esLogin" class="nx-app" [class.nx-nav-collapsed]="ui.navCollapsed$ | async">
   <app-topbar></app-topbar>
   <div class="nx-body">
     <app-nav></app-nav>

@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { Division } from '../../core/models';
 
@@ -35,6 +36,9 @@ export class CrearColaboradorComponent {
   advanced = false;
   submitted = false;
   createdId: number | null = null;
+  guardando = false;
+  /** Error returned by the API (validation or connection). */
+  errorApi = '';
   f = emptyForm();
   errors: Record<string, string> = {};
 
@@ -88,7 +92,9 @@ export class CrearColaboradorComponent {
     if (this.step < 2) { this.step++; return; }
     const f = this.f;
     const sueldo = parseFloat(f.sueldo);
-    const nuevo = this.data.addColaborador({
+    this.guardando = true;
+    this.errorApi = '';
+    this.data.addColaborador({
       apellidos: [f.apellido, f.segundoApellido].filter(Boolean).join(' ').trim(), nombres: f.nombre.trim(),
       documento: f.documento.trim(), cargo: f.cargo, division: f.division, area: f.area, subArea: f.subArea,
       ingreso: f.ingreso, sueldoNeto: sueldo,
@@ -100,10 +106,15 @@ export class CrearColaboradorComponent {
         formaPago: f.formaPago, supervisor: f.supervisor, sueldoBase: sueldo, contrato: f.contrato,
         jornada: f.jornada.replace(' · ', ' '), sindicalizado: 'No',
       },
+    }).subscribe({
+      next: (nuevo) => {
+        this.guardando = false;
+        this.createdId = nuevo.id;
+        this.f = emptyForm();
+        this.step = 0;
+        window.scrollTo({ top: 0 });
+      },
+      error: (e) => { this.guardando = false; this.errorApi = mensajeError(e); },
     });
-    this.createdId = nuevo.id;
-    this.f = emptyForm();
-    this.step = 0;
-    window.scrollTo({ top: 0 });
   }
 }

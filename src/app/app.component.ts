@@ -1,4 +1,6 @@
 import { Component } from '@angular/core';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter } from 'rxjs';
 import { UiStateService } from './core/ui-state.service';
 import { ThemeService } from './core/theme.service';
 
@@ -9,5 +11,11 @@ import { ThemeService } from './core/theme.service';
 })
 export class AppComponent {
   /** ThemeService is injected here so saved brand colors apply on startup. */
-  constructor(public ui: UiStateService, _theme: ThemeService) {}
+  /** The login page is shown without the app layout. */
+  esLogin = location.pathname.startsWith('/login');
+
+  constructor(public ui: UiStateService, _theme: ThemeService, router: Router) {
+    router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => (this.esLogin = e.urlAfterRedirects.startsWith('/login')));
+  }
 }

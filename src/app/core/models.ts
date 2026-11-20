@@ -11,7 +11,12 @@ export interface Colaborador {
   subArea: string;
   /** dd/MM/yyyy */
   ingreso: string;
+  /** Comes as null from the API when the user may not see this person's salary (see `reservado`). */
   sueldoNeto: number;
+  /** Direct manager (org chart). */
+  jefeId?: number | null;
+  /** True when the API hid personal or salary data because of the user's permissions. */
+  reservado?: boolean;
   /** Optional record details shown in the Ficha; missing values render as "—". */
   detalle?: ColaboradorDetalle;
 }

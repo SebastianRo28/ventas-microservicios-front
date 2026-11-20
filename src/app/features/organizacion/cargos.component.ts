@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row } from '../../shared/data-table/data-table.models';
@@ -39,17 +40,22 @@ export class CargosComponent {
   modal = false;
   adv = false;
   generated = false;
+  errorApi = '';
   form = { name: '', code: '', desc: '', req: '', familia: 'Intermedio' };
   subs: string[] = ['Compensaciones'];
   allSubs: string[];
 
   constructor(private data: HrDataService, private ui: UiStateService) {
     this.allSubs = data.subAreas();
-    data.cargos().subscribe((l) => (this.rows = l.map((c) => ({
-      id: c.id, nombre: c.nombre, subs: c.subAreas, cols: c.colaboradores, fam: c.familia, act: si(c.activo), acc: ''
-    }))));
+    this.cargarCargos();
     data.familias().subscribe((l) => (this.frows = l.map((f) => ({ id: f.id, n: f.nombre, c: f.cargos, a: si(f.activo), x: '' }))));
     data.competencias().subscribe((l) => (this.crows = l.map((c) => ({ id: c.id, n: c.nombre, d: c.descripcion, a: si(c.activo), x: '' }))));
+  }
+
+  private cargarCargos(): void {
+    this.data.cargos().subscribe((l) => (this.rows = l.map((c) => ({
+      id: c.id, nombre: c.nombre, subs: c.subAreas, cols: c.colaboradores, fam: c.familia, act: si(c.activo), acc: ''
+    }))));
   }
 
   get subsAvail(): string[] { return this.allSubs.filter((s) => !this.subs.includes(s)); }
@@ -77,11 +83,14 @@ export class CargosComponent {
     this.generated = true;
   }
 
+  /** Creates the cargo in the API (it checks the name is unique) and reloads the list. */
   create(): void {
-    if (!this.form.name.trim() || !this.form.code.trim()) return;
-    this.rows = [{ id: Date.now(), nombre: this.form.name.trim(), subs: this.subs.length, cols: 0, fam: this.form.familia, act: 'Sí', acc: '' }, ...this.rows];
-    this.modal = false;
-    this.tab = 0;
-    this.ui.toast('Cargo creado con éxito');
+    this.errorApi = '';
+    if (!this.form.name.trim() || !this.form.code.trim()) { this.errorApi = 'Ingresa el nombre y el código del cargo.'; return; }
+    this.data.crearCargo({ nombre: this.form.name.trim(), codigo: this.form.code.trim(), familia: this.form.familia, subAreas: this.subs.length,
+      descripcion: [this.form.desc, this.form.req].filter(Boolean).join('\n\n') }).subscribe({
+      next: () => { this.modal = false; this.tab = 0; this.cargarCargos(); this.ui.toast('Cargo creado con éxito'); },
+      error: (e) => (this.errorApi = mensajeError(e)),
+    });
   }
 }

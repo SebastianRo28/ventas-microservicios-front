@@ -1280,3 +1280,16 @@ app-page-header, app-data-table { display: block; }
   .nx-cafil__f .nx-select, .nx-cafil__f .nx-input, .nx-cafil__f--wide .nx-select { min-width: 0; width: 100%; }
   .nx-cafil__f { flex: 1 1 140px; }
 }
+
+/* ---------- Login y menú de usuario ---------- */
+.nx-login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: linear-gradient(160deg, #EEF3FF 0%, var(--nx-bg) 55%); box-sizing: border-box; }
+.nx-login__card { width: 100%; max-width: 400px; padding: 32px 28px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--nx-shadow-pop); }
+.nx-login__logo { margin-bottom: 4px; padding: 0; color: var(--nx-primary-800); }
+.nx-login__title { margin: 0; font-size: 22px; font-weight: 800; }
+.nx-login .nx-input-group { display: flex; align-items: center; gap: 6px; }
+.nx-login .nx-input-group .nx-input { flex: 1; }
+.nx-usermenu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 240px; padding: 6px; display: flex; flex-direction: column; }
+.nx-usermenu__who { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-bottom: 1px solid var(--nx-border-row); margin-bottom: 4px; font-size: 13px; color: var(--nx-muted); }
+.nx-usermenu__who b { color: var(--nx-text); font-size: 14px; }
+.nx-usermenu__who .nx-badge { align-self: flex-start; }
+.nx-usermenu .nx-menu-item { display: flex; align-items: center; gap: 8px; }

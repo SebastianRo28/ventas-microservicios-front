@@ -1,20 +1,23 @@
 import { NgModule } from '@angular/core';
 import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
+import { authGuard } from './core/auth.service';
+import { LoginComponent } from './features/login/login.component';
 
 /**
  * Each menu section is a lazy-loaded module (src/app/sections), so the first load only downloads the layout and the
  * section being opened. Screens and their routes are registered in each section module.
  */
 const routes: Routes = [
+  { path: 'login', component: LoginComponent, title: 'Iniciar sesión · Nexo RH' },
   { path: '', redirectTo: 'admin/colaboradores/vigentes', pathMatch: 'full' },
-  { path: 'admin', loadChildren: () => import('./sections/admin.module').then((m) => m.AdminModule) },
-  { path: 'rem', loadChildren: () => import('./sections/rem.module').then((m) => m.RemModule) },
-  { path: 'portal', loadChildren: () => import('./sections/portal.module').then((m) => m.PortalModule) },
-  { path: 'do', loadChildren: () => import('./sections/do.module').then((m) => m.DoModule) },
-  { path: 'sst', loadChildren: () => import('./sections/sst.module').then((m) => m.SstModule) },
-  { path: 'rep', loadChildren: () => import('./sections/rep.module').then((m) => m.RepModule) },
-  { path: 'configuracion', loadChildren: () => import('./sections/configuracion.module').then((m) => m.ConfiguracionModule) },
-  { path: 'ca', loadChildren: () => import('./sections/ca.module').then((m) => m.CaModule) },
+  { path: 'admin', canActivate: [authGuard], loadChildren: () => import('./sections/admin.module').then((m) => m.AdminModule) },
+  { path: 'rem', canActivate: [authGuard], loadChildren: () => import('./sections/rem.module').then((m) => m.RemModule) },
+  { path: 'portal', canActivate: [authGuard], loadChildren: () => import('./sections/portal.module').then((m) => m.PortalModule) },
+  { path: 'do', canActivate: [authGuard], loadChildren: () => import('./sections/do.module').then((m) => m.DoModule) },
+  { path: 'sst', canActivate: [authGuard], loadChildren: () => import('./sections/sst.module').then((m) => m.SstModule) },
+  { path: 'rep', canActivate: [authGuard], loadChildren: () => import('./sections/rep.module').then((m) => m.RepModule) },
+  { path: 'configuracion', canActivate: [authGuard], loadChildren: () => import('./sections/configuracion.module').then((m) => m.ConfiguracionModule) },
+  { path: 'ca', canActivate: [authGuard], loadChildren: () => import('./sections/ca.module').then((m) => m.CaModule) },
   { path: 'asistencia', redirectTo: 'ca/panel' },
   { path: '**', redirectTo: 'admin/colaboradores/vigentes' },
 ];

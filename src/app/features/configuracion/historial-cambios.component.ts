@@ -58,7 +58,7 @@ export class HistorialCambiosComponent {
   rows: Row[] = [];
   private filtrados: Cambio[] = [];
 
-  constructor(private audit: AuditService) { this.aplicar(); }
+  constructor(private audit: AuditService) { this.aplicar(); audit.cargar().subscribe(() => this.aplicar()); }
 
   get usuarios(): string[] { return [...new Set(this.audit.cambios.map((c) => c.usuario))]; }
   get entidades(): string[] { return [...new Set(this.audit.cambios.map((c) => c.entidad.split(' #')[0]))]; }

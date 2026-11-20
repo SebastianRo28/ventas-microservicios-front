@@ -192,11 +192,12 @@
     </ng-template>
    </div>
 
+    <div *ngIf="errorApi" class="nx-error nx-mb-12" role="alert">{{ errorApi }}</div>
     <div class="nx-wizard__foot">
       <a class="nx-btn nx-btn--outline" routerLink="/admin/colaboradores/vigentes">Cancelar</a>
       <div class="nx-grow"></div>
       <button *ngIf="step > 0" type="button" class="nx-btn nx-btn--outline" (click)="back()">Volver</button>
-      <button type="submit" class="nx-btn nx-btn--primary">{{ step === 2 ? 'Crear Colaborador' : 'Siguiente' }}</button>
+      <button type="submit" class="nx-btn nx-btn--primary" [disabled]="guardando">{{ step === 2 ? (guardando ? 'Creando…' : 'Crear Colaborador') : 'Siguiente' }}</button>
     </div>
   </form>
 </section>

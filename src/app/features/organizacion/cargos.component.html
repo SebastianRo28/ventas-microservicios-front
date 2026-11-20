@@ -80,6 +80,7 @@
         </label>
       </div>
     </div>
+    <span *ngIf="errorApi" class="nx-error" role="alert">{{ errorApi }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="modal = false">Cancelar</button>

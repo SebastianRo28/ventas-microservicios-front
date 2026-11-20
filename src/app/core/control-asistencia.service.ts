@@ -123,9 +123,12 @@ export class ControlAsistenciaService {
 
   constructor(private data: HrDataService, private asis: AsistenciaService, private audit: AuditService, private genericos: GenericosService,
               private items: ItemsService) {
-    data.colaboradores().subscribe((cs) => { this.colaboradores = cs; this.invalidar(); });
-    this.generarMarcas();
-    this.sembrarAprobaciones();
+    // Collaborators come from the API, possibly after this service starts: the sample punches are generated once they arrive.
+    data.colaboradores().subscribe((cs) => {
+      this.colaboradores = cs;
+      if (cs.length && !this.marcas.length) { this.generarMarcas(); this.sembrarAprobaciones(); }
+      this.invalidar();
+    });
     asis.ausencias$.pipe(skip(1)).subscribe(() => this.invalidar());
     asis.vacaciones$.pipe(skip(1)).subscribe(() => this.invalidar());
     genericos.configCambio$.subscribe((k) => { if (k.startsWith('ca-')) this.invalidar(); });

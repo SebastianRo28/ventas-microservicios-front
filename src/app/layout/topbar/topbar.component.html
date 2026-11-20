@@ -53,9 +53,15 @@
   <button type="button" class="nx-topbar__icon nx-hide-sm" aria-label="Ayuda">
     <app-icon name="help"></app-icon>
   </button>
-  <button type="button" class="nx-topbar__user" aria-label="Menú de usuario">
-    <span class="nx-avatar">{{ data.usuario.iniciales }}</span>
-    <span class="nx-topbar__user-name">{{ data.usuario.nombre }}</span>
-    <app-icon name="chevron-down" [size]="14"></app-icon>
-  </button>
+  <div class="nx-dt__menu-anchor">
+    <button type="button" class="nx-topbar__user" aria-label="Menú de usuario" [attr.aria-expanded]="menuUsuario" (click)="menuUsuario = !menuUsuario">
+      <span class="nx-avatar">{{ data.usuario.iniciales }}</span>
+      <span class="nx-topbar__user-name">{{ data.usuario.nombre }}</span>
+      <app-icon name="chevron-down" [size]="14"></app-icon>
+    </button>
+    <div *ngIf="menuUsuario" class="nx-popover nx-usermenu">
+      <div class="nx-usermenu__who"><b>{{ auth.usuario?.nombre }}</b><span>{{ auth.usuario?.correo }}</span><span class="nx-badge nx-badge--sm nx-tone-info">{{ auth.usuario?.rol }}</span></div>
+      <button type="button" class="nx-menu-item" (click)="salir()"><app-icon name="logout" [size]="16"></app-icon>Cerrar sesión</button>
+    </div>
+  </div>
 </header>
