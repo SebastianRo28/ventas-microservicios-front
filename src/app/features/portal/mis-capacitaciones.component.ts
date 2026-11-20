@@ -101,7 +101,7 @@ export class MisCapacitacionesComponent implements OnDestroy {
 <body style="font-family:'Nunito Sans',system-ui,sans-serif;text-align:center;padding:60px;color:#1C2433">
 <p style="letter-spacing:.2em;color:#2D4DA4;font-weight:800">COMERCIAL ANDINA S.A.C.</p>
 <h1 style="font-size:34px;margin:24px 0">Certificado de capacitación</h1>
-<p>Se certifica que <b>Florencia Alamos Ruiz</b> completó el curso</p>
+<p>Se certifica que <b>${esc(this.portal.yoNombre)}</b> completó el curso</p>
 <h2 style="color:#263D8B">${esc(c.nombre)}</h2>
 <p>${c.horas} horas académicas · completado el ${esc(c.completado ?? '')}</p>
 <p style="margin-top:60px;color:#5B6475;font-size:13px">Emitido desde Nexo RH</p></body></html>`;

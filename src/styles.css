@@ -1293,3 +1293,8 @@ app-page-header, app-data-table { display: block; }
 .nx-usermenu__who b { color: var(--nx-text); font-size: 14px; }
 .nx-usermenu__who .nx-badge { align-self: flex-start; }
 .nx-usermenu .nx-menu-item { display: flex; align-items: center; gap: 8px; }
+.nx-login__reglas { margin: -6px 0 0; padding: 0 0 0 18px; font-size: 12.5px; color: var(--nx-muted); }
+.nx-login__reglas li.is-ok { color: var(--nx-success-700, #15803d); }
+.nx-login__reglas li.is-ok::marker { content: "✓  "; }
+.nx-temporal { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px dashed var(--nx-border); border-radius: var(--nx-radius); background: var(--nx-surface-alt); }
+.nx-temporal__pwd { flex: 1; font-size: 18px; font-weight: 700; letter-spacing: 1px; user-select: all; word-break: break-all; }

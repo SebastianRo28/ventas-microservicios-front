@@ -52,8 +52,19 @@
 
 <app-modal *ngIf="userModal as m" [title]="m.id === null ? 'Crear Usuario' : 'Editar Usuario'" width="560px" (closed)="userModal = null">
   <form id="user-form" class="nx-form" (ngSubmit)="guardarUsuario()">
+    <label class="nx-field">Rol*
+      <select class="nx-select" name="rol" [(ngModel)]="m.rol"><option *ngFor="let r of roles" [value]="r">{{ r }}</option></select>
+      <span class="nx-hint">Administrador: todo Nexo RH · Supervisor: su portal, su equipo y su asistencia · Colaborador: solo su portal.</span>
+    </label>
+    <label class="nx-field">Colaborador vinculado{{ m.rol === 'Administrador' ? '' : '*' }}
+      <select class="nx-select" name="colaborador" [ngModel]="m.colaboradorId" (ngModelChange)="elegirColaborador($event)" [class.is-invalid]="intento && faltaColaborador">
+        <option [ngValue]="null">— Sin vincular —</option>
+        <option *ngFor="let c of colaboradoresLibres" [ngValue]="c.id">{{ c.apellidos }}, {{ c.nombres }} · {{ c.cargo }}</option>
+      </select>
+      <span *ngIf="intento && faltaColaborador" class="nx-error">Los supervisores y colaboradores deben estar vinculados a un colaborador.</span>
+    </label>
     <label class="nx-field">Nombre*
-      <input class="nx-input" name="nombre" placeholder="Apellidos, Nombres" [(ngModel)]="m.nombre" [class.is-invalid]="intento && !m.nombre.trim()">
+      <input class="nx-input" name="nombre" placeholder="Nombres Apellidos" [(ngModel)]="m.nombre" [class.is-invalid]="intento && !m.nombre.trim()">
       <span *ngIf="intento && !m.nombre.trim()" class="nx-error">Campo obligatorio.</span>
     </label>
     <label class="nx-field">Correo*
@@ -61,13 +72,12 @@
       <span *ngIf="intento && correoInvalido" class="nx-error">Ingresa un correo válido.</span>
       <span *ngIf="intento && !correoInvalido && correoDuplicado" class="nx-error">Este correo ya está registrado.</span>
     </label>
-    <label class="nx-field">Perfil
-      <select class="nx-select" name="perfil" [(ngModel)]="m.perfil"><option *ngFor="let p of perfiles">{{ p.nombre }}</option></select>
-    </label>
+    <span *ngIf="m.id === null" class="nx-hint">Se generará una contraseña temporal que la persona deberá cambiar al ingresar.</span>
+    <span *ngIf="errorApi" class="nx-error" role="alert">{{ errorApi }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="userModal = null">Cancelar</button>
-    <button type="submit" form="user-form" class="nx-btn nx-btn--primary">{{ m.id === null ? 'Crear Usuario' : 'Guardar' }}</button>
+    <button type="submit" form="user-form" class="nx-btn nx-btn--primary" [disabled]="guardando">{{ guardando ? 'Guardando…' : m.id === null ? 'Crear Usuario' : 'Guardar' }}</button>
   </ng-container>
 </app-modal>
 
@@ -83,5 +93,27 @@
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="perfilModal = null">Cancelar</button>
     <button type="submit" form="perfil-form" class="nx-btn nx-btn--primary">Crear Perfil</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="confirmar as u" title="Restablecer contraseña" width="480px" (closed)="confirmar = null">
+  <p class="nx-mt-0">Se generará una contraseña temporal para <b>{{ u.nombre }}</b> y se cerrarán sus sesiones abiertas. Deberá cambiarla al ingresar.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="confirmar = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="restablecer()">Restablecer</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="temporal as t" [title]="t.creado ? 'Usuario creado' : 'Contraseña restablecida'" width="520px" (closed)="temporal = null">
+  <p class="nx-mt-0">Entrega esta contraseña temporal a <b>{{ t.nombre }}</b> ({{ t.correo }}) por un canal seguro. Al ingresar se le pedirá cambiarla.</p>
+  <div class="nx-temporal">
+    <code class="nx-temporal__pwd" aria-label="Contraseña temporal">{{ t.password }}</code>
+    <button type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="copiar()"><app-icon name="copy" [size]="15"></app-icon>Copiar</button>
+  </div>
+  <div class="nx-banner nx-banner--warning nx-banner--compact nx-mt-12" role="note">
+    <app-icon name="alert" [size]="17"></app-icon><span>No se volverá a mostrar. Si se pierde, restablécela de nuevo.</span>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="temporal = null">Listo</button>
   </ng-container>
 </app-modal>

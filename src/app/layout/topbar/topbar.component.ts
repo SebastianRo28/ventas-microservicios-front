@@ -21,7 +21,7 @@ export class TopbarComponent {
 
   menuUsuario = false;
 
-  constructor(public ui: UiStateService, public data: HrDataService, private router: Router, public auth: AuthService) {
+  constructor(public ui: UiStateService, public data: HrDataService, public router: Router, public auth: AuthService) {
     data.colaboradores().subscribe((list) => {
       this.people = list.map((p) => ({
         label: `${p.apellidos}, ${p.nombres}`, detail: p.cargo, path: `admin/colaboradores/ficha/${p.id}`

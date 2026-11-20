@@ -160,7 +160,7 @@
     <div *ngIf="open.has(k)" class="nx-ficha__group-body">
       <div *ngFor="let f of fields" class="nx-fieldrow">
         <span>{{ f.label }}</span>
-        <span>{{ f.value }}<ng-container *ngIf="f.action">&ngsp;<a href="#" (click)="$event.preventDefault()">{{ f.action }}</a></ng-container></span>
+        <span>{{ f.value }}<ng-container *ngIf="f.action">&ngsp;<a *ngIf="f.link; else sinRuta" [routerLink]="f.link">{{ f.action }}</a><ng-template #sinRuta><a href="#" (click)="$event.preventDefault()">{{ f.action }}</a></ng-template></ng-container></span>
       </div>
     </div>
   </div>
@@ -168,7 +168,11 @@
 
 <ng-template #missing>
   <app-page-header title="Ficha del Colaborador" [crumbs]="['Administrativo', 'Colaboradores']" [askAi]="false"></app-page-header>
-  <div *ngIf="notFound" class="nx-card nx-empty">
+  <div *ngIf="notFound && colabView" class="nx-card nx-empty">
+    <b>Tu usuario no está vinculado a un colaborador</b>
+    <span>Pide a un administrador que vincule tu cuenta en Administración › Usuarios.</span>
+  </div>
+  <div *ngIf="notFound && !colabView" class="nx-card nx-empty">
     <b>No encontramos a este colaborador</b>
     <span>Puede que el enlace sea antiguo o que el colaborador ya no esté vigente.</span>
     <a class="nx-btn nx-btn--outline" routerLink="/admin/colaboradores/vigentes">Ir a Vigentes</a>

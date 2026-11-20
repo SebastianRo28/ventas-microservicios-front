@@ -6,7 +6,7 @@ import { AuditService } from './audit.service';
 import { AuthService } from './auth.service';
 import { UiStateService } from './ui-state.service';
 import {
-  Boleta, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PeriodoRem, Serie
+  Boleta, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PeriodoRem, Serie, UsuarioCreado, UsuarioCuenta, UsuarioGuardar
 } from './models';
 import { ARCHIVOS_PAGOS, ArchivoPago, PERIODOS_PROCESOS, PeriodoProcesos } from './sample/remuneraciones';
 import { PlantillaWf, SOLICITUDES_WF, SolicitudWf } from './sample/workflow';
@@ -26,7 +26,7 @@ import {
   Publicacion, RECONOCIMIENTOS, REPORTES, Reconocimiento, Reporte
 } from './sample/reportes';
 import {
-  BANDAS, Banda, CargoMercado, ESTUDIO_SALARIAL, NIVELES_BANDA, NivelBanda, PERFILES, Perfil, REMUNERACIONES, Remuneracion, USUARIOS, Usuario
+  BANDAS, Banda, CargoMercado, ESTUDIO_SALARIAL, NIVELES_BANDA, NivelBanda, PERFILES, Perfil, REMUNERACIONES, Remuneracion
 } from './sample/compensaciones';
 
 /**
@@ -57,6 +57,7 @@ export class HrDataService {
 
   /** Loads what comes from the API (collaborators and, for administrators, the change log). */
   cargar(): Observable<void> {
+    if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
     return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar()]).pipe(
       map(([cs]) => { this.colaboradores$.next(cs); }),
       catchError(() => { this.ui.toast('No se pudo cargar la información desde el servidor de Nexo RH'); return of(undefined); }),
@@ -141,7 +142,11 @@ export class HrDataService {
   reportes(): Observable<Reporte[]> { return of(REPORTES); }
   historialReportes(): Observable<EjecucionReporte[]> { return of(HISTORIAL_REPORTES); }
   perfiles(): Observable<Perfil[]> { return of(PERFILES); }
-  usuarios(): Observable<Usuario[]> { return of(USUARIOS); }
+  usuarios(): Observable<UsuarioCuenta[]> { return this.http.get<UsuarioCuenta[]>(`${API_URL}/usuarios`); }
+  crearUsuario(u: UsuarioGuardar): Observable<UsuarioCreado> { return this.http.post<UsuarioCreado>(`${API_URL}/usuarios`, u); }
+  modificarUsuario(id: number, u: UsuarioGuardar): Observable<UsuarioCuenta> { return this.http.put<UsuarioCuenta>(`${API_URL}/usuarios/${id}`, u); }
+  estadoUsuario(id: number, activo: boolean): Observable<UsuarioCuenta> { return this.http.post<UsuarioCuenta>(`${API_URL}/usuarios/${id}/estado`, { activo }); }
+  restablecerUsuario(id: number): Observable<UsuarioCreado> { return this.http.post<UsuarioCreado>(`${API_URL}/usuarios/${id}/restablecer`, {}); }
   bandas(): Observable<Banda[]> { return of(BANDAS); }
   nivelesBanda(): Observable<NivelBanda[]> { return of(NIVELES_BANDA); }
   remuneraciones(): Observable<Record<number, Remuneracion>> { return of(REMUNERACIONES); }

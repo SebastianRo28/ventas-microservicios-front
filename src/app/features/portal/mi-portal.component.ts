@@ -49,6 +49,7 @@ const CUMPLES: [string, [string, string, string][]][] = [
 ];
 
 /** P-01.13 Portal del Colaborador ("Mi portal"), with P-12.3 Nuevo Reconocimiento and P-12.4 calendar. */
+import { PortalService } from '../../core/portal.service';
 @Component({
   selector: 'app-mi-portal',
   templateUrl: './mi-portal.component.html'
@@ -101,15 +102,15 @@ export class MiPortalComponent {
   tareasCfg = false;
   calendario = false;
 
-  /** Vacation balance of the signed-in collaborator (Florencia Alamos, id 0, in the sample data). */
+  /** Vacation balance of the signed-in collaborator. */
   saldoVacaciones = 0;
 
-  constructor(data: HrDataService, public ui: UiStateService, asistencia: AsistenciaService, private ca: ControlAsistenciaService) {
+  constructor(data: HrDataService, public ui: UiStateService, asistencia: AsistenciaService, private ca: ControlAsistenciaService, public portal: PortalService) {
     this.recintos = ca.recintos$.value.filter((r) => r.activo);
-    this.ubicacion = ca.recintoDe[0] ?? this.recintos[0]?.id ?? 0;
+    this.ubicacion = ca.recintoDe[this.portal.yoId] ?? this.recintos[0]?.id ?? 0;
     data.colaboradores().subscribe((l) => {
       this.personas = l.map((c) => `${c.apellidos}, ${c.nombres}`);
-      const yo = l.find((c) => c.id === 0);
+      const yo = l.find((c) => c.id === this.portal.yoId);
       if (yo) this.saldoVacaciones = asistencia.saldo(yo);
     });
   }
@@ -125,7 +126,8 @@ export class MiPortalComponent {
   /** Punch from the portal (method Web); it shows up in Control de Asistencia at once. */
   marcar(tipo: 'Entrada' | 'Salida'): void {
     // The sample data lives on 16/03/2026; its clock (ca.horaCorte) is used so the punch fits the day already on file.
-    const r = this.ca.marcar(0, +this.ubicacion, tipo, 'Web', this.ca.horaCorte);
+    if (this.portal.yoId < 0) { this.marca = 'Tu usuario no está vinculado a un colaborador, así que no puede registrar asistencia.'; this.marcaError = true; return; }
+    const r = this.ca.marcar(this.portal.yoId, +this.ubicacion, tipo, 'Web', this.ca.horaCorte);
     this.marca = r.mensaje;
     this.marcaError = !r.ok;
   }
@@ -137,8 +139,8 @@ export class MiPortalComponent {
     if (!this.reconWho.length) return;
     const v = VALORES[this.valor];
     this.posts = [{
-      id: 'r' + Date.now(), kind: 'rec', ini: 'FA', avatarTone: 'warning', author: '', meta: 'Ahora · Reconocimiento',
-      from: 'Florencia Alamos Ruiz', to: this.reconWho.join(', '), valor: v.name, valorColor: v.color,
+      id: 'r' + Date.now(), kind: 'rec', ini: this.portal.yoIniciales, avatarTone: 'warning', author: '', meta: 'Ahora · Reconocimiento',
+      from: this.portal.yoNombre, to: this.reconWho.join(', '), valor: v.name, valorColor: v.color,
       text: `“${this.reconMsg.trim() || '¡Buen trabajo equipo!'}”`, likes: 0, loves: 0, smiles: 0, comments: 0,
     }, ...this.posts];
     this.recon = 3;

@@ -35,12 +35,12 @@
     <app-icon name="sparkle" [size]="16"></app-icon>Nexo AI
   </button>
 
-  <a class="nx-topbar__icon" [routerLink]="inPortal ? '/admin/colaboradores/vigentes' : '/portal'"
+  <a *ngIf="auth.puedeVer('admin/colaboradores/vigentes')" class="nx-topbar__icon" [routerLink]="inPortal ? '/admin/colaboradores/vigentes' : '/portal'"
      [attr.aria-label]="inPortal ? 'Cambiar a vista administrador' : 'Cambiar a vista colaborador'"
      [title]="inPortal ? 'Cambiar a vista administrador' : 'Cambiar a vista colaborador'">
     <app-icon name="eye"></app-icon>
   </a>
-  <button type="button" class="nx-topbar__icon" aria-label="Administración" (click)="ui.openDrawer('admin')">
+  <button *ngIf="auth.esAdmin" type="button" class="nx-topbar__icon" aria-label="Administración" (click)="ui.openDrawer('admin')">
     <app-icon name="gear"></app-icon>
   </button>
   <button type="button" class="nx-topbar__icon" aria-label="Mis pendientes, 99 notificaciones" (click)="ui.openDrawer('pendientes')">
@@ -61,6 +61,7 @@
     </button>
     <div *ngIf="menuUsuario" class="nx-popover nx-usermenu">
       <div class="nx-usermenu__who"><b>{{ auth.usuario?.nombre }}</b><span>{{ auth.usuario?.correo }}</span><span class="nx-badge nx-badge--sm nx-tone-info">{{ auth.usuario?.rol }}</span></div>
+      <a class="nx-menu-item" routerLink="/cambiar-password" [queryParams]="{ vuelta: router.url }" (click)="menuUsuario = false"><app-icon name="key" [size]="16"></app-icon>Cambiar contraseña</a>
       <button type="button" class="nx-menu-item" (click)="salir()"><app-icon name="logout" [size]="16"></app-icon>Cerrar sesión</button>
     </div>
   </div>

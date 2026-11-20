@@ -20,6 +20,7 @@ const ACTION_META: Record<RowAction, { icon: string; label: string }> = {
   observar: { icon: 'alert', label: 'Observar' },
   cargar: { icon: 'plus', label: 'Cargar evidencia' },
   emparejar: { icon: 'sitemap', label: 'Emparejar con un cargo interno' },
+  restablecer: { icon: 'key', label: 'Restablecer contraseña' },
 };
 
 /**

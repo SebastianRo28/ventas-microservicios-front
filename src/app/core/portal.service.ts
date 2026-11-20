@@ -1,15 +1,24 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { fmtFecha } from './asistencia.service';
+import { AuthService } from './auth.service';
 import { RECONOCIMIENTOS, Reconocimiento } from './sample/reportes';
 import {
-  BENEFICIOS, Beneficio, CANJES, CURSOS, Canje, Curso, EVALUACIONES, EncuestaPortal, Evaluacion, JEFES, MIS_ENCUESTAS, PUNTOS_INICIALES, YO_ID
+  BENEFICIOS, Beneficio, CANJES, CURSOS, Canje, Curso, EVALUACIONES, EncuestaPortal, Evaluacion, JEFES, MIS_ENCUESTAS, PUNTOS_INICIALES
 } from './sample/portal';
 
-/** State of the collaborator portal (signed in as Florencia Alamos). In memory until there is an API. */
+/** State of the collaborator portal of the signed-in user. Benefits, surveys, courses, etc. are in memory until there is an API. */
 @Injectable({ providedIn: 'root' })
 export class PortalService {
-  readonly yoId = YO_ID;
+  constructor(private auth: AuthService) {}
+  /** Collaborator of the signed-in user (-1 when the account is not linked to one, e.g. an external administrator). */
+  get yoId(): number { return this.auth.usuario?.colaboradorId ?? -1; }
+  /** Name of the signed-in user, as shown in posts and certificates. */
+  get yoNombre(): string { return this.auth.usuario?.nombre ?? ''; }
+  get yoCorreo(): string { return this.auth.usuario?.correo ?? ''; }
+  get yoIniciales(): string { return this.auth.usuario?.iniciales ?? '—'; }
+  /** Hides portal shortcuts to screens the user's role cannot open. */
+  puedeVer(path: string): boolean { return this.auth.puedeVer(path); }
   readonly jefes = JEFES;
   readonly beneficios: Beneficio[] = BENEFICIOS;
   readonly canjes$ = new BehaviorSubject<Canje[]>(CANJES);

@@ -20,8 +20,8 @@
     <div class="nx-sidebar__title">{{ current.label }}</div>
 
     <div *ngIf="current.id === 'portal'" class="nx-sidebar__hello">
-      <span class="nx-avatar nx-avatar--44">FA</span>
-      <div><span>¡Hola!</span><b>Florencia Alamos</b><span>Analista Finanzas</span></div>
+      <span class="nx-avatar nx-avatar--44">{{ yo.iniciales }}</span>
+      <div><span>¡Hola!</span><b>{{ yo.nombre }}</b><span>{{ yo.cargo }}</span></div>
     </div>
 
     <div *ngIf="current.external as ext" class="nx-sidebar__card">

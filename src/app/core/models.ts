@@ -79,3 +79,21 @@ export interface Boleta {
 }
 
 export interface Pendiente { tipo: 'sst' | 'vac' | 'aus' | 'eva' | 'otro'; etiqueta: string; tone: Tone; fecha: string; titulo: string; detalle: string; }
+
+/** Account in Administración › Usuarios (API /usuarios). */
+export interface UsuarioCuenta {
+  id: number;
+  nombre: string;
+  correo: string;
+  rol: 'Administrador' | 'Supervisor' | 'Colaborador';
+  perfil: string;
+  colaboradorId: number | null;
+  colaborador: string | null;
+  activo: boolean;
+  ultimoAcceso: string;
+  bloqueado: boolean;
+  debeCambiarPassword: boolean;
+}
+export interface UsuarioGuardar { nombre: string; correo: string; rol: string; colaboradorId: number | null; }
+/** Answer to creating an account or resetting its password: the temporary password is shown only once. */
+export interface UsuarioCreado { usuario: UsuarioCuenta; passwordTemporal: string; }

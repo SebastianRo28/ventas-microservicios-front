@@ -12,13 +12,14 @@ import { AdminDrawerComponent } from './layout/drawers/admin-drawer.component';
 import { PendientesDrawerComponent } from './layout/drawers/pendientes-drawer.component';
 import { AiDrawerComponent } from './layout/drawers/ai-drawer.component';
 import { LoginComponent } from './features/login/login.component';
+import { CambiarPasswordComponent } from './features/login/cambiar-password.component';
 import { AuthInterceptor } from './core/auth.service';
 
 /** App shell: layout (topbar, menu, drawers). Screens live in the lazy section modules under src/app/sections. */
 @NgModule({
   declarations: [
     AppComponent,
-    TopbarComponent, NavComponent, DrawersComponent, AdminDrawerComponent, PendientesDrawerComponent, AiDrawerComponent, LoginComponent,
+    TopbarComponent, NavComponent, DrawersComponent, AdminDrawerComponent, PendientesDrawerComponent, AiDrawerComponent, LoginComponent, CambiarPasswordComponent,
   ],
   imports: [BrowserModule, HttpClientModule, AppRoutingModule, SharedModule],
   providers: [{ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }],

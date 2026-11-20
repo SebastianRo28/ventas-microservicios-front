@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
-import { authGuard } from './core/auth.service';
+import { authGuard, sesionGuard } from './core/auth.service';
+import { CambiarPasswordComponent } from './features/login/cambiar-password.component';
 import { LoginComponent } from './features/login/login.component';
 
 /**
@@ -9,6 +10,7 @@ import { LoginComponent } from './features/login/login.component';
  */
 const routes: Routes = [
   { path: 'login', component: LoginComponent, title: 'Iniciar sesión · Nexo RH' },
+  { path: 'cambiar-password', component: CambiarPasswordComponent, canActivate: [sesionGuard], title: 'Cambiar contraseña · Nexo RH' },
   { path: '', redirectTo: 'admin/colaboradores/vigentes', pathMatch: 'full' },
   { path: 'admin', canActivate: [authGuard], loadChildren: () => import('./sections/admin.module').then((m) => m.AdminModule) },
   { path: 'rem', canActivate: [authGuard], loadChildren: () => import('./sections/rem.module').then((m) => m.RemModule) },

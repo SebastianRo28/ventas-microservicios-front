@@ -35,23 +35,25 @@ export class LoginComponent {
   ver = false;
   cargando = false;
   error = '';
-  readonly aviso: string;
+  aviso: string;
   private readonly vuelta: string;
 
   constructor(private auth: AuthService, private data: HrDataService, private router: Router, route: ActivatedRoute) {
     const q = route.snapshot.queryParamMap;
-    this.vuelta = q.get('vuelta') || '/admin/colaboradores/vigentes';
+    this.vuelta = q.get('vuelta') || '/';
     this.aviso = q.get('motivo') === 'sesion' ? 'Tu sesión terminó. Vuelve a ingresar.' : '';
-    if (auth.autenticado) router.navigateByUrl(this.vuelta);
+    if (auth.autenticado) router.navigateByUrl(auth.debeCambiarPassword ? '/cambiar-password' : this.vuelta);
   }
 
   entrar(): void {
     this.error = '';
+    this.aviso = '';
     if (!this.correo.trim() || !this.password) { this.error = 'Ingresa tu correo y tu contraseña.'; return; }
     this.cargando = true;
     this.auth.login(this.correo.trim(), this.password).subscribe({
       next: () => {
         this.password = '';
+        if (this.auth.debeCambiarPassword) { this.router.navigate(['/cambiar-password'], { queryParams: { vuelta: this.vuelta } }); return; }
         this.data.cargar().subscribe({ complete: () => this.router.navigateByUrl(this.vuelta.startsWith('/login') ? '/' : this.vuelta) });
       },
       error: (e) => { this.cargando = false; this.error = mensajeError(e); },

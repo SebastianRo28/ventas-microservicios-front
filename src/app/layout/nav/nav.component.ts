@@ -1,6 +1,8 @@
 import { Component, OnDestroy } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
+import { Colaborador } from '../../core/models';
+import { AuthService } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { PortalService } from '../../core/portal.service';
 import { NAV_SECTIONS, NavItem, NavSection, findLeaf } from '../nav.config';
@@ -11,11 +13,16 @@ import { NAV_SECTIONS, NavItem, NavSection, findLeaf } from '../nav.config';
   templateUrl: './nav.component.html'
 })
 export class NavComponent implements OnDestroy {
-  readonly sections = NAV_SECTIONS;
+  /** Sections and items the signed-in role may open (administrators also see the modules not contracted). */
+  sections: NavSection[] = NAV_SECTIONS;
+  /** Signed-in collaborator for the portal greeting. */
+  yo: { iniciales: string; nombre: string; cargo: string } = { iniciales: '—', nombre: '', cargo: '' };
   current: NavSection = NAV_SECTIONS[1];
   /** Open groups, keyed by `${section}/${label}`. */
   open = new Set<string>();
   private sub: Subscription;
+  private readonly subs = new Subscription();
+  private cs: Colaborador[] = [];
 
   /** Live counters (pending surveys); other items keep the count from the nav config. */
   count(item: NavItem): number | undefined {
@@ -24,19 +31,40 @@ export class NavComponent implements OnDestroy {
     return item.count;
   }
 
-  constructor(private router: Router, public data: HrDataService, private portal: PortalService) {
+  constructor(private router: Router, public data: HrDataService, private portal: PortalService, private auth: AuthService) {
+    this.subs.add(auth.usuario$.subscribe(() => { this.filtrar(); this.sync(router.url); this.saludo(); }));
+    this.subs.add(data.colaboradores().subscribe((cs) => { this.cs = cs; this.saludo(); }));
     this.sync(router.url);
     this.sub = router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => this.sync(e.urlAfterRedirects));
   }
 
-  ngOnDestroy(): void { this.sub.unsubscribe(); }
+  ngOnDestroy(): void { this.sub.unsubscribe(); this.subs.unsubscribe(); }
+
+  private filtrar(): void {
+    if (this.auth.esAdmin) { this.sections = NAV_SECTIONS; return; }
+    const ver = (i: NavItem): NavItem | null => {
+      if (i.locked) return null;
+      if (i.children) { const ch = i.children.filter((c) => c.path && this.auth.puedeVer(c.path)); return ch.length ? { ...i, children: ch } : null; }
+      return i.path && this.auth.puedeVer(i.path) ? i : null;
+    };
+    this.sections = NAV_SECTIONS.filter((s) => !s.locked && !s.external)
+      .map((s) => ({ ...s, items: s.items.map(ver).filter((i): i is NavItem => !!i) }))
+      .filter((s) => s.items.length);
+    if (!this.sections.some((s) => s.id === this.current.id)) this.current = this.sections[0] ?? NAV_SECTIONS[0];
+  }
+
+  private saludo(): void {
+    const u = this.auth.usuario;
+    const c = this.cs.find((x) => x.id === u?.colaboradorId);
+    this.yo = { iniciales: u?.iniciales ?? '—', nombre: c ? `${c.nombres.split(' ')[0]} ${c.apellidos.split(' ')[0]}` : u?.nombre ?? '', cargo: c?.cargo ?? u?.rol ?? '' };
+  }
 
   /** Follow the route: select its module and expand its group. */
   private sync(url: string): void {
     const leaf = findLeaf(url);
     if (!leaf) return;
-    this.current = leaf.section;
+    this.current = this.sections.find((s) => s.id === leaf.section.id) ?? leaf.section;
     if (leaf.group) this.open.add(this.key(leaf.group));
   }
 

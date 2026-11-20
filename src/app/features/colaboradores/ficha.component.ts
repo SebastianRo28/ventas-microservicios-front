@@ -17,6 +17,7 @@ interface Field { label: string; value: string; link?: string; action?: string; 
 interface Bars { title: string; unit: string; values: number[]; fmt: (n: number) => string; }
 
 /** P-01.7 Ficha del Colaborador (admin) and Mi ficha (collaborator view). */
+import { PortalService } from '../../core/portal.service';
 @Component({
   selector: 'app-ficha',
   templateUrl: './ficha.component.html'
@@ -43,10 +44,30 @@ export class FichaComponent implements OnDestroy {
   charts: Bars[] = [];
   private sub: Subscription;
 
-  constructor(route: ActivatedRoute, private data: HrDataService, private asistencia: AsistenciaService, public ui: UiStateService, public ca: ControlAsistenciaService) {
+  /**
+   * "Usuario" row: in Mi ficha it is the signed-in account; administrators see the linked account (from the API) and
+   * a link to Usuarios to manage or create it. Other roles see nothing (they cannot list accounts).
+   */
+  private campoUsuario(c: Colaborador): Field {
+    if (this.colabView) return { label: 'Usuario', value: this.portal.yoCorreo || '—' };
+    const campo: Field = { label: 'Usuario', value: '…' };
+    if (!this.portal.puedeVer('/configuracion/usuarios')) { campo.value = '—'; return campo; }
+    this.data.usuarios().subscribe({
+      next: (us) => {
+        const u = us.find((x) => x.colaboradorId === c.id);
+        campo.value = u ? `${u.correo}${u.activo ? '' : ' (inactivo)'}` : 'Sin usuario';
+        campo.action = u ? 'administrar' : 'crear';
+        campo.link = '/configuracion/usuarios';
+      },
+      error: () => (campo.value = '—'),
+    });
+    return campo;
+  }
+
+  constructor(route: ActivatedRoute, private data: HrDataService, private asistencia: AsistenciaService, public ui: UiStateService, public ca: ControlAsistenciaService, private portal: PortalService) {
     this.colabView = !!route.snapshot.data['colabView'];
     this.sub = route.paramMap.pipe(
-      switchMap((p) => data.colaborador(this.colabView ? 0 : Number(p.get('id'))))
+      switchMap((p) => data.colaborador(this.colabView ? portal.yoId : Number(p.get('id'))))
     ).subscribe((c) => this.load(c));
   }
 
@@ -85,7 +106,7 @@ export class FichaComponent implements OnDestroy {
       { label: 'Cumpleaños', value: d.nacimiento ? `${d.nacimiento} (${edad} años)` : '—' },
       { label: 'Dirección', value: dash(d.direccion) },
       { label: 'Fecha de Ingreso', value: c.ingreso },
-      { label: 'Usuario', value: 'Sin usuario', action: 'crear' },
+      this.campoUsuario(c),
       { label: 'Beneficios', value: 'Puntos disponibles: 1,200', action: 'Añadir Puntos' },
     ];
     this.educacion = [

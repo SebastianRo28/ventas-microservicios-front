@@ -75,7 +75,7 @@
           <button type="button" class="nx-link-btn">{{ p.comments }} {{ p.comments === 1 ? 'comentario' : 'comentarios' }}</button>
         </div>
         <label class="nx-comment">
-          <span class="nx-avatar nx-avatar--32">FA</span>
+          <span class="nx-avatar nx-avatar--32">{{ portal.yoIniciales }}</span>
           <input class="nx-input" aria-label="Escribe un comentario" placeholder="Escribe un comentario…">
         </label>
       </article>
@@ -116,17 +116,19 @@
       <div class="nx-side__head"><h3 class="nx-grow">Accesos directos</h3><span class="nx-chip-sm">F1</span></div>
       <div class="nx-vac">
         <div class="nx-grow"><span>Vacaciones disponibles</span><b>{{ saldoVacaciones }} días totales</b></div>
-        <a class="nx-btn nx-btn--primary nx-btn--sm" routerLink="/admin/asistencia/solicitudes">Solicitar</a>
+        <a *ngIf="portal.puedeVer('/admin/asistencia/solicitudes')" class="nx-btn nx-btn--primary nx-btn--sm" routerLink="/admin/asistencia/solicitudes">Solicitar</a>
       </div>
       <div class="nx-slips">
         <b>Últimas boletas de pago</b>
         <div><a routerLink="/portal/mi-ficha">Febrero 2026</a><a routerLink="/portal/mi-ficha">Enero 2026</a><a routerLink="/portal/mi-ficha">Diciembre 2025</a></div>
       </div>
-      <a *ngFor="let a of accesos" class="nx-shortcut" [routerLink]="a.path">
+      <ng-container *ngFor="let a of accesos">
+      <a *ngIf="portal.puedeVer(a.path)" class="nx-shortcut" [routerLink]="a.path">
         <span class="nx-iconbox"><app-icon [name]="a.icon" [size]="17"></app-icon></span>
         <span class="nx-grow">{{ a.label }}</span>
         <app-icon class="nx-faint" name="chevron-right" [size]="16"></app-icon>
       </a>
+      </ng-container>
     </section>
 
     <section class="nx-card nx-side">
@@ -139,7 +141,7 @@
       <h3>Links de interés</h3>
       <div class="nx-grid nx-grid--2 nx-grid--10">
         <a class="nx-tile" href="#" (click)="$event.preventDefault()"><span class="nx-tile__art nx-tile__art--green"><app-icon name="hospital" [size]="28"></app-icon></span><span>¿Dónde me atiendo?</span></a>
-        <a class="nx-tile" routerLink="/do/denuncias"><span class="nx-tile__art nx-tile__art--blue"><app-icon name="flag" [size]="28"></app-icon></span><span>Canal de Denuncias</span></a>
+        <a *ngIf="portal.puedeVer('/do/denuncias')" class="nx-tile" routerLink="/do/denuncias"><span class="nx-tile__art nx-tile__art--blue"><app-icon name="flag" [size]="28"></app-icon></span><span>Canal de Denuncias</span></a>
       </div>
     </section>
 

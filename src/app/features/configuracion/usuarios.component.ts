@@ -1,16 +1,19 @@
 import { Component } from '@angular/core';
+import { AuthService, mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
-import { PERMISOS, Perfil, Permiso, Usuario } from '../../core/sample/compensaciones';
+import { Colaborador, UsuarioCuenta } from '../../core/models';
+import { PERMISOS, Perfil, Permiso } from '../../core/sample/compensaciones';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
 const UCOLS: Column[] = [
   { key: 'n', label: 'Nombre', w: 'minmax(200px, 1.4fr)' },
   { key: 'e', label: 'Correo', w: 'minmax(220px, 1.5fr)' },
-  { key: 'p', label: 'Perfil', filter: 'select', w: 'minmax(170px, 1fr)' },
-  { key: 'a', label: 'Último acceso', type: 'date', filter: 'date', w: 'minmax(140px, 0.9fr)' },
+  { key: 'p', label: 'Rol', filter: 'select', w: 'minmax(130px, 0.8fr)' },
+  { key: 'c', label: 'Colaborador vinculado', w: 'minmax(200px, 1.2fr)' },
+  { key: 'a', label: 'Último acceso', filter: 'none', w: 'minmax(140px, 0.9fr)' },
   { key: 's', label: 'Estado', type: 'badge', filter: 'select', w: 'minmax(100px, 0.6fr)' },
-  { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '100px' },
+  { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '130px' },
 ];
 const PCOLS: Column[] = [
   { key: 'n', label: 'Perfil', w: 'minmax(220px, 1.6fr)' },
@@ -29,24 +32,45 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export class UsuariosComponent {
   readonly ucols = UCOLS; readonly pcols = PCOLS;
   readonly areas = Object.keys(PERMISOS);
-  readonly uActions: RowAction[] = ['editar', 'pausa'];
+  readonly uActions: RowAction[] = ['editar', 'restablecer', 'pausa'];
+  readonly roles = ['Administrador', 'Supervisor', 'Colaborador'];
   readonly pActions: RowAction[] = ['ver', 'eliminar'];
   tab = 0;
-  usuarios: Usuario[] = [];
+  usuarios: UsuarioCuenta[] = [];
+  colaboradores: Colaborador[] = [];
   perfiles: Perfil[] = [];
   uRows: Row[] = [];
   pRows: Row[] = [];
 
   resumen: Perfil | null = null;
   resumenArea = 0;            // 0 = Resumen general, then index+1 of `areas`
-  userModal: { id: number | null; nombre: string; correo: string; perfil: string } | null = null;
+  userModal: { id: number | null; nombre: string; correo: string; rol: string; colaboradorId: number | null } | null = null;
+  /** Temporary password just generated: shown once so the administrator can hand it over. */
+  temporal: { nombre: string; correo: string; password: string; creado: boolean } | null = null;
+  confirmar: UsuarioCuenta | null = null;
+  guardando = false;
+  errorApi = '';
   perfilModal: { nombre: string } | null = null;
   intento = false;
 
-  constructor(private data: HrDataService, public ui: UiStateService) {
+  constructor(private data: HrDataService, public ui: UiStateService, private auth: AuthService) {
     data.perfiles().subscribe((p) => (this.perfiles = p));
-    data.usuarios().subscribe((u) => (this.usuarios = u));
-    this.refresh();
+    data.colaboradores().subscribe((c) => (this.colaboradores = [...c].sort((x, y) => x.apellidos.localeCompare(y.apellidos))));
+    this.cargarUsuarios();
+  }
+
+  private cargarUsuarios(): void {
+    this.data.usuarios().subscribe({
+      next: (u) => { this.usuarios = u; this.refresh(); },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
+  }
+
+  /** Collaborators without an account, plus the one linked to the account being edited. */
+  get colaboradoresLibres(): Colaborador[] {
+    const m = this.userModal;
+    const usados = new Set(this.usuarios.filter((u) => u.id !== m?.id).map((u) => u.colaboradorId));
+    return this.colaboradores.filter((c) => !usados.has(c.id));
   }
 
   count(perfil: string): number { return this.usuarios.filter((u) => u.perfil === perfil).length; }
@@ -54,8 +78,9 @@ export class UsuariosComponent {
 
   private refresh(): void {
     this.uRows = this.usuarios.map((u) => ({
-      id: u.id, n: u.nombre, e: u.correo, p: u.perfil, a: u.acceso,
-      s: u.activo ? { text: 'Activo', tone: 'success' as const } : { text: 'Inactivo', tone: 'gray' as const }, x: '',
+      id: u.id, n: u.nombre, e: u.correo, p: u.rol, c: u.colaborador ?? '—', a: u.ultimoAcceso,
+      s: !u.activo ? { text: 'Inactivo', tone: 'gray' as const } : u.bloqueado ? { text: 'Bloqueado', tone: 'danger' as const }
+        : u.debeCambiarPassword ? { text: 'Clave temporal', tone: 'warning' as const } : { text: 'Activo', tone: 'success' as const }, x: '',
     }));
     this.pRows = this.perfiles.map((p) => ({ id: p.id, n: p.nombre, u: this.count(p.nombre), f: p.actualizado, m: p.modificadoPor, x: '' }));
   }
@@ -63,13 +88,29 @@ export class UsuariosComponent {
   private hoy(): string { return new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 
   // --- usuarios -------------------------------------------------------------
-  nuevoUsuario(): void { this.intento = false; this.userModal = { id: null, nombre: '', correo: '', perfil: 'Normal / Colaborador' }; }
+  nuevoUsuario(): void { this.intento = false; this.errorApi = ''; this.userModal = { id: null, nombre: '', correo: '', rol: 'Colaborador', colaboradorId: null }; }
 
   onUsuario(action: RowAction, row: Row): void {
     const u = this.usuarios.find((x) => x.id === row.id);
     if (!u) return;
-    if (action === 'editar') { this.intento = false; this.userModal = { id: u.id, nombre: u.nombre, correo: u.correo, perfil: u.perfil }; }
-    if (action === 'pausa') { u.activo = !u.activo; this.ui.toast(`${u.nombre}: usuario ${u.activo ? 'activado' : 'desactivado'}`); this.refresh(); }
+    if (action === 'editar') { this.intento = false; this.errorApi = ''; this.userModal = { id: u.id, nombre: u.nombre, correo: u.correo, rol: u.rol, colaboradorId: u.colaboradorId }; }
+    if (action === 'restablecer') this.confirmar = u;
+    if (action === 'pausa') {
+      this.data.estadoUsuario(u.id, !u.activo).subscribe({
+        next: (r) => { this.ui.toast(`${r.nombre}: usuario ${r.activo ? 'activado' : 'desactivado'}`); this.cargarUsuarios(); },
+        error: (err) => this.ui.toast(mensajeError(err)),
+      });
+    }
+  }
+
+  /** Picking the collaborator fills the name and email when they are empty. */
+  elegirColaborador(id: number | null): void {
+    const m = this.userModal;
+    if (!m) return;
+    m.colaboradorId = id;
+    const c = this.colaboradores.find((x) => x.id === id);
+    if (c && !m.nombre.trim()) m.nombre = `${c.nombres} ${c.apellidos}`;
+    if (c && !m.correo.trim() && c.detalle?.emailCorporativo) m.correo = c.detalle.emailCorporativo;
   }
 
   get correoInvalido(): boolean { return !!this.userModal && !EMAIL_RE.test(this.userModal.correo.trim()); }
@@ -77,21 +118,43 @@ export class UsuariosComponent {
     const m = this.userModal;
     return !!m && this.usuarios.some((u) => u.id !== m.id && u.correo.toLowerCase() === m.correo.trim().toLowerCase());
   }
+  get faltaColaborador(): boolean { return !!this.userModal && this.userModal.rol !== 'Administrador' && this.userModal.colaboradorId === null; }
 
   guardarUsuario(): void {
     this.intento = true;
+    this.errorApi = '';
     const m = this.userModal;
-    if (!m || !m.nombre.trim() || this.correoInvalido || this.correoDuplicado) return;
+    if (!m || !m.nombre.trim() || this.correoInvalido || this.correoDuplicado || this.faltaColaborador || this.guardando) return;
+    const datos = { nombre: m.nombre.trim(), correo: m.correo.trim(), rol: m.rol, colaboradorId: m.colaboradorId };
+    this.guardando = true;
+    const fin = () => { this.guardando = false; this.userModal = null; this.cargarUsuarios(); };
+    const fallo = (err: unknown) => { this.guardando = false; this.errorApi = mensajeError(err); };
     if (m.id === null) {
-      this.usuarios.push({ id: Math.max(...this.usuarios.map((u) => u.id)) + 1, nombre: m.nombre.trim(), correo: m.correo.trim(), perfil: m.perfil, acceso: '—', activo: true });
-      this.ui.toast(`Usuario creado. Se envió la invitación a ${m.correo.trim()}`);
+      this.data.crearUsuario(datos).subscribe({
+        next: (r) => { fin(); this.temporal = { nombre: r.usuario.nombre, correo: r.usuario.correo, password: r.passwordTemporal, creado: true }; },
+        error: fallo,
+      });
     } else {
-      const u = this.usuarios.find((x) => x.id === m.id);
-      if (u) Object.assign(u, { nombre: m.nombre.trim(), correo: m.correo.trim(), perfil: m.perfil });
-      this.ui.toast('Usuario actualizado');
+      this.data.modificarUsuario(m.id, datos).subscribe({ next: () => { fin(); this.ui.toast('Usuario actualizado'); }, error: fallo });
     }
-    this.userModal = null;
-    this.refresh();
+  }
+
+  restablecer(): void {
+    const u = this.confirmar;
+    if (!u) return;
+    this.confirmar = null;
+    this.data.restablecerUsuario(u.id).subscribe({
+      next: (r) => { this.temporal = { nombre: r.usuario.nombre, correo: r.usuario.correo, password: r.passwordTemporal, creado: false }; this.cargarUsuarios(); },
+      error: (err) => this.ui.toast(mensajeError(err)),
+    });
+  }
+
+  copiar(): void {
+    const t = this.temporal;
+    if (!t) return;
+    navigator.clipboard?.writeText(t.password).then(
+      () => this.ui.toast('Contraseña copiada'),
+      () => this.ui.toast('No se pudo copiar: selecciónala y cópiala manualmente'));
   }
 
   // --- perfiles -------------------------------------------------------------
