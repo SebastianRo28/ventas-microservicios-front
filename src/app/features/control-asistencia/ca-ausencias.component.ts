@@ -5,7 +5,7 @@ import { AsistenciaService, diasCalendario, seCruzan } from '../../core/asistenc
 import { aIso, ControlAsistenciaService, deIso, diaSemana, DIAS_SEMANA, dur, rangoFechas } from '../../core/control-asistencia.service';
 import { parseFecha, soles } from '../../core/format';
 import { Colaborador } from '../../core/models';
-import { AUSENCIA_CON_GOCE, Ausencia, FERIADOS_2026, TIPOS_AUSENCIA, TipoAusencia, Vacacion } from '../../core/sample/asistencia';
+import { AUSENCIA_CON_GOCE, Ausencia, TIPOS_AUSENCIA, TipoAusencia, Vacacion } from '../../core/sample/asistencia';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -214,7 +214,7 @@ export class CaAusenciasComponent implements OnDestroy {
         break;
       }
       case 'feriados': {
-        const l = FERIADOS_2026.filter((x) => enPer(x.fecha, x.fecha)).sort((a, b) => parseFecha(a.fecha)!.getTime() - parseFecha(b.fecha)!.getTime());
+        const l = this.asis.feriadosLista.filter((x) => enPer(x.fecha, x.fecha)).sort((a, b) => parseFecha(a.fecha)!.getTime() - parseFecha(b.fecha)!.getTime());
         this.rows = l.map((x, i) => {
           const pasado = parseFecha(x.fecha)! <= parseFecha(ca.corte)!;
           const conTurno = this.colaboradores.filter((c) => ca.turnoDe(c.id, x.fecha).turno).length;

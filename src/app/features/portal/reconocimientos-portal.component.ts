@@ -1,5 +1,6 @@
 import { Component, OnDestroy } from '@angular/core';
 import { combineLatest, Subscription } from 'rxjs';
+import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
 import { PortalService } from '../../core/portal.service';
@@ -87,10 +88,11 @@ export class ReconocimientosPortalComponent implements OnDestroy {
   }
   ngOnDestroy(): void { this.sub.unsubscribe(); }
 
-  get recibidos(): number { return this.lista.filter((r) => r.para === this.yo).length; }
+  private paraMi(r: Reconocimiento): boolean { return r.paraIds?.includes(this.portal.yoId) ?? r.para === this.yo; }
+  get recibidos(): number { return this.lista.filter((r) => this.paraMi(r)).length; }
   get enviados(): number { return this.lista.filter((r) => r.autor === this.yo).length; }
   get visibles(): Reconocimiento[] {
-    return this.lista.filter((r) => this.tab === 0 || (this.tab === 1 ? r.para === this.yo : r.autor === this.yo));
+    return this.lista.filter((r) => this.tab === 0 || (this.tab === 1 ? this.paraMi(r) : r.autor === this.yo));
   }
   get top(): string {
     const cuenta = new Map<string, number>();
@@ -114,9 +116,11 @@ export class ReconocimientosPortalComponent implements OnDestroy {
     this.intento = true;
     const m = this.modal;
     if (!m || this.error) return;
-    this.portal.reconocer({ para: m.para, autor: this.yo, valor: m.valor, mensaje: m.mensaje.trim() });
-    this.modal = null;
-    this.tab = 2;
-    this.ui.toast(`Reconocimiento publicado para ${m.para.split(', ').reverse().join(' ')}`);
+    const para = this.colegas.find((c) => `${c.apellidos}, ${c.nombres}` === m.para);
+    if (!para) return;
+    this.portal.reconocer([para.id], m.valor, m.mensaje.trim()).subscribe({
+      next: () => { this.modal = null; this.tab = 2; this.ui.toast(`Reconocimiento publicado para ${m.para.split(', ').reverse().join(' ')}`); },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 }

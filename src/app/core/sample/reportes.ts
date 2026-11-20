@@ -47,7 +47,7 @@ export const VALORES_RECONOCIMIENTO: ValorReconocimiento[] = [
   { nombre: 'Al infinito y más allá', color: '#5B3FA8', icono: 'rocket' },
 ];
 
-export interface Reconocimiento { id: number; para: string; autor: string; valor: string; mensaje: string; fecha: string; }
+export interface Reconocimiento { id: number; para: string; autor: string; valor: string; mensaje: string; fecha: string; paraIds?: number[]; autorId?: number | null; }
 export const RECONOCIMIENTOS: Reconocimiento[] = [
   { id: 0, para: 'Chávez Quispe, Renato', autor: 'Cáceres Huamán, Lucía', valor: 'Vamos por más!', mensaje: 'Gracias por apoyar el cierre de planillas de febrero fuera de horario.', fecha: '10/03/2026' },
   { id: 1, para: 'Gutiérrez Paredes, Javier', autor: 'Benavides Rojas, Diego', valor: 'Nos mueve la excelencia', mensaje: 'Inventario cerrado sin diferencias por tercer mes seguido.', fecha: '06/03/2026' },

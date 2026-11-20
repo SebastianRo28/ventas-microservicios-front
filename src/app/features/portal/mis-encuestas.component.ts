@@ -1,5 +1,6 @@
 import { Component, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { mensajeError } from '../../core/auth.service';
 import { PortalService } from '../../core/portal.service';
 import { EncuestaPortal, Pregunta } from '../../core/sample/portal';
 import { UiStateService } from '../../core/ui-state.service';
@@ -90,8 +91,10 @@ export class MisEncuestasComponent implements OnDestroy {
       setTimeout(() => (document.querySelector('.nx-question.is-invalid') as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       return;
     }
-    this.portal.responder(e);
-    this.abierta = null;
-    this.ui.toast(`¡Gracias! Enviaste tus respuestas de “${e.nombre}”`);
+    const valores = Object.fromEntries(Object.entries(this.respuestas).map(([k, v]) => [k, String(v ?? '').trim()]).filter(([, v]) => v));
+    this.portal.responder(e, valores).subscribe({
+      next: () => { this.abierta = null; this.ui.toast(`¡Gracias! Enviaste tus respuestas de “${e.nombre}”`); },
+      error: (x) => this.ui.toast(mensajeError(x)),
+    });
   }
 }

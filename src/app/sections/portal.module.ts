@@ -12,6 +12,7 @@ import { MisBeneficiosComponent } from '../features/portal/mis-beneficios.compon
 import { MisEncuestasComponent } from '../features/portal/mis-encuestas.component';
 import { MiEquipoComponent } from '../features/portal/mi-equipo.component';
 import { ProcesosInternosComponent } from '../features/portal/procesos-internos.component';
+import { CanalDenunciasComponent } from '../features/portal/canal-denuncias.component';
 import { MisCapacitacionesComponent } from '../features/portal/mis-capacitaciones.component';
 import { MisEvaluacionesComponent } from '../features/portal/mis-evaluaciones.component';
 
@@ -26,6 +27,7 @@ const SCREENS = {
   'portal/mis-encuestas': MisEncuestasComponent,
   'portal/mi-equipo': MiEquipoComponent,
   'portal/procesos-internos': ProcesosInternosComponent,
+  'portal/denuncias': CanalDenunciasComponent,
   'portal/mis-capacitaciones': MisCapacitacionesComponent,
   'portal/mis-evaluaciones': MisEvaluacionesComponent,
 };
@@ -36,6 +38,7 @@ const routes: Routes = [
 
 @NgModule({
   declarations: [
+    CanalDenunciasComponent,
     MiPortalComponent,
     DirectorioComponent,
     OrganigramaComponent,

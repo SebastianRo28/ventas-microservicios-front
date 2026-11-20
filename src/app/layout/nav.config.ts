@@ -37,6 +37,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Mis Evaluaciones', icon: 'star', path: 'portal/mis-evaluaciones', count: 1 },
       { label: 'Reconocimientos', icon: 'award', path: 'portal/reconocimientos' },
       { label: 'Procesos Internos', icon: 'workflow', path: 'portal/procesos-internos' },
+      { label: 'Canal de Denuncias', icon: 'flag', path: 'portal/denuncias' },
       { label: 'Organigrama', icon: 'sitemap', path: 'portal/organigrama' },
       { label: 'Directorio', icon: 'book', path: 'portal/directorio' },
     ]

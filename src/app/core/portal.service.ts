@@ -1,16 +1,23 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, of, tap } from 'rxjs';
+import { API_URL } from './api';
 import { fmtFecha } from './asistencia.service';
 import { AuthService } from './auth.service';
-import { RECONOCIMIENTOS, Reconocimiento } from './sample/reportes';
+import { Reconocimiento } from './sample/reportes';
 import {
-  BENEFICIOS, Beneficio, CANJES, CURSOS, Canje, Curso, EVALUACIONES, EncuestaPortal, Evaluacion, JEFES, MIS_ENCUESTAS, PUNTOS_INICIALES
+  BENEFICIOS, Beneficio, CANJES, CURSOS, Canje, Curso, EVALUACIONES, EncuestaPortal, Evaluacion, JEFES, PUNTOS_INICIALES
 } from './sample/portal';
 
-/** State of the collaborator portal of the signed-in user. Benefits, surveys, courses, etc. are in memory until there is an API. */
+/**
+ * State of the collaborator portal of the signed-in user. Recognitions come from the API; benefits, surveys, courses,
+ * etc. are in memory until their module has an API.
+ */
 @Injectable({ providedIn: 'root' })
 export class PortalService {
-  constructor(private auth: AuthService) {}
+  constructor(private auth: AuthService, private http: HttpClient) {
+    auth.usuario$.subscribe((u) => { if (!u) { this.reconocimientos$.next([]); this.encuestas$.next([]); } });
+  }
   /** Collaborator of the signed-in user (-1 when the account is not linked to one, e.g. an external administrator). */
   get yoId(): number { return this.auth.usuario?.colaboradorId ?? -1; }
   /** Name of the signed-in user, as shown in posts and certificates. */
@@ -22,8 +29,8 @@ export class PortalService {
   readonly jefes = JEFES;
   readonly beneficios: Beneficio[] = BENEFICIOS;
   readonly canjes$ = new BehaviorSubject<Canje[]>(CANJES);
-  readonly encuestas$ = new BehaviorSubject<EncuestaPortal[]>(MIS_ENCUESTAS);
-  readonly reconocimientos$ = new BehaviorSubject<Reconocimiento[]>(RECONOCIMIENTOS);
+  readonly encuestas$ = new BehaviorSubject<EncuestaPortal[]>([]);
+  readonly reconocimientos$ = new BehaviorSubject<Reconocimiento[]>([]);
   readonly cursos$ = new BehaviorSubject<Curso[]>(CURSOS);
   readonly evaluaciones$ = new BehaviorSubject<Evaluacion[]>(EVALUACIONES);
   puntos = PUNTOS_INICIALES;
@@ -60,17 +67,30 @@ export class PortalService {
     this.evaluaciones$.next([...this.evaluaciones$.value]);
   }
 
-  responder(e: EncuestaPortal): void {
-    e.respondida = fmtFecha(new Date());
-    this.encuestas$.next([...this.encuestas$.value]);
+  /** Surveys of the signed-in collaborator: open ones and the ones already answered (GET /api/encuestas/mias). */
+  cargarEncuestas(): Observable<void> {
+    if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
+    return this.http.get<EncuestaPortal[]>(`${API_URL}/encuestas/mias`).pipe(
+      tap((l) => this.encuestas$.next(l)), map(() => undefined), catchError(() => of(undefined)));
   }
 
-  reconocer(r: Omit<Reconocimiento, 'id' | 'fecha'>): Reconocimiento {
-    const list = this.reconocimientos$.value;
-    const nuevo: Reconocimiento = { ...r, id: Math.max(-1, ...list.map((x) => x.id)) + 1, fecha: fmtFecha(new Date()) };
-    list.unshift(nuevo);
-    this.reconocimientos$.next([...list]);
-    return nuevo;
+  /** Sends the answers once; in anonymous surveys the API does not store who answered. */
+  responder(e: EncuestaPortal, respuestas: Record<string, string>): Observable<void> {
+    return this.http.post<void>(`${API_URL}/encuestas/${e.id}/responder`, { valores: respuestas }).pipe(
+      tap(() => this.cargarEncuestas().subscribe()));
+  }
+
+  /** Recognitions wall (everyone sees it). */
+  cargarReconocimientos(): Observable<void> {
+    if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
+    return this.http.get<Reconocimiento[]>(`${API_URL}/reconocimientos`).pipe(
+      tap((l) => this.reconocimientos$.next(l)), map(() => undefined), catchError(() => of(undefined)));
+  }
+
+  /** Publishes a recognition for one or more colleagues; the API sets the author and the date. */
+  reconocer(paraIds: number[], valor: string, mensaje: string): Observable<Reconocimiento> {
+    return this.http.post<Reconocimiento>(`${API_URL}/reconocimientos`, { paraIds, valor, mensaje }).pipe(
+      tap((r) => this.reconocimientos$.next([r, ...this.reconocimientos$.value])));
   }
 }
 

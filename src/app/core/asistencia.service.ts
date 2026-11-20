@@ -130,6 +130,8 @@ export class AsistenciaService {
       .reduce((s, a) => s + diasEnMes(a.desde, a.hasta, anio, mes), 0);
   }
 
+  /** Holidays from the API (Configuración › Feriados). */
+  get feriadosLista(): Feriado[] { return this.feriados; }
   esFeriado(fecha: string): string | undefined { return this.feriados.find((f) => f.fecha === fecha)?.nombre; }
 
   /** Surcharge amount: hours × hourly value × sobretasa, unless a substitute rest day was granted. */

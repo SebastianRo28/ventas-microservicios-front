@@ -6,8 +6,7 @@ import { ServicioComponent } from '../features/comunicaciones/servicio.component
 import { GenericosModule } from '../features/genericos/genericos.module';
 import { ConfigFormComponent } from '../features/genericos/config-form.component';
 import { DenunciasComponent } from '../features/comunicaciones/denuncias.component';
-import { EncuestasLibresComponent } from '../features/comunicaciones/encuestas-libres.component';
-import { ClimaComponent } from '../features/comunicaciones/clima.component';
+import { EncuestasAdminComponent } from '../features/comunicaciones/encuestas-admin.component';
 import { CorreosComponent } from '../features/comunicaciones/correos.component';
 import { PortalAdminComponent } from '../features/comunicaciones/portal-admin.component';
 import { ReconocimientosAdminComponent } from '../features/comunicaciones/reconocimientos-admin.component';
@@ -15,8 +14,8 @@ import { ReconocimientosAdminComponent } from '../features/comunicaciones/recono
 /** Screens of the "do" section; loaded on first visit to /do. */
 const SCREENS = {
   'do/denuncias': DenunciasComponent,
-  'do/encuestas/libre': EncuestasLibresComponent,
-  'do/encuestas/clima': ClimaComponent,
+  'do/encuestas/libre': EncuestasAdminComponent,
+  'do/encuestas/clima': EncuestasAdminComponent,
   'do/comunicaciones/correos': CorreosComponent,
   'do/comunicaciones/portal': PortalAdminComponent,
   'do/comunicaciones/reconocimientos': ReconocimientosAdminComponent,
@@ -27,6 +26,8 @@ const SCREENS = {
 
 /** Which catalog or settings form each generic route shows. */
 const GENERICOS: Record<string, object> = {
+  'do/encuestas/libre': { tipoEncuesta: 'Libre' },
+  'do/encuestas/clima': { tipoEncuesta: 'Clima' },
   'do/encuestas/configuraciones': { config: 'encuestas' },
   'do/denuncias/configuraciones': { config: 'denuncias' },
 };
@@ -39,8 +40,7 @@ const routes: Routes = [
   declarations: [
     ServicioComponent,
     DenunciasComponent,
-    EncuestasLibresComponent,
-    ClimaComponent,
+    EncuestasAdminComponent,
     CorreosComponent,
     PortalAdminComponent,
     ReconocimientosAdminComponent,

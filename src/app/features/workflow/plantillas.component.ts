@@ -1,4 +1,6 @@
 import { Component } from '@angular/core';
+import { catchError, forkJoin, map, of } from 'rxjs';
+import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { Tone } from '../../core/models';
 import { EstadoPlantilla, PlantillaWorkflow } from '../../core/sample/catalogos';
@@ -41,9 +43,9 @@ export class WfPlantillasComponent {
   rows: Row[] = [];
   private all: PlantillaWorkflow[] = [];
 
-  constructor(data: HrDataService, public ui: UiStateService) {
-    data.plantillasWorkflow().subscribe((p) => { this.all = p; this.pick(0); });
-  }
+  constructor(private data: HrDataService, public ui: UiStateService) { this.cargar(); }
+
+  private cargar(): void { this.data.plantillasWorkflow().subscribe((p) => { this.all = p; this.pick(this.seg); }); }
 
   pick(i: number): void {
     this.seg = i;
@@ -54,40 +56,32 @@ export class WfPlantillasComponent {
     }));
   }
 
-  private today(): string {
-    return new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  }
+  /** Changes go to the API (only administrators); the list is reloaded with the server state. */
+  private hecho(msg: string): (r?: unknown) => void { return () => { this.ui.toast(msg); this.cargar(); }; }
+  private fallo = (e: unknown): void => { this.ui.toast(mensajeError(e)); this.cargar(); };
 
   onAction(action: RowAction, row: Row): void {
     const p = this.all.find((x) => x.id === row.id);
     if (!p) return;
     if (action === 'pausa') {
-      if (p.estado === 'Activa' || p.estado === 'Inactiva') {
-        p.estado = p.estado === 'Activa' ? 'Inactiva' : 'Activa';
-        p.actualizada = this.today();
-        this.ui.toast(`Plantilla “${p.nombre}” ${p.estado === 'Activa' ? 'activada' : 'desactivada'}`);
-      } else {
-        this.ui.toast(`Corrige la plantilla “${p.nombre}” antes de activarla (${p.estado.toLowerCase()})`);
-      }
+      if (p.estado !== 'Activa' && p.estado !== 'Inactiva') { this.ui.toast(`Corrige la plantilla “${p.nombre}” antes de activarla (${p.estado.toLowerCase()})`); return; }
+      const activa = p.estado !== 'Activa';
+      this.data.estadoPlantillaWf(p.id, activa).subscribe({ next: this.hecho(`Plantilla “${p.nombre}” ${activa ? 'activada' : 'desactivada'}`), error: this.fallo });
     }
     if (action === 'duplicar') {
-      const copia: PlantillaWorkflow = { ...p, id: Math.max(...this.all.map((x) => x.id)) + 1, nombre: `${p.nombre} (copia)`, estado: 'Inactiva', actualizada: this.today() };
-      this.all.unshift(copia);
-      this.ui.toast(`Se creó “${copia.nombre}” como inactiva`);
+      this.data.duplicarPlantillaWf(p.id).subscribe({ next: (c) => this.hecho(`Se creó “${c.nombre}” como inactiva`)(), error: this.fallo });
     }
-    if (action === 'info') this.ui.toast(`${p.nombre}: ${p.operaciones} operaciones · tipo ${p.tipo}`);
-    this.pick(this.seg);
+    if (action === 'info') this.ui.toast(`${p.nombre}: ${p.operaciones} operaciones · tipo ${p.tipo} · ${p.solicitudes ?? 0} solicitud(es)`);
   }
 
   onBulk(action: string, rows: Row[]): void {
-    const ids = new Set(rows.map((r) => r.id));
-    if (action === 'Eliminar') {
-      for (let i = this.all.length - 1; i >= 0; i--) if (ids.has(this.all[i].id)) this.all.splice(i, 1);
-    } else {
-      this.all.filter((p) => ids.has(p.id) && (p.estado === 'Activa' || p.estado === 'Inactiva'))
-        .forEach((p) => { p.estado = action === 'Activar' ? 'Activa' : 'Inactiva'; p.actualizada = this.today(); });
-    }
-    this.ui.toast(`${action}: ${rows.length} plantilla(s)`);
-    this.pick(this.seg);
+    const sel = this.all.filter((p) => rows.some((r) => r.id === p.id));
+    const ops = sel.map((p) => action === 'Eliminar' ? this.data.eliminarPlantillaWf(p.id)
+      : (p.estado === 'Activa' || p.estado === 'Inactiva') ? this.data.estadoPlantillaWf(p.id, action === 'Activar') : null).filter((o) => o !== null);
+    if (!ops.length) { this.ui.toast('Ninguna de las plantillas seleccionadas se puede cambiar'); return; }
+    forkJoin(ops.map((o) => o!.pipe(map(() => true), catchError((e) => { this.ui.toast(mensajeError(e)); return of(false); })))).subscribe((r) => {
+      this.ui.toast(`${action}: ${r.filter(Boolean).length} de ${sel.length} plantilla(s)`);
+      this.cargar();
+    });
   }
 }

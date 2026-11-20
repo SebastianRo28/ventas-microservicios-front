@@ -1,6 +1,7 @@
 import { Component, OnDestroy } from '@angular/core';
 import { combineLatest, Subscription } from 'rxjs';
 import { AsistenciaService } from '../../core/asistencia.service';
+import { mensajeError } from '../../core/auth.service';
 import { soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
@@ -30,7 +31,7 @@ import { UiStateService } from '../../core/ui-state.service';
           <tr *ngFor="let s of mias">
             <td>{{ s.id }}</td><td><b>{{ s.titulo }}</b></td><td>{{ s.tipo }}</td><td>{{ s.creada }}</td><td>{{ s.actualizada }}</td>
             <td><span class="nx-progress"><span class="nx-progress__track"><span [style.width.%]="s.progreso"></span></span><span class="nx-progress__text">{{ s.progreso }}%</span></span></td>
-            <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone(s)">{{ s.estado }}</span></td>
+            <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone(s)" [title]="s.comentario">{{ s.estado }}</span><div *ngIf="s.comentario" class="nx-small nx-muted">{{ s.comentario }}</div></td>
           </tr>
           <tr *ngIf="!mias.length"><td colspan="7"><div class="nx-empty nx-empty--compact"><b>Aún no has iniciado solicitudes</b></div></td></tr>
         </tbody>
@@ -49,10 +50,11 @@ import { UiStateService } from '../../core/ui-state.service';
           <span *ngIf="f.p.id === 'adelanto'" class="nx-hint">Máximo {{ fmt(maxAdelanto) }} (50 % de tu sueldo base).</span>
         </label>
         <span *ngIf="intento && error" class="nx-error">{{ error }}</span>
+        <span *ngIf="errorApi" class="nx-error" role="alert">{{ errorApi }}</span>
       </form>
       <ng-container modal-footer>
         <button type="button" class="nx-btn nx-btn--outline" (click)="form = null">Cancelar</button>
-        <button type="submit" form="proc-form" class="nx-btn nx-btn--primary">Enviar solicitud</button>
+        <button type="submit" form="proc-form" class="nx-btn nx-btn--primary" [disabled]="enviando">{{ enviando ? 'Enviando…' : 'Enviar solicitud' }}</button>
       </ng-container>
     </app-modal>
   `
@@ -68,8 +70,7 @@ export class ProcesosInternosComponent implements OnDestroy {
   constructor(private data: HrDataService, private asis: AsistenciaService, private portal: PortalService, private ui: UiStateService) {
     this.sub = combineLatest([data.colaboradores(), data.solicitudesWf()]).subscribe(([cs, ss]) => {
       this.yo = cs.find((c) => c.id === portal.yoId);
-      const nombre = this.yo ? `${this.yo.apellidos}, ${this.yo.nombres}` : '';
-      this.mias = ss.filter((s) => s.solicitante === nombre);
+      this.mias = ss.filter((s) => s.esMia);
     });
   }
   ngOnDestroy(): void { this.sub.unsubscribe(); }
@@ -90,22 +91,24 @@ export class ProcesosInternosComponent implements OnDestroy {
       if (!Number.isFinite(n) || n <= 0) return 'Ingresa un monto mayor a 0.';
       if (n > this.maxAdelanto) return `El adelanto no puede superar ${this.fmt(this.maxAdelanto)}.`;
     }
-    if (f.p.id === 'adelanto' && this.mias.some((s) => s.titulo.startsWith('Adelanto de sueldo') && s.estado === 'Pendiente')) {
+    if (f.p.id === 'adelanto' && this.mias.some((s) => s.proceso === 'adelanto' && s.estado === 'Pendiente')) {
       return 'Ya tienes un adelanto pendiente de aprobación.';
     }
     return '';
   }
 
+  enviando = false;
+  errorApi = '';
+  /** The API validates again (amount limit, one pending advance) and records the request. */
   enviar(): void {
     this.intento = true;
-    const f = this.form, yo = this.yo;
-    if (!f || !yo || this.error) return;
-    const v = String(f.valor).trim();
-    const detalle = f.p.campo.tipo === 'monto' ? this.fmt(Number(v.replace(',', '.'))) : v.length > 40 ? v.slice(0, 40) + '…' : v;
-    const nombre = `${yo.apellidos}, ${yo.nombres}`;
-    const s = this.data.addSolicitudWf({ nombre: f.p.nombre, tipo: f.p.tipo },
-      { titulo: `${f.p.nombre} – ${detalle}`, solicitante: nombre, afectado: nombre, documento: yo.documento, grupo: 'me' });
-    this.form = null;
-    this.ui.toast(`Solicitud #${s.id} enviada a Recursos Humanos`);
+    this.errorApi = '';
+    const f = this.form;
+    if (!f || !this.yo || this.error || this.enviando) return;
+    this.enviando = true;
+    this.data.solicitarDesdePortal(f.p.id, String(f.valor).trim()).subscribe({
+      next: (s) => { this.enviando = false; this.form = null; this.ui.toast(`Solicitud #${s.id} enviada a Recursos Humanos`); },
+      error: (e) => { this.enviando = false; this.errorApi = mensajeError(e); },
+    });
   }
 }

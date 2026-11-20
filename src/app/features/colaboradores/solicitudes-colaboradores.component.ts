@@ -1,5 +1,6 @@
 import { Component, OnDestroy } from '@angular/core';
 import { combineLatest, Subscription } from 'rxjs';
+import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { ESTADO_SOLICITUD_TONE, SolicitudWf } from '../../core/sample/workflow';
 import { UiStateService } from '../../core/ui-state.service';
@@ -64,8 +65,8 @@ export class SolicitudesColaboradoresComponent implements OnDestroy {
   constructor(private data: HrDataService, private ui: UiStateService) {
     this.sub = combineLatest([data.colaboradores(), data.solicitudesWf()]).subscribe(([cs, ss]) => {
       this.ids = new Map(cs.map((c) => [`${c.apellidos}, ${c.nombres}`, c.id]));
-      // Started by the collaborator for themself (from Mi Portal).
-      this.delPortal = ss.filter((s) => this.ids.has(s.solicitante) && s.solicitante === s.afectado);
+      // Started by the collaborator for themself from Mi Portal › Procesos Internos.
+      this.delPortal = ss.filter((s) => s.proceso !== null);
       this.refrescar();
     });
   }
@@ -74,7 +75,7 @@ export class SolicitudesColaboradoresComponent implements OnDestroy {
   refrescar(): void {
     this.pendientes = this.delPortal.filter((s) => s.estado === 'Pendiente').length;
     this.rows = this.delPortal.filter((s) => (s.estado === 'Pendiente') === (this.tab === 0)).map((s) => ({
-      id: s.id, s: { text: s.solicitante, link: `/admin/colaboradores/ficha/${this.ids.get(s.solicitante)}` }, t: s.titulo, tp: s.tipo,
+      id: s.id, s: s.afectadoId !== null ? { text: s.solicitante, link: `/admin/colaboradores/ficha/${s.afectadoId}` } : s.solicitante, t: s.titulo, tp: s.tipo,
       fc: s.creada, fa: s.actualizada, e: { text: s.estado, tone: ESTADO_SOLICITUD_TONE[s.estado] }, x: '',
     }));
   }
@@ -90,8 +91,10 @@ export class SolicitudesColaboradoresComponent implements OnDestroy {
     this.intento = true;
     const r = this.resolver;
     if (!r || (!r.aprobar && !r.comentario.trim())) return;
-    this.data.resolverSolicitudWf(r.s.id, r.aprobar, r.comentario.trim());
     this.resolver = null;
-    this.ui.toast(`Solicitud #${r.s.id} ${r.aprobar ? 'aprobada' : 'rechazada'}; el colaborador verá el resultado en Mi Portal`);
+    this.data.resolverSolicitudWf(r.s.id, r.aprobar, r.comentario.trim()).subscribe({
+      next: (x) => this.ui.toast(`Solicitud #${r.s.id} ${r.aprobar ? 'aprobada' : 'rechazada'}; el colaborador verá el resultado en Mi Portal${x.itemId ? '. El adelanto se descontará en la planilla del mes' : ''}`),
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 }

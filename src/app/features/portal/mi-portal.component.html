@@ -144,7 +144,7 @@
       <h3>Links de interés</h3>
       <div class="nx-grid nx-grid--2 nx-grid--10">
         <a class="nx-tile" href="#" (click)="$event.preventDefault()"><span class="nx-tile__art nx-tile__art--green"><app-icon name="hospital" [size]="28"></app-icon></span><span>¿Dónde me atiendo?</span></a>
-        <a *ngIf="portal.puedeVer('/do/denuncias')" class="nx-tile" routerLink="/do/denuncias"><span class="nx-tile__art nx-tile__art--blue"><app-icon name="flag" [size]="28"></app-icon></span><span>Canal de Denuncias</span></a>
+        <a class="nx-tile" routerLink="/portal/denuncias"><span class="nx-tile__art nx-tile__art--blue"><app-icon name="flag" [size]="28"></app-icon></span><span>Canal de Denuncias</span></a>
       </div>
     </section>
 
@@ -179,6 +179,7 @@
         </select>
       </div>
       <span *ngIf="!reconWho.length" class="nx-error">Elige al menos una persona.</span>
+      <span *ngIf="reconError" class="nx-error" role="alert">{{ reconError }}</span>
     </div>
     <label class="nx-field">¿Qué quieres destacar de esta persona?
       <textarea class="nx-input nx-textarea" [(ngModel)]="reconMsg"></textarea>

@@ -3,6 +3,8 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, forkJoin, map, of, switchMap, tap } from 'rxjs';
 import { API_URL } from './api';
 import { AsistenciaApi } from './asistencia-api.service';
+import { GenericosService } from './genericos.service';
+import { PortalService } from './portal.service';
 import { ItemsService } from './items.service';
 import { ParametrosRemService } from './parametros-rem.service';
 import { AuditService } from './audit.service';
@@ -12,10 +14,10 @@ import {
   Boleta, BoletaDetalle, Cargo, Colaborador, Competencia, Division, FamiliaCargo, Pendiente, PerfilCuenta, PerfilGuardar, PeriodoPlanilla, PeriodoRem, Serie, UsuarioCreado, UsuarioCuenta, UsuarioGuardar
 } from './models';
 import { ARCHIVOS_PAGOS, ArchivoPago, PERIODOS_PROCESOS, PeriodoProcesos } from './sample/remuneraciones';
-import { PlantillaWf, SOLICITUDES_WF, SolicitudWf } from './sample/workflow';
+import { SolicitudWf } from './sample/workflow';
 import { DOCUMENTOS, Documento, DocumentoEliminado, PAPELERA } from './sample/documentos';
 import {
-  ACTIVOS, Activo, DASHBOARDS, Dashboard, PLANTILLAS_DOCUMENTO, PLANTILLAS_WORKFLOW, PlantillaDocumento, PlantillaWorkflow, WIDGETS, Widget
+  ACTIVOS, Activo, DASHBOARDS, Dashboard, PLANTILLAS_DOCUMENTO, PlantillaDocumento, PlantillaWorkflow, WIDGETS, Widget
 } from './sample/catalogos';
 import {
   CATEGORIAS, Categoria, DENUNCIAS, Denuncia, ENCUESTAS, Encuesta, ORDENES, OrdenActivo, PRODUCTOS, Producto
@@ -46,7 +48,8 @@ export class HrDataService {
   hcNivel: 'division' | 'area' | 'subarea' = 'area';
 
   constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService,
-              private asistenciaApi: AsistenciaApi, private items: ItemsService, private parametrosRem: ParametrosRemService) {
+              private asistenciaApi: AsistenciaApi, private items: ItemsService, private parametrosRem: ParametrosRemService,
+              private genericos: GenericosService, private portal: PortalService) {
     // Page reloaded with a session still open: load the data again.
     if (auth.autenticado) this.cargar().subscribe();
     auth.usuario$.subscribe((u) => { if (!u) this.colaboradores$.next([]); });
@@ -63,7 +66,8 @@ export class HrDataService {
   cargar(): Observable<void> {
     if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
     return forkJoin([this.http.get<Colaborador[]>(`${API_URL}/colaboradores`), this.audit.cargar(), this.asistenciaApi.cargar(),
-      this.items.cargar(), this.parametrosRem.cargar()]).pipe(
+      this.items.cargar(), this.parametrosRem.cargar(), this.genericos.cargar(), this.cargarWorkflow(), this.portal.cargarReconocimientos(),
+      this.portal.cargarEncuestas()]).pipe(
       map(([cs]) => { this.colaboradores$.next(cs); }),
       catchError(() => { this.ui.toast('No se pudo cargar la información desde el servidor de Nexo RH'); return of(undefined); }),
     );
@@ -92,36 +96,41 @@ export class HrDataService {
   periodosProcesos(): Observable<PeriodoProcesos[]> { return of(PERIODOS_PROCESOS); }
   archivosPagos(): Observable<ArchivoPago[]> { return of(ARCHIVOS_PAGOS); }
 
-  private readonly solicitudes$ = new BehaviorSubject<SolicitudWf[]>(SOLICITUDES_WF);
+  // --- Workflow (API) ---------------------------------------------------------------------------------------------
+  private readonly solicitudes$ = new BehaviorSubject<SolicitudWf[]>([]);
   solicitudesWf(): Observable<SolicitudWf[]> { return this.solicitudes$.asObservable(); }
 
-  /** Starts a workflow request from a template, created by the signed-in admin. */
-  addSolicitudWf(t: PlantillaWf, extra: Partial<Pick<SolicitudWf, 'titulo' | 'solicitante' | 'afectado' | 'documento' | 'grupo'>> = {}): SolicitudWf {
-    const list = this.solicitudes$.value;
-    const hoy = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const nueva: SolicitudWf = {
-      id: String(Math.max(...list.map((s) => +s.id)) + 1), titulo: t.nombre, estado: 'Pendiente', tipo: t.tipo,
-      solicitante: this.usuario.nombre, afectado: '—', documento: '—', progreso: 0, creada: hoy, actualizada: hoy, grupo: 'mine', ...extra,
-    };
-    this.solicitudes$.next([nueva, ...list]);
-    return nueva;
+  /** Requests the user may see; "grupo" sorts them into the trays (to act on, created by me, the rest). */
+  cargarWorkflow(): Observable<void> {
+    if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
+    return this.http.get<SolicitudWf[]>(`${API_URL}/workflow/solicitudes`).pipe(
+      map((l) => { this.solicitudes$.next(l.map((x) => ({ ...x, grupo: x.puedoResolver ? 'me' : x.esMia ? 'mine' : 'all' }))); }),
+      catchError(() => of(undefined)),
+    );
   }
 
-  /** Approves or rejects a workflow request (and records it in the change log). */
-  resolverSolicitudWf(id: string, aprobar: boolean, comentario = ''): SolicitudWf | undefined {
-    const sol = this.solicitudes$.value.find((x) => x.id === id);
-    if (!sol) return undefined;
-    const anterior = sol.estado;
-    sol.estado = aprobar ? 'Aprobada' : 'Rechazada';
-    sol.progreso = 100;
-    sol.actualizada = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    this.solicitudes$.next([...this.solicitudes$.value]);
-    this.audit.registrar({ colaborador: sol.afectado, documento: sol.documento, entidad: `Solicitud #${sol.id}`, accion: 'Modificar',
-      propiedad: 'estado', anterior, actual: sol.estado + (comentario ? ` · ${comentario}` : '') });
-    return sol;
+  /** Own request from Mi Portal › Procesos Internos (the API validates the amount and the options). */
+  solicitarDesdePortal(proceso: string, valor: string): Observable<SolicitudWf> {
+    return this.http.post<SolicitudWf>(`${API_URL}/workflow/solicitudes/portal`, { proceso, valor }).pipe(tap(() => this.cargarWorkflow().subscribe()));
   }
 
-  plantillasWorkflow(): Observable<PlantillaWorkflow[]> { return of(PLANTILLAS_WORKFLOW); }
+  /** Request from an active template (HR, or a manager for someone in their team). */
+  solicitarDesdePlantilla(plantillaId: number, afectadoId: number | null, detalle: string): Observable<SolicitudWf> {
+    return this.http.post<SolicitudWf>(`${API_URL}/workflow/solicitudes`, { plantillaId, afectadoId, detalle }).pipe(tap(() => this.cargarWorkflow().subscribe()));
+  }
+
+  /** Approves or rejects; an approved salary advance becomes an ADE-SUE deduction in the open payroll period. */
+  resolverSolicitudWf(id: number, aprobar: boolean, comentario = ''): Observable<{ solicitud: SolicitudWf; itemId: number | null }> {
+    return this.http.post<{ solicitud: SolicitudWf; itemId: number | null }>(`${API_URL}/workflow/solicitudes/${id}/resolver`, { aprobar, comentario }).pipe(
+      tap(() => { this.cargarWorkflow().subscribe(); this.audit.cargar().subscribe(); this.items.cargar().subscribe(); }),
+    );
+  }
+
+  plantillasWorkflow(): Observable<PlantillaWorkflow[]> { return this.http.get<PlantillaWorkflow[]>(`${API_URL}/workflow/plantillas`).pipe(catchError(() => of([]))); }
+  estadoPlantillaWf(id: number, activa: boolean): Observable<PlantillaWorkflow> { return this.http.post<PlantillaWorkflow>(`${API_URL}/workflow/plantillas/${id}/estado`, { activa }); }
+  duplicarPlantillaWf(id: number): Observable<PlantillaWorkflow> { return this.http.post<PlantillaWorkflow>(`${API_URL}/workflow/plantillas/${id}/duplicar`, {}); }
+  eliminarPlantillaWf(id: number): Observable<unknown> { return this.http.delete(`${API_URL}/workflow/plantillas/${id}`); }
+
   plantillasDocumento(): Observable<PlantillaDocumento[]> { return of(PLANTILLAS_DOCUMENTO); }
   dashboards(): Observable<Dashboard[]> { return of(DASHBOARDS); }
   widgets(): Observable<Widget[]> { return of(WIDGETS); }
@@ -142,7 +151,7 @@ export class HrDataService {
   publicaciones(): Observable<Publicacion[]> { return of(PUBLICACIONES); }
   portadas(): Observable<ElementoPortal[]> { return of(PORTADAS); }
   accionesRapidas(): Observable<ElementoPortal[]> { return of(ACCIONES_RAPIDAS); }
-  reconocimientos(): Observable<Reconocimiento[]> { return of(RECONOCIMIENTOS); }
+  reconocimientos(): Observable<Reconocimiento[]> { return this.portal.reconocimientos$.asObservable(); }
   importadores(): Observable<Importador[]> { return of(IMPORTADORES); }
   reportes(): Observable<Reporte[]> { return of(REPORTES); }
   historialReportes(): Observable<EjecucionReporte[]> { return of(HISTORIAL_REPORTES); }

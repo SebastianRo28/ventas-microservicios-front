@@ -5,7 +5,7 @@
 
 export type EstadoPlantilla = 'Activa' | 'Inactiva' | 'Error' | 'Incompleta';
 
-export interface PlantillaWorkflow { id: number; nombre: string; tipo: string; estado: EstadoPlantilla; operaciones: number; actualizada: string; }
+export interface PlantillaWorkflow { id: number; nombre: string; tipo: string; estado: EstadoPlantilla; operaciones: number; actualizada: string; solicitudes?: number; }
 
 const w = (id: number, nombre: string, tipo: string, estado: EstadoPlantilla, operaciones: number, actualizada: string): PlantillaWorkflow =>
   ({ id, nombre, tipo, estado, operaciones, actualizada });

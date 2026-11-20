@@ -1298,3 +1298,7 @@ app-page-header, app-data-table { display: block; }
 .nx-login__reglas li.is-ok::marker { content: "✓  "; }
 .nx-temporal { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px dashed var(--nx-border); border-radius: var(--nx-radius); background: var(--nx-surface-alt); }
 .nx-temporal__pwd { flex: 1; font-size: 18px; font-weight: 700; letter-spacing: 1px; user-select: all; word-break: break-all; }
+
+/* Conversación (canal de denuncias) */
+.nx-msg { padding: 10px 12px; max-width: 85%; }
+.nx-msg--mio { margin-left: auto; background: var(--nx-primary-soft, #EEF2FB); }

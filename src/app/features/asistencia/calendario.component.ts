@@ -4,7 +4,7 @@ import { AsistenciaService, fmtFecha } from '../../core/asistencia.service';
 import { parseFecha } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
-import { AUSENCIA_CON_GOCE, Ausencia, FERIADOS_2026, SolicitudAsistencia, Vacacion } from '../../core/sample/asistencia';
+import { AUSENCIA_CON_GOCE, Ausencia, SolicitudAsistencia, Vacacion } from '../../core/sample/asistencia';
 
 type Tipo = 'vac' | 'goce' | 'sin' | 'pend';
 interface Evento { colaboradorId: number; nombre: string; detalle: string; tipo: Tipo; desde: Date; hasta: Date; }
@@ -92,10 +92,10 @@ export class CalendarioAsistenciaComponent implements OnDestroy {
   private colaboradores: Colaborador[] = [];
   private eventos: Evento[] = [];
   private readonly corte: Date;
-  private readonly feriados = new Map(FERIADOS_2026.map((f) => [f.fecha, f.nombre]));
+  private get feriados(): Map<string, string> { return new Map(this.asis.feriadosLista.map((f) => [f.fecha, f.nombre])); }
   private sub: Subscription;
 
-  constructor(data: HrDataService, asis: AsistenciaService) {
+  constructor(data: HrDataService, private asis: AsistenciaService) {
     this.corte = parseFecha(asis.corte)!;
     this.mes = new Date(this.corte.getFullYear(), this.corte.getMonth(), 1);
     this.sub = combineLatest([data.colaboradores(), asis.vacaciones$, asis.ausencias$, asis.solicitudes$]).subscribe(([cs, vs, as, ss]) => {
@@ -146,7 +146,7 @@ export class CalendarioAsistenciaComponent implements OnDestroy {
     const ini = primero, fin = ultimo;
     this.resumen = { vac: 0, goce: 0, sin: 0, pend: 0 };
     for (const e of evs) if (e.desde <= fin && e.hasta >= ini) this.resumen[e.tipo]++;
-    this.feriadosMes = FERIADOS_2026.filter((f) => { const d = parseFecha(f.fecha)!; return d.getFullYear() === y && d.getMonth() === m; }).length;
+    this.feriadosMes = this.asis.feriadosLista.filter((f) => { const d = parseFecha(f.fecha)!; return d.getFullYear() === y && d.getMonth() === m; }).length;
   }
 
   mover(n: number): void { this.mes = new Date(this.mes.getFullYear(), this.mes.getMonth() + n, 1); this.sel = null; this.armar(); }
