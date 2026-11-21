@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-import { HrDataService } from '../../core/hr-data.service';
-import { Categoria, Producto } from '../../core/sample/operaciones';
+import { ActivosService, CategoriaActivoApi, ProductoActivoApi } from '../../core/administracion.service';
+import { mensajeError } from '../../core/auth.service';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -17,7 +17,7 @@ const PCOLS: Column[] = [
   { key: 'a', label: 'Activos', type: 'number', filter: 'none', w: '110px' }, ACC,
 ];
 
-/** P-06.1 Gestión de Activos › Configuraciones (Categorías, Productos) with modal "Crear Producto". */
+/** P-06.1 Gestión de Activos › Configuraciones (Categorías, Productos) on the API. */
 @Component({
   selector: 'app-activos-config',
   templateUrl: './activos-config.component.html'
@@ -26,92 +26,86 @@ export class ActivosConfigComponent {
   readonly ccols = CCOLS;
   readonly pcols = PCOLS;
   readonly actions: RowAction[] = ['editar', 'eliminar'];
+  readonly prodActions: RowAction[] = ['eliminar'];
   tab = 0;
   catRows: Row[] = [];
   prodRows: Row[] = [];
-  categorias: Categoria[] = [];
-  private productos: Producto[] = [];
+  categorias: CategoriaActivoApi[] = [];
+  private productos: ProductoActivoApi[] = [];
 
-  /** Modals */
   catModal: { id: number | null; nombre: string } | null = null;
   prodModal = false;
   intento = false;
-  avanzado = true;
-  docsAuto = true;
-  prod = { categoria: 'Uniformes', nombre: '', marca: '' };
+  error = '';
+  ocupado = false;
+  prod = { categoriaId: null as number | null, nombre: '', marca: '' };
 
-  constructor(data: HrDataService, private ui: UiStateService) {
-    data.categorias().subscribe((c) => (this.categorias = c));
-    data.productos().subscribe((p) => { this.productos = p; this.refresh(); });
-  }
+  constructor(private api: ActivosService, private ui: UiStateService) { this.cargar(); }
 
-  private refresh(): void {
-    const count = (cat: string) => this.productos.filter((p) => p.categoria === cat).length;
-    this.catRows = this.categorias.map((c) => ({ id: c.id, n: c.nombre, c: count(c.nombre), x: '' }));
-    this.prodRows = this.productos.map((p) => ({ id: p.id, n: p.nombre, c: p.categoria, m: p.marca, a: p.activos, x: '' }));
+  cargar(): void {
+    this.api.datos().subscribe({
+      next: (d) => {
+        this.categorias = d.categorias;
+        this.productos = d.productos;
+        this.catRows = d.categorias.map((c) => ({ id: c.id, n: c.nombre, c: c.productos, x: '' }));
+        this.prodRows = d.productos.map((p) => ({ id: p.id, n: p.nombre, c: p.categoria, m: p.marca, a: p.activos, x: '' }));
+      },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 
   // --- Categorías -----------------------------------------------------------
   onCatAction(action: RowAction, row: Row): void {
     const cat = this.categorias.find((c) => c.id === row.id);
     if (!cat) return;
-    if (action === 'editar') { this.intento = false; this.catModal = { id: cat.id, nombre: cat.nombre }; }
+    if (action === 'editar') { this.intento = false; this.error = ''; this.catModal = { id: cat.id, nombre: cat.nombre }; }
     if (action === 'eliminar') {
-      const n = this.productos.filter((p) => p.categoria === cat.nombre).length;
-      if (n > 0) { this.ui.toast(`No se puede eliminar “${cat.nombre}”: tiene ${n} producto(s)`); return; }
-      this.categorias.splice(this.categorias.indexOf(cat), 1);
-      this.ui.toast(`Categoría “${cat.nombre}” eliminada`);
-      this.refresh();
+      this.api.eliminarCategoria(cat.id).subscribe({
+        next: () => { this.ui.toast(`Categoría “${cat.nombre}” eliminada`); this.cargar(); },
+        error: (e) => this.ui.toast(mensajeError(e)),
+      });
     }
   }
 
-  newCategoria(): void { this.intento = false; this.catModal = { id: null, nombre: '' }; }
+  newCategoria(): void { this.intento = false; this.error = ''; this.catModal = { id: null, nombre: '' }; }
 
   saveCategoria(): void {
     this.intento = true;
     const m = this.catModal;
-    if (!m || !m.nombre.trim()) return;
+    if (!m || !m.nombre.trim() || this.ocupado) return;
     const nombre = m.nombre.trim();
-    if (m.id === null) {
-      this.categorias.push({ id: Math.max(0, ...this.categorias.map((c) => c.id)) + 1, nombre });
-    } else {
-      const cat = this.categorias.find((c) => c.id === m.id);
-      if (cat) {
-        this.productos.filter((p) => p.categoria === cat.nombre).forEach((p) => (p.categoria = nombre));
-        cat.nombre = nombre;
-      }
-    }
-    this.catModal = null;
-    this.refresh();
-    this.ui.toast(`Categoría “${nombre}” guardada`);
+    this.ocupado = true;
+    this.api.guardarCategoria(m.id, nombre).subscribe({
+      next: () => { this.ocupado = false; this.catModal = null; this.ui.toast(`Categoría “${nombre}” guardada`); this.cargar(); },
+      error: (e) => { this.ocupado = false; this.error = mensajeError(e); },
+    });
   }
 
   // --- Productos ------------------------------------------------------------
   newProducto(): void {
     this.intento = false;
-    this.prod = { categoria: this.categorias[0]?.nombre ?? '', nombre: '', marca: '' };
+    this.error = '';
+    this.prod = { categoriaId: this.categorias[0]?.id ?? null, nombre: '', marca: '' };
     this.prodModal = true;
   }
 
   saveProducto(): void {
     this.intento = true;
-    if (!this.prod.nombre.trim() || !this.prod.marca.trim()) return;
-    this.productos.push({ id: Math.max(0, ...this.productos.map((p) => p.id)) + 1, nombre: this.prod.nombre.trim(),
-      categoria: this.prod.categoria, marca: this.prod.marca.trim(), activos: 0 });
-    this.prodModal = false;
-    this.refresh();
-    this.ui.toast(`Producto “${this.prod.nombre.trim()}” creado`);
+    const p = this.prod;
+    if (!p.nombre.trim() || !p.marca.trim() || p.categoriaId === null || this.ocupado) return;
+    this.ocupado = true;
+    this.api.crearProducto({ nombre: p.nombre.trim(), categoriaId: p.categoriaId, marca: p.marca.trim() }).subscribe({
+      next: () => { this.ocupado = false; this.prodModal = false; this.ui.toast(`Producto “${p.nombre.trim()}” creado`); this.cargar(); },
+      error: (e) => { this.ocupado = false; this.error = mensajeError(e); },
+    });
   }
 
   onProdAction(action: RowAction, row: Row): void {
     const p = this.productos.find((x) => x.id === row.id);
-    if (!p) return;
-    if (action === 'eliminar') {
-      if (p.activos > 0) { this.ui.toast(`No se puede eliminar “${p.nombre}”: tiene ${p.activos} activo(s) en el inventario`); return; }
-      this.productos.splice(this.productos.indexOf(p), 1);
-      this.refresh();
-      this.ui.toast(`Producto “${p.nombre}” eliminado`);
-    }
-    if (action === 'editar') this.ui.toast('La edición de productos llegará en la próxima versión');
+    if (!p || action !== 'eliminar') return;
+    this.api.eliminarProducto(p.id).subscribe({
+      next: () => { this.ui.toast(`Producto “${p.nombre}” eliminado`); this.cargar(); },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 }

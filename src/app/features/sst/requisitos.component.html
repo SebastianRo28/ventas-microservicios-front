@@ -1,28 +1,15 @@
 <app-page-header title="Requisitos" [crumbs]="['Seguridad y Salud en el Trabajo', 'Registro de evidencias']"></app-page-header>
 
-<div class="nx-banner nx-banner--green" role="note">
-  <app-icon name="shield" [size]="19"></app-icon>
-  <span class="nx-grow">Capacitaciones, exámenes ocupacionales, EPP y más con descuentos exclusivos para clientes Nexo RH.</span>
-  <a href="#" (click)="$event.preventDefault()">Ver la Red de Proveedores SST</a>
-</div>
-<p class="nx-page-lead nx-page-lead--flat">Crea los requisitos de tus cumplimientos y asigna a los Colaboradores o Empresas que deben cumplirlos. Desde Asignaciones, haz seguimiento individual.</p>
+<p class="nx-page-lead nx-page-lead--flat">Crea los requisitos de tus cumplimientos y asigna a los Colaboradores o Empresas que deben cumplirlos. Desde Asignaciones, registra las evidencias y haz seguimiento individual.</p>
 
 <div class="nx-tabs" role="tablist">
   <button *ngFor="let t of ['Requisitos', 'Asignaciones']; let i = index" type="button" role="tab" class="nx-tab"
           [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
 </div>
 
-<ng-container *ngIf="tab === 0">
-  <div *ngIf="cargarAviso" class="nx-banner" role="status">
-    <app-icon name="info" [size]="19"></app-icon>
-    <span class="nx-grow">Carga la evidencia del requisito “{{ cargarAviso }}”. La pantalla de carga de evidencia llegará en la próxima versión.</span>
-    <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="cargarAviso = ''"><app-icon name="x" [size]="16"></app-icon></button>
-  </div>
-  <app-data-table [columns]="cols" [rows]="rows" createLabel="Crear Requisito" [rowActions]="actions" [showAdvancedFilter]="false"
-                  [bulkActions]="['Descargar evidencias', 'Eliminar']" tableLabel="Requisitos" minWidth="1500px" exportName="requisitos-sst"
-                  (create)="ui.toast('La creación de requisitos llegará en la próxima versión')"
-                  (action)="onRequisito($event.action, $event.row)"></app-data-table>
-</ng-container>
+<app-data-table *ngIf="tab === 0" [columns]="cols" [rows]="rows" createLabel="Crear Requisito" [rowActions]="actions" [showAdvancedFilter]="false"
+                [showBulk]="false" [selectable]="false" tableLabel="Requisitos" minWidth="1600px" exportName="requisitos-sst"
+                (create)="abrirNuevo()" (action)="onRequisito($event.action, $event.row)"></app-data-table>
 
 <ng-container *ngIf="tab === 1">
   <div class="nx-filterbar">
@@ -30,30 +17,70 @@
       <button *ngFor="let s of ['Colaboradores', 'Empresas']; let i = index" type="button" [class.is-on]="sub === i" [attr.aria-pressed]="sub === i" (click)="sub = i">{{ s }}</button>
     </div>
     <div class="nx-segmented" role="group" aria-label="Vigencia">
-      <button type="button" [class.is-on]="seg === 0" [attr.aria-pressed]="seg === 0" (click)="seg = 0">Asignaciones vigentes</button>
-      <button type="button" [class.is-on]="seg === 1" [attr.aria-pressed]="seg === 1" (click)="seg = 1">Asignaciones finalizadas</button>
+      <button type="button" [class.is-on]="seg === 0" [attr.aria-pressed]="seg === 0" (click)="seg = 0; armarAsignaciones()">Asignaciones vigentes</button>
+      <button type="button" [class.is-on]="seg === 1" [attr.aria-pressed]="seg === 1" (click)="seg = 1; armarAsignaciones()">Asignaciones finalizadas</button>
     </div>
-    <div class="nx-grow"></div>
-    <a class="nx-btn nx-btn--outline" routerLink="/rep/importadores"><app-icon name="upload" [size]="16"></app-icon>Importador</a>
+    <span *ngIf="filtroRequisito as f" class="nx-tag">{{ f.nombre }}
+      <button type="button" class="nx-tag__x" aria-label="Quitar filtro" (click)="quitarFiltro()"><app-icon name="x" [size]="12"></app-icon></button></span>
   </div>
-  <app-data-table *ngIf="sub === 0" [columns]="acols" [rows]="seg === 0 ? colRows : []" [rowActions]="verActions" [showBulk]="false"
-                  [selectable]="false" [showAdvancedFilter]="false" tableLabel="Asignaciones a colaboradores" minWidth="1500px"
-                  exportName="asignaciones-colaboradores" (action)="ver($event.row, false)"></app-data-table>
-  <app-data-table *ngIf="sub === 1" [columns]="ecols" [rows]="seg === 0 ? empRows : []" [rowActions]="verActions" [showBulk]="false"
-                  [selectable]="false" [showAdvancedFilter]="false" tableLabel="Asignaciones a empresas" minWidth="1000px"
-                  exportName="asignaciones-empresas" (action)="ver($event.row, true)"></app-data-table>
+  <app-data-table *ngIf="sub === 0" [columns]="acols" [rows]="colRows" [rowActions]="verActions" [showBulk]="false"
+                  [selectable]="false" [showAdvancedFilter]="false" tableLabel="Asignaciones a colaboradores" minWidth="1600px"
+                  exportName="asignaciones-colaboradores" (action)="ver($event.row)"></app-data-table>
+  <app-data-table *ngIf="sub === 1" [columns]="ecols" [rows]="empRows" [rowActions]="verActions" [showBulk]="false"
+                  [selectable]="false" [showAdvancedFilter]="false" tableLabel="Asignaciones a empresas" minWidth="1100px"
+                  exportName="asignaciones-empresas" (action)="ver($event.row)"></app-data-table>
   <p class="nx-muted nx-small nx-mt-12">El historial se conserva aunque el colaborador cambie de cargo o deje la empresa.</p>
 </ng-container>
 
-<app-modal *ngIf="preview as p" title="Previsualización de evidencia" width="640px" (closed)="preview = null">
-  <div class="nx-evidence">
-    <b>{{ p.requisito | uppercase }}</b>
-    <p>Evidencia registrada para <b>{{ p.titular }}</b> en el cumplimiento “{{ p.cumplimiento }}”.</p>
-    <p>Estado: <span class="nx-badge" [ngClass]="'nx-tone-' + tone[p.estado]">{{ p.estado }}</span> · Última actualización: {{ p.actualizado }}</p>
-    <div class="nx-evidence__signs"><span>Prevencionista</span><span>{{ p.colaboradorId !== undefined ? 'Trabajador' : 'Representante legal' }}</span></div>
-  </div>
+<app-modal *ngIf="nuevo as n" title="Crear Requisito" width="560px" (closed)="nuevo = null">
+  <form id="req-form" class="nx-form" (ngSubmit)="crear()">
+    <label class="nx-field">Nombre*<input class="nx-input" name="nombre" maxlength="120" [(ngModel)]="n.nombre" placeholder="Ej. Lentes de seguridad"></label>
+    <label class="nx-field">Cumplimiento asociado*
+      <select class="nx-select" name="cumplimiento" [(ngModel)]="n.cumplimientoId"><option *ngFor="let c of cumplimientos" [ngValue]="c.id">{{ c.nombre }} · {{ c.normativa }}</option></select></label>
+    <label class="nx-field">Aplica a*
+      <select class="nx-select" name="aplica" [(ngModel)]="n.aplicaA"><option>Colaboradores</option><option>Empresas</option></select></label>
+    <label class="nx-field">Vigencia de cada evidencia (meses)<input class="nx-input" name="vigencia" inputmode="numeric" [(ngModel)]="n.vigencia" placeholder="Vacío = no vence"></label>
+    <label *ngIf="n.aplicaA === 'Colaboradores'" class="nx-check nx-check--plain"><input type="checkbox" name="todos" [(ngModel)]="n.todos">Asignar a todos los colaboradores</label>
+    <fieldset *ngIf="n.aplicaA === 'Empresas'" class="nx-question"><legend>Asignar a</legend>
+      <label *ngFor="let e of empresas" class="nx-check nx-check--plain"><input type="checkbox" [name]="'emp-' + e" [(ngModel)]="n.empresas[e]">{{ e }}</label>
+    </fieldset>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
+  </form>
   <ng-container modal-footer>
-    <button type="button" class="nx-btn nx-btn--outline" (click)="preview = null">Cerrar</button>
-    <button type="button" class="nx-btn nx-btn--primary" (click)="ui.toast('La descarga de evidencias llegará en la próxima versión')"><app-icon name="download" [size]="16"></app-icon>Descargar</button>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="nuevo = null">Cancelar</button>
+    <button type="submit" form="req-form" class="nx-btn nx-btn--primary" [disabled]="ocupado">Crear requisito</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="det as d" [title]="d.asignacion.requisito + ' · ' + d.asignacion.titular" width="720px" (closed)="det = null">
+  <div class="nx-fields nx-fields--3 nx-mb-12">
+    <div class="nx-fieldrow"><span>Cumplimiento</span><span>{{ d.asignacion.cumplimiento }}</span></div>
+    <div class="nx-fieldrow"><span>Estado</span><span class="nx-badge" [ngClass]="'nx-tone-' + tone[d.asignacion.estado]">{{ d.asignacion.estado }}</span></div>
+    <div class="nx-fieldrow"><span>Vence</span><span>{{ d.asignacion.vence ?? (d.asignacion.estado === 'Sin evidencia' ? '—' : 'No vence') }}</span></div>
+  </div>
+  <h3 class="nx-section__title">Evidencias</h3>
+  <table class="nx-table nx-mb-12" aria-label="Evidencias">
+    <thead><tr><th>Fecha</th><th>Vence</th><th>Descripción</th><th>Registrada por</th><th>Archivo</th></tr></thead>
+    <tbody>
+      <tr *ngFor="let e of d.evidencias">
+        <td>{{ e.fecha }}</td><td>{{ e.vence ?? '—' }}</td><td>{{ e.descripcion }}</td><td>{{ e.registradaPor }}</td>
+        <td><button *ngIf="e.archivo" type="button" class="nx-link-btn" (click)="descargar(e)"><app-icon name="download" [size]="14"></app-icon>{{ e.archivo }} ({{ kb(e.tamano) }})</button><span *ngIf="!e.archivo" class="nx-muted">—</span></td>
+      </tr>
+      <tr *ngIf="!d.evidencias.length"><td colspan="5" class="nx-muted">Aún no hay evidencias.</td></tr>
+    </tbody>
+  </table>
+  <form *ngIf="!d.asignacion.finalizada" id="ev-form" class="nx-form" (ngSubmit)="registrar()">
+    <h3 class="nx-section__title">Registrar evidencia</h3>
+    <div class="nx-grid nx-grid--2">
+      <label class="nx-field">Fecha del documento*<input class="nx-input" name="fecha" [(ngModel)]="ev.fecha" placeholder="DD/MM/AAAA"></label>
+      <label class="nx-field">Archivo (PDF, JPG o PNG, máx. 5 MB)<input class="nx-input" type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="elegirArchivo($event)"></label>
+    </div>
+    <label class="nx-field">Descripción*<input class="nx-input" name="descripcion" maxlength="500" [(ngModel)]="ev.descripcion" placeholder="Ej. Acta de entrega N° 123"></label>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
+  </form>
+  <ng-container modal-footer>
+    <button *ngIf="!d.asignacion.finalizada" type="button" class="nx-btn nx-btn--outline nx-btn--danger" (click)="finalizar()">Finalizar asignación</button>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="det = null">Cerrar</button>
+    <button *ngIf="!d.asignacion.finalizada" type="submit" form="ev-form" class="nx-btn nx-btn--primary" [disabled]="ocupado">Registrar evidencia</button>
   </ng-container>
 </app-modal>

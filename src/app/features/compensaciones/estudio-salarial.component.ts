@@ -3,7 +3,8 @@ import { UBICACION_TONE, Ubicacion, barra, ubicar } from '../../core/bandas';
 import { soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
-import { Banda, CargoMercado, Remuneracion } from '../../core/sample/compensaciones';
+import { BandaApi as Banda, CargoMercadoApi as CargoMercado, CompensacionesService, RemuneracionApi as Remuneracion } from '../../core/administracion.service';
+import { mensajeError } from '../../core/auth.service';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -44,12 +45,21 @@ export class EstudioSalarialComponent {
   emparejar: { mercado: CargoMercado; interno: string } | null = null;
   desemparejar: CargoMercado | null = null;
 
-  constructor(data: HrDataService, private ui: UiStateService) {
-    data.estudioSalarial().subscribe((m) => (this.mercado = m));
-    data.bandas().subscribe((b) => (this.bandas = b));
-    data.colaboradores().subscribe((c) => (this.colaboradores = c));
-    data.remuneraciones().subscribe((r) => (this.rem = r));
-    this.refresh();
+  constructor(data: HrDataService, private api: CompensacionesService, private ui: UiStateService) {
+    data.colaboradores().subscribe((c) => { this.colaboradores = c; this.refresh(); });
+    this.cargar();
+  }
+
+  cargar(): void {
+    this.api.datos().subscribe({
+      next: (d) => {
+        this.mercado = d.estudio;
+        this.bandas = d.bandas;
+        this.rem = Object.fromEntries(d.remuneraciones.map((r) => [r.colaboradorId, r]));
+        this.refresh();
+      },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 
   private refresh(): void {
@@ -102,19 +112,19 @@ export class EstudioSalarialComponent {
   confirmarEmparejar(): void {
     const e = this.emparejar;
     if (!e || !e.interno) return;
-    e.mercado.interno = e.interno;
-    this.emparejar = null;
-    this.refresh();
-    this.ui.toast(`“${e.interno}” quedó emparejado con “${e.mercado.cargo}”`);
+    this.api.emparejar(e.mercado.id, e.interno).subscribe({
+      next: () => { this.emparejar = null; this.ui.toast(`“${e.interno}” quedó emparejado con “${e.mercado.cargo}”`); this.cargar(); },
+      error: (x) => this.ui.toast(mensajeError(x)),
+    });
   }
 
   confirmarDesemparejar(): void {
     const m = this.desemparejar;
     if (!m) return;
     const interno = m.interno;
-    m.interno = null;
-    this.desemparejar = null;
-    this.refresh();
-    this.ui.toast(`Se desemparejó “${interno}” de “${m.cargo}”`);
+    this.api.emparejar(m.id, null).subscribe({
+      next: () => { this.desemparejar = null; this.ui.toast(`Se desemparejó “${interno}” de “${m.cargo}”`); this.cargar(); },
+      error: (x) => this.ui.toast(mensajeError(x)),
+    });
   }
 }

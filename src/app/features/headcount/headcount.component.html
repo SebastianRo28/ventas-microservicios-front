@@ -111,9 +111,10 @@
     </div>
     <label class="nx-field">Cantidad de posiciones a crear*<input class="nx-input" type="number" min="1" max="20" name="cantidad" [(ngModel)]="m.cantidad"></label>
     <span *ngIf="intento && errModal" class="nx-error">{{ errModal }}</span>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="modal = null">Cancelar</button>
-    <button type="submit" form="pos-form" class="nx-btn nx-btn--primary">Guardar</button>
+    <button type="submit" form="pos-form" class="nx-btn nx-btn--primary" [disabled]="ocupado">Guardar</button>
   </ng-container>
 </app-modal>

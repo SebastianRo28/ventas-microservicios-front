@@ -1,9 +1,11 @@
 import { Component } from '@angular/core';
 import { UBICACION_TONE, Ubicacion, bandaMax, bandaMin, barra, ubicar } from '../../core/bandas';
+import { BandaApi as Banda, CompensacionesService, RemuneracionApi as Remuneracion } from '../../core/administracion.service';
+import { mensajeError } from '../../core/auth.service';
 import { soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
-import { Banda, NivelBanda, Remuneracion } from '../../core/sample/compensaciones';
+import { NivelBanda } from '../../core/sample/compensaciones';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -62,13 +64,25 @@ export class BandasComponent {
   compModal: { fila: FilaBanda; monto: string; comentario: string } | null = null;
   intento = false;
 
-  constructor(data: HrDataService, private ui: UiStateService) {
-    data.bandas().subscribe((b) => (this.bandas = b));
+  ocupado = false;
+  error = '';
+
+  constructor(data: HrDataService, private api: CompensacionesService, private ui: UiStateService) {
     data.nivelesBanda().subscribe((n) => (this.niveles = n));
-    data.colaboradores().subscribe((c) => (this.colaboradores = c));
-    data.remuneraciones().subscribe((r) => (this.rem = r));
+    data.colaboradores().subscribe((c) => { this.colaboradores = c; this.refresh(); });
     data.cargos().subscribe((c) => (this.cargos = c.filter((x) => x.activo).map((x) => x.nombre)));
-    this.refresh();
+    this.cargar();
+  }
+
+  cargar(): void {
+    this.api.datos().subscribe({
+      next: (d) => {
+        this.bandas = d.bandas;
+        this.rem = Object.fromEntries(d.remuneraciones.map((r) => [r.colaboradorId, r]));
+        this.refresh();
+      },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 
   private refresh(): void {
@@ -126,6 +140,7 @@ export class BandasComponent {
   // --- bandas ---------------------------------------------------------------
   nuevaBanda(): void {
     this.intento = false;
+    this.error = '';
     const libre = this.cargos.find((c) => !this.bandas.some((b) => b.cargo === c)) ?? '';
     this.bandaModal = { id: null, cargo: libre, objetivo: '', pctMin: '85', pctMax: '120' };
   }
@@ -133,8 +148,10 @@ export class BandasComponent {
   onBanda(action: RowAction, row: Row): void {
     const b = this.bandas.find((x) => x.id === row.id);
     if (!b) return;
-    if (action === 'editar') { this.intento = false; this.bandaModal = { id: b.id, cargo: b.cargo, objetivo: String(b.objetivo), pctMin: String(b.pctMin), pctMax: String(b.pctMax) }; }
-    if (action === 'eliminar') { this.bandas.splice(this.bandas.indexOf(b), 1); this.refresh(); this.ui.toast(`Banda de ${b.cargo} eliminada`); }
+    if (action === 'editar') { this.intento = false; this.error = ''; this.bandaModal = { id: b.id, cargo: b.cargo, objetivo: String(b.objetivo), pctMin: String(b.pctMin), pctMax: String(b.pctMax) }; }
+    if (action === 'eliminar') {
+      this.api.eliminarBanda(b.id).subscribe({ next: () => { this.ui.toast(`Banda de ${b.cargo} eliminada`); this.cargar(); }, error: (e) => this.ui.toast(mensajeError(e)) });
+    }
   }
 
   /** Median base salary of the position, used by "Calcular automáticamente". */
@@ -169,24 +186,26 @@ export class BandasComponent {
     this.intento = true;
     const m = this.bandaModal;
     if (!m || this.errBanda) return;
+    if (this.ocupado) return;
     const datos = { cargo: m.cargo, objetivo: this.num(m.objetivo), pctMin: this.num(m.pctMin), pctMax: this.num(m.pctMax) };
-    if (m.id === null) this.bandas.push({ id: Math.max(-1, ...this.bandas.map((b) => b.id)) + 1, activo: true, ...datos });
-    else Object.assign(this.bandas.find((b) => b.id === m.id)!, datos);
-    this.bandaModal = null;
-    this.refresh();
-    this.ui.toast(`Banda de ${datos.cargo} guardada`);
+    this.ocupado = true;
+    this.api.guardarBanda(m.id, datos).subscribe({
+      next: () => { this.ocupado = false; this.bandaModal = null; this.ui.toast(`Banda de ${datos.cargo} guardada`); this.cargar(); },
+      error: (e) => { this.ocupado = false; this.error = mensajeError(e); },
+    });
   }
 
   // --- compensación teórica -------------------------------------------------
-  abrirComp(f: FilaBanda): void { this.intento = false; this.compModal = { fila: f, monto: String(f.rem.compTeorica ?? f.rem.sueldoBase), comentario: '' }; }
+  abrirComp(f: FilaBanda): void { this.intento = false; this.error = ''; this.compModal = { fila: f, monto: String(f.rem.compTeorica ?? f.rem.sueldoBase), comentario: '' }; }
 
   guardarComp(): void {
     this.intento = true;
     const m = this.compModal;
-    if (!m || this.num(m.monto) <= 0) return;
-    m.fila.rem.compTeorica = this.num(m.monto);
-    this.compModal = null;
-    this.refresh();
-    this.ui.toast('Compensación teórica actualizada');
+    if (!m || this.num(m.monto) <= 0 || this.ocupado) return;
+    this.ocupado = true;
+    this.api.compTeorica(m.fila.colaborador.id, this.num(m.monto), m.comentario.trim()).subscribe({
+      next: () => { this.ocupado = false; this.compModal = null; this.ui.toast('Compensación teórica actualizada'); this.cargar(); },
+      error: (e) => { this.ocupado = false; this.error = mensajeError(e); },
+    });
   }
 }

@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-import { HrDataService } from '../../core/hr-data.service';
-import { PlantillaDocumento } from '../../core/sample/catalogos';
+import { DocumentosService, PlantillaDocumentoApi } from '../../core/administracion.service';
+import { mensajeError } from '../../core/auth.service';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -14,12 +14,12 @@ const COLUMNS: Column[] = [
   { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '120px' },
 ];
 
-/** P-05.1 Documentos y Firma › Plantillas. */
+/** P-05.1 Documentos y Firma › Plantillas (API): activate or deactivate each template. */
 @Component({
   selector: 'app-doc-plantillas',
   template: `
     <app-page-header title="Plantillas" [crumbs]="['Administrativo', 'Documentos y Firma']"></app-page-header>
-    <p class="nx-page-lead">Nexo RH trae plantillas por defecto que puedes editar o duplicar.</p>
+    <p class="nx-page-lead">Nexo RH trae plantillas por defecto. Activa las que tu empresa usa; las inactivas no se ofrecen al generar documentos.</p>
     <app-data-table [columns]="columns" [rows]="rows" createLabel="Crear plantilla" [rowActions]="actions"
                     [showBulk]="false" [showAdvancedFilter]="false" tableLabel="Plantillas de documentos" minWidth="1100px"
                     exportName="plantillas-documentos"
@@ -29,12 +29,14 @@ const COLUMNS: Column[] = [
 })
 export class DocPlantillasComponent {
   readonly columns = COLUMNS;
-  readonly actions: RowAction[] = ['ver', 'pausa', 'mas'];
+  readonly actions: RowAction[] = ['pausa'];
   rows: Row[] = [];
-  private all: PlantillaDocumento[] = [];
+  private all: PlantillaDocumentoApi[] = [];
 
-  constructor(data: HrDataService, public ui: UiStateService) {
-    data.plantillasDocumento().subscribe((p) => { this.all = p; this.refresh(); });
+  constructor(private api: DocumentosService, public ui: UiStateService) { this.cargar(); }
+
+  cargar(): void {
+    this.api.datos().subscribe({ next: (d) => { this.all = d.plantillas; this.refresh(); }, error: (e) => this.ui.toast(mensajeError(e)) });
   }
 
   private refresh(): void {
@@ -47,12 +49,11 @@ export class DocPlantillasComponent {
 
   onAction(action: RowAction, row: Row): void {
     const p = this.all.find((x) => x.id === row.id);
-    if (!p) return;
-    if (action === 'pausa') {
-      p.activa = !p.activa;
-      this.ui.toast(`Plantilla “${p.nombre}” ${p.activa ? 'activada' : 'desactivada'}`);
-      this.refresh();
-    }
-    if (action === 'ver') this.ui.toast('La vista previa de plantillas llegará en la próxima versión');
+    if (!p || action !== 'pausa') return;
+    const activa = !p.activa;
+    this.api.estadoPlantilla(p.id, activa).subscribe({
+      next: () => { p.activa = activa; this.refresh(); this.ui.toast(`Plantilla “${p.nombre}” ${activa ? 'activada' : 'desactivada'}`); },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
   }
 }

@@ -15,23 +15,22 @@ import {
 } from './models';
 import { ARCHIVOS_PAGOS, ArchivoPago, PERIODOS_PROCESOS, PeriodoProcesos } from './sample/remuneraciones';
 import { SolicitudWf } from './sample/workflow';
-import { DOCUMENTOS, Documento, DocumentoEliminado, PAPELERA } from './sample/documentos';
 import {
-  ACTIVOS, Activo, DASHBOARDS, Dashboard, PLANTILLAS_DOCUMENTO, PlantillaDocumento, PlantillaWorkflow, WIDGETS, Widget
+  DASHBOARDS, Dashboard, PlantillaWorkflow, WIDGETS, Widget
 } from './sample/catalogos';
 import {
-  CATEGORIAS, Categoria, DENUNCIAS, Denuncia, ENCUESTAS, Encuesta, ORDENES, OrdenActivo, PRODUCTOS, Producto
+  DENUNCIAS, Denuncia, ENCUESTAS, Encuesta
 } from './sample/operaciones';
 import {
   ASIGNACIONES_COLABORADORES, ASIGNACIONES_EMPRESAS, AsignacionSst, BIBLIOTECA_SST, CORREOS, CUMPLIMIENTOS, CorreoAutomatico,
   Cumplimiento, CumplimientoBiblioteca, ENCUESTAS_CLIMA, EncuestaClima, REQUISITOS, Requisito
 } from './sample/sst';
 import {
-  ACCIONES_RAPIDAS, EjecucionReporte, ElementoPortal, HISTORIAL_REPORTES, IMPORTADORES, Importador, PORTADAS, PUBLICACIONES,
-  Publicacion, RECONOCIMIENTOS, REPORTES, Reconocimiento, Reporte
+  ACCIONES_RAPIDAS, ElementoPortal, IMPORTADORES, Importador, PORTADAS, PUBLICACIONES,
+  Publicacion, RECONOCIMIENTOS, Reconocimiento
 } from './sample/reportes';
 import {
-  BANDAS, Banda, CargoMercado, ESTUDIO_SALARIAL, NIVELES_BANDA, NivelBanda, REMUNERACIONES, Remuneracion
+  NIVELES_BANDA, NivelBanda
 } from './sample/compensaciones';
 
 /**
@@ -131,13 +130,8 @@ export class HrDataService {
   duplicarPlantillaWf(id: number): Observable<PlantillaWorkflow> { return this.http.post<PlantillaWorkflow>(`${API_URL}/workflow/plantillas/${id}/duplicar`, {}); }
   eliminarPlantillaWf(id: number): Observable<unknown> { return this.http.delete(`${API_URL}/workflow/plantillas/${id}`); }
 
-  plantillasDocumento(): Observable<PlantillaDocumento[]> { return of(PLANTILLAS_DOCUMENTO); }
   dashboards(): Observable<Dashboard[]> { return of(DASHBOARDS); }
   widgets(): Observable<Widget[]> { return of(WIDGETS); }
-  activos(): Observable<Activo[]> { return of(ACTIVOS); }
-  ordenes(): Observable<OrdenActivo[]> { return of(ORDENES); }
-  categorias(): Observable<Categoria[]> { return of(CATEGORIAS); }
-  productos(): Observable<Producto[]> { return of(PRODUCTOS); }
   denuncias(): Observable<Denuncia[]> { return of(DENUNCIAS); }
   encuestas(): Observable<Encuesta[]> { return of(ENCUESTAS); }
   requisitos(): Observable<Requisito[]> { return of(REQUISITOS); }
@@ -153,8 +147,6 @@ export class HrDataService {
   accionesRapidas(): Observable<ElementoPortal[]> { return of(ACCIONES_RAPIDAS); }
   reconocimientos(): Observable<Reconocimiento[]> { return this.portal.reconocimientos$.asObservable(); }
   importadores(): Observable<Importador[]> { return of(IMPORTADORES); }
-  reportes(): Observable<Reporte[]> { return of(REPORTES); }
-  historialReportes(): Observable<EjecucionReporte[]> { return of(HISTORIAL_REPORTES); }
   perfiles(): Observable<PerfilCuenta[]> { return this.http.get<PerfilCuenta[]>(`${API_URL}/perfiles`); }
   crearPerfil(p: PerfilGuardar): Observable<PerfilCuenta> { return this.http.post<PerfilCuenta>(`${API_URL}/perfiles`, p); }
   modificarPerfil(id: number, p: PerfilGuardar): Observable<PerfilCuenta> { return this.http.put<PerfilCuenta>(`${API_URL}/perfiles/${id}`, p); }
@@ -164,13 +156,8 @@ export class HrDataService {
   modificarUsuario(id: number, u: UsuarioGuardar): Observable<UsuarioCuenta> { return this.http.put<UsuarioCuenta>(`${API_URL}/usuarios/${id}`, u); }
   estadoUsuario(id: number, activo: boolean): Observable<UsuarioCuenta> { return this.http.post<UsuarioCuenta>(`${API_URL}/usuarios/${id}/estado`, { activo }); }
   restablecerUsuario(id: number): Observable<UsuarioCreado> { return this.http.post<UsuarioCreado>(`${API_URL}/usuarios/${id}/restablecer`, {}); }
-  bandas(): Observable<Banda[]> { return of(BANDAS); }
   nivelesBanda(): Observable<NivelBanda[]> { return of(NIVELES_BANDA); }
-  remuneraciones(): Observable<Record<number, Remuneracion>> { return of(REMUNERACIONES); }
-  estudioSalarial(): Observable<CargoMercado[]> { return of(ESTUDIO_SALARIAL); }
 
-  documentos(): Observable<Documento[]> { return of(DOCUMENTOS); }
-  papelera(): Observable<DocumentoEliminado[]> { return of(PAPELERA); }
 
   /** Payslips of a collaborator; the sample data only has history for Florencia Alamos (id 0). */
   /** Payslips of a collaborator (others only see their own, final ones). */

@@ -13,18 +13,17 @@
 
 <app-data-table [columns]="columns" [rows]="rows" [pageSize]="50" createLabel="Crear Activo" [rowActions]="actions" [showBulk]="false"
                 tableLabel="Inventario" minWidth="1100px" exportName="inventario-activos"
-                (create)="ui.toast('El alta de activos llegará en la próxima versión')"
-                (action)="onAction($event.action, $event.row)"></app-data-table>
+                (create)="abrirAlta()" (action)="onAction($event.action, $event.row)"></app-data-table>
 
-<app-modal *ngIf="historial as h" [title]="'Historial de movimientos - ID ' + h.id + ' - ' + h.nombre" width="900px" (closed)="historial = null">
+<app-modal *ngIf="historial as h" [title]="'Historial de movimientos - ID ' + h.activo.codigo + ' - ' + h.activo.producto" width="900px" (closed)="historial = null">
   <div class="nx-row nx-row--right">
-    <button type="button" class="nx-btn nx-btn--primary" (click)="openCambio(h)"><app-icon name="refresh" [size]="16"></app-icon>Cambiar estado</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="openCambio(h.activo)"><app-icon name="refresh" [size]="16"></app-icon>Cambiar estado</button>
   </div>
-  <div *ngIf="h.historial.length; else sinHist" class="nx-dt__scroll nx-period__table">
+  <div *ngIf="h.movimientos.length; else sinHist" class="nx-dt__scroll nx-period__table">
     <table class="nx-table" aria-label="Historial de movimientos">
       <thead><tr><th>Fecha de actualización</th><th>Asignado a</th><th>Estado</th><th>Comentario</th><th>Administrador</th></tr></thead>
       <tbody>
-        <tr *ngFor="let m of h.historial">
+        <tr *ngFor="let m of h.movimientos">
           <td>{{ m.fecha }}</td><td>{{ m.asignado }}</td>
           <td><span class="nx-badge" [ngClass]="'nx-tone-' + tone[m.estado]">{{ m.estado }}</span></td>
           <td class="nx-wrap">{{ m.comentario }}</td><td>{{ m.admin }}</td>
@@ -41,24 +40,41 @@
   </ng-container>
 </app-modal>
 
-<app-modal *ngIf="cambio as c" [title]="'Cambiar estado · ' + c.id" width="560px" (closed)="cambio = null">
+<app-modal *ngIf="cambio as c" [title]="'Cambiar estado · ' + c.codigo" width="560px" (closed)="cambio = null">
   <form id="cambio-activo" class="nx-form" (ngSubmit)="guardarCambio()">
-    <p class="nx-muted nx-mt-0">{{ c.nombre }} · {{ c.marca }}</p>
+    <p class="nx-muted nx-mt-0">{{ c.producto }} · {{ c.marca }}</p>
     <label class="nx-field">Estado
       <select class="nx-select" name="estado" [(ngModel)]="form.estado"><option *ngFor="let e of estados">{{ e }}</option></select>
     </label>
     <label *ngIf="form.estado === 'Asignado'" class="nx-field">Asignado a*
-      <select class="nx-select" name="asignado" [(ngModel)]="form.asignado" [class.is-invalid]="!cambioValido">
-        <option value="">Seleccionar colaborador</option><option *ngFor="let p of personas">{{ p }}</option>
+      <select class="nx-select" name="asignado" [(ngModel)]="form.asignadoId" [class.is-invalid]="!cambioValido">
+        <option [ngValue]="null">Seleccionar colaborador</option><option *ngFor="let p of personas" [ngValue]="p.id">{{ p.nombre }}</option>
       </select>
       <span *ngIf="!cambioValido" class="nx-error">Elige a quién se asigna el activo.</span>
     </label>
     <label class="nx-field">Comentario
-      <textarea class="nx-input nx-textarea" name="comentario" placeholder="Ej. Entrega con acta firmada." [(ngModel)]="form.comentario"></textarea>
+      <textarea class="nx-input nx-textarea" name="comentario" maxlength="300" placeholder="Ej. Entrega con acta firmada." [(ngModel)]="form.comentario"></textarea>
     </label>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="cambio = null">Cancelar</button>
-    <button type="submit" form="cambio-activo" class="nx-btn nx-btn--primary" [disabled]="!cambioValido">Guardar</button>
+    <button type="submit" form="cambio-activo" class="nx-btn nx-btn--primary" [disabled]="!cambioValido || ocupado">Guardar</button>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="alta as m" title="Crear Activo" width="520px" (closed)="alta = null">
+  <form id="alta-activo" class="nx-form" (ngSubmit)="guardarAlta()">
+    <label class="nx-field">Producto*
+      <select class="nx-select" name="producto" [(ngModel)]="m.productoId"><option *ngFor="let p of productos" [ngValue]="p.id">{{ p.nombre }} · {{ p.marca }}</option></select>
+    </label>
+    <label class="nx-field">Cantidad de unidades*<input class="nx-input" name="cantidad" type="number" min="1" max="100" [(ngModel)]="m.cantidad"></label>
+    <label class="nx-field">Comentario<input class="nx-input" name="comentario" maxlength="300" [(ngModel)]="m.comentario" placeholder="Ej. Factura F001-2301"></label>
+    <p class="nx-muted nx-small nx-mt-0">Cada unidad recibe un ID correlativo y queda Disponible en el inventario.</p>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="alta = null">Cancelar</button>
+    <button type="submit" form="alta-activo" class="nx-btn nx-btn--primary" [disabled]="ocupado">Ingresar al inventario</button>
   </ng-container>
 </app-modal>

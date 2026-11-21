@@ -117,10 +117,11 @@
       <span>Máximo: <b>{{ soles(num(m.objetivo) * num(m.pctMax) / 100) }}</b></span>
     </div>
     <span *ngIf="intento && errBanda" class="nx-error">{{ errBanda }}</span>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="bandaModal = null">Cancelar</button>
-    <button type="submit" form="banda-form" class="nx-btn nx-btn--primary">Guardar</button>
+    <button type="submit" form="banda-form" class="nx-btn nx-btn--primary" [disabled]="ocupado">Guardar</button>
   </ng-container>
 </app-modal>
 
@@ -131,10 +132,11 @@
       <span class="nx-input-group"><span>S/</span><input class="nx-input" name="monto" inputmode="decimal" [(ngModel)]="m.monto" [class.is-invalid]="intento && num(m.monto) <= 0"></span>
       <span *ngIf="intento && num(m.monto) <= 0" class="nx-error">Ingresa un monto mayor a 0.</span>
     </label>
-    <label class="nx-field">Comentario<textarea class="nx-input nx-textarea" name="comentario" [(ngModel)]="m.comentario"></textarea></label>
+    <label class="nx-field">Comentario<textarea class="nx-input nx-textarea" name="comentario" maxlength="300" [(ngModel)]="m.comentario"></textarea></label>
+    <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
   </form>
   <ng-container modal-footer>
     <button type="button" class="nx-btn nx-btn--outline" (click)="compModal = null">Cancelar</button>
-    <button type="submit" form="comp-form" class="nx-btn nx-btn--primary">Guardar</button>
+    <button type="submit" form="comp-form" class="nx-btn nx-btn--primary" [disabled]="ocupado">Guardar</button>
   </ng-container>
 </app-modal>

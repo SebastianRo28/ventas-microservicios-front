@@ -28,7 +28,12 @@
     <div class="nx-import-grid">
       <button *ngFor="let i of visibles" type="button" class="nx-import-card" [class.is-mod]="i.tipo === 'Modificador'" (click)="abrir(i)">
         <span class="nx-import-card__icon"><app-icon [name]="i.tipo === 'Modificador' ? 'edit' : 'upload'" [size]="20"></app-icon></span>
-        <span class="nx-import-card__text"><b>{{ i.nombre }}</b><span class="nx-badge nx-badge--sm" [ngClass]="i.tipo === 'Modificador' ? 'nx-tone-orange' : 'nx-tone-neutral'">{{ i.tipo }}</span></span>
+        <span class="nx-import-card__text"><b>{{ i.nombre }}</b>
+          <span class="nx-row">
+            <span class="nx-badge nx-badge--sm" [ngClass]="i.tipo === 'Modificador' ? 'nx-tone-orange' : 'nx-tone-neutral'">{{ i.tipo }}</span>
+            <span *ngIf="!disponible(i)" class="nx-badge nx-badge--sm nx-tone-gray">Próximamente</span>
+          </span>
+        </span>
       </button>
     </div>
     <div *ngIf="!visibles.length" class="nx-card nx-empty nx-empty--compact">
@@ -37,43 +42,55 @@
   </div>
 </div>
 
-<app-modal *ngIf="abierto as a" [title]="a.nombre" width="760px" (closed)="abierto = null">
-  <div class="nx-form">
+<app-modal *ngIf="abierto as a" [title]="a.nombre" width="780px" (closed)="abierto = null">
+  <div *ngIf="!disponible(a)" class="nx-empty nx-empty--compact">
+    <b>Este importador todavía no está disponible</b>
+    <span>Por ahora puedes cargar colaboradores nuevos con el importador “Colaboradores”.</span>
+  </div>
+
+  <div *ngIf="disponible(a)" class="nx-form">
     <div class="nx-row nx-row--center">
-      <span class="nx-badge" [ngClass]="a.tipo === 'Modificador' ? 'nx-tone-orange' : 'nx-tone-neutral'">{{ a.tipo }}</span>
-      <span class="nx-muted">Completa el template respetando el formato de cada campo.</span>
+      <span class="nx-badge nx-tone-neutral">{{ a.tipo }}</span>
+      <span class="nx-muted">Descarga el template, complétalo en Excel y guárdalo como CSV.</span>
     </div>
     <div class="nx-dt__scroll nx-period__table">
       <table class="nx-table" aria-label="Instrucciones del importador">
-        <thead><tr><th>Campo</th><th>Formato / valores permitidos</th></tr></thead>
-        <tbody><tr *ngFor="let c of campos"><td><b>{{ c.nombre }}</b></td><td class="nx-wrap">{{ c.formato }}</td></tr></tbody>
+        <thead><tr><th>Columna</th><th>Formato / valores permitidos</th></tr></thead>
+        <tbody><tr *ngFor="let c of campos"><td><b>{{ c.columna }}</b>{{ c.obligatoria ? '*' : '' }}</td><td class="nx-wrap">{{ c.formato }}</td></tr></tbody>
       </table>
     </div>
-    <div class="nx-row">
-      <label class="nx-check nx-check--plain"><input type="checkbox" [(ngModel)]="inactivos">Cargar como inactivos</label>
-      <label class="nx-check nx-check--plain"><input type="checkbox">Agregar segunda dirección</label>
-    </div>
     <div class="nx-banner nx-banner--warning nx-banner--compact" role="note">
-      <app-icon name="alert" [size]="18"></app-icon><span><b>Importante:</b> no cambies el orden ni el nombre de las columnas del template.</span>
+      <app-icon name="alert" [size]="18"></app-icon><span><b>Importante:</b> no cambies el orden ni el nombre de las columnas. Si alguna fila tiene errores, no se carga ningún colaborador.</span>
     </div>
     <div class="nx-banner nx-banner--compact" role="note">
-      <app-icon name="info" [size]="18"></app-icon><span><b>Recordatorio:</b> los colaboradores cargados aparecen en Vigentes, en el organigrama y en Control de Asistencia.</span>
+      <app-icon name="info" [size]="18"></app-icon><span>Los colaboradores cargados aparecen en Vigentes, en el organigrama y en Control de Asistencia.</span>
     </div>
+    <div *ngIf="ocupado" class="nx-muted" role="status">Revisando el archivo…</div>
     <div *ngIf="resultado as r" class="nx-upload-result" [class.is-ok]="!r.errores.length" role="status">
-      <b>{{ r.archivo }} · {{ r.errores.length ? r.errores.length + ' error(es)' : 'sin errores' }} en {{ r.filas }} fila(s)</b>
-      <span *ngIf="!r.errores.length">El archivo cumple el formato. La carga en la base de datos se activará cuando Nexo RH tenga su API.</span>
-      <ul *ngIf="r.errores.length"><li *ngFor="let e of r.errores.slice(0, 8)">{{ e }}</li></ul>
+      <ng-container *ngIf="r.cargaId === null">
+        <b>{{ r.archivo }} · {{ r.errores.length ? r.errores.length + ' error(es)' : 'sin errores' }} en {{ r.filas }} fila(s)</b>
+        <span *ngIf="!r.errores.length">El archivo está listo: pulsa “Cargar” para crear {{ r.filas }} colaborador(es).</span>
+        <span *ngIf="r.errores.length">Corrige el archivo y vuelve a seleccionarlo.</span>
+      </ng-container>
+      <ng-container *ngIf="r.cargaId !== null">
+        <b>Carga N° {{ r.cargaId }} · {{ r.estado }}</b>
+        <span *ngIf="r.estado === 'Exitosa'">Se crearon {{ r.creados }} colaborador(es).</span>
+        <span *ngIf="r.estado !== 'Exitosa'">No se cargó ningún colaborador. El detalle queda en el <a routerLink="/rep/importadores/historial">Historial de Cargas</a>.</span>
+      </ng-container>
+      <ul *ngIf="r.errores.length"><li *ngFor="let e of r.errores.slice(0, 8)">{{ e.fila ? 'Fila ' + e.fila + ' · ' : '' }}{{ e.campo }}: {{ e.mensaje }}</li></ul>
       <span *ngIf="r.errores.length > 8" class="nx-small">Y {{ r.errores.length - 8 }} error(es) más.</span>
     </div>
   </div>
   <ng-container modal-footer>
-    <button type="button" class="nx-btn nx-btn--outline" (click)="abierto = null">Cancelar</button>
-    <div class="nx-row">
+    <button type="button" class="nx-btn nx-btn--outline" (click)="abierto = null">{{ disponible(a) ? 'Cancelar' : 'Cerrar' }}</button>
+    <div *ngIf="disponible(a)" class="nx-row">
       <button type="button" class="nx-btn nx-btn--outline" (click)="descargarTemplate()"><app-icon name="download" [size]="16"></app-icon>Descargar Template</button>
-      <label class="nx-btn nx-btn--primary nx-file-btn">
+      <label class="nx-btn nx-file-btn" [ngClass]="archivo && resultado && !resultado.errores.length && resultado.cargaId === null ? 'nx-btn--outline' : 'nx-btn--primary'">
         <app-icon name="upload" [size]="16"></app-icon>Seleccionar archivo
-        <input #file type="file" accept=".csv,text/csv" class="visually-hidden" (change)="cargar(file)">
+        <input #file type="file" accept=".csv,text/csv" class="visually-hidden" (change)="elegir(file)">
       </label>
+      <button *ngIf="archivo && resultado && !resultado.errores.length && resultado.cargaId === null" type="button" class="nx-btn nx-btn--primary"
+              [disabled]="ocupado" (click)="cargar()">Cargar {{ resultado.filas }} colaborador(es)</button>
     </div>
   </ng-container>
 </app-modal>

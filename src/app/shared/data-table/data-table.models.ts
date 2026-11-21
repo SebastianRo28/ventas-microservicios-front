@@ -2,7 +2,7 @@ import { Tone } from '../../core/models';
 
 export type ColumnType = 'text' | 'number' | 'date' | 'money' | 'link' | 'badge' | 'progress' | 'check' | 'actions';
 export type ColumnFilter = 'text' | 'select' | 'date' | 'none';
-export type RowAction = 'ver' | 'editar' | 'eliminar' | 'descargar' | 'historial' | 'firmar' | 'ocultar' | 'cerrar' | 'mas' | 'info' | 'pausa' | 'duplicar' | 'cambiar' | 'aprobar' | 'rechazar' | 'cargar' | 'emparejar' | 'observar' | 'restablecer';
+export type RowAction = 'ver' | 'editar' | 'eliminar' | 'descargar' | 'historial' | 'firmar' | 'ocultar' | 'cerrar' | 'mas' | 'info' | 'pausa' | 'duplicar' | 'cambiar' | 'aprobar' | 'rechazar' | 'cargar' | 'emparejar' | 'observar' | 'restablecer' | 'restaurar';
 
 export interface Column {
   key: string;

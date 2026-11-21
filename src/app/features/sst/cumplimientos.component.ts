@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
-import { HrDataService } from '../../core/hr-data.service';
-import { Cumplimiento, CumplimientoBiblioteca } from '../../core/sample/sst';
+import { Router } from '@angular/router';
+import { catchError, forkJoin, map, of } from 'rxjs';
+import { mensajeError } from '../../core/auth.service';
+import { CumplimientoSst, DatosSst, SstService } from '../../core/sst.service';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -31,11 +33,6 @@ const BCOLS: Column[] = [
   selector: 'app-sst-cumplimientos',
   template: `
     <app-page-header title="Cumplimientos" [crumbs]="['Seguridad y Salud en el Trabajo', 'Registro de evidencias']"></app-page-header>
-    <div class="nx-banner nx-banner--green" role="note">
-      <app-icon name="shield" [size]="19"></app-icon>
-      <span class="nx-grow">Capacitaciones, exámenes ocupacionales, EPP y más con descuentos exclusivos para clientes Nexo RH.</span>
-      <a href="#" (click)="$event.preventDefault()">Ver la Red de Proveedores SST</a>
-    </div>
     <p class="nx-page-lead nx-page-lead--flat">Administra los marcos normativos de tu Empresa y agrega nuevos desde la Biblioteca de cumplimientos frecuentes.</p>
     <div class="nx-tabs" role="tablist">
       <button *ngFor="let t of ['Mis cumplimientos', 'Biblioteca']; let i = index" type="button" role="tab" class="nx-tab"
@@ -44,8 +41,7 @@ const BCOLS: Column[] = [
     <app-data-table *ngIf="tab === 0" [columns]="cols" [rows]="rows" createLabel="Crear cumplimiento" [rowActions]="actions"
                     [bulkActions]="['Descargar evidencias', 'Eliminar']" [showAdvancedFilter]="false" tableLabel="Mis cumplimientos"
                     minWidth="1600px" exportName="mis-cumplimientos"
-                    (create)="ui.toast('La creación de cumplimientos llegará en la próxima versión')"
-                    (action)="ui.toast('Usa Requisitos para cargar evidencias de este cumplimiento')"
+                    (create)="abrir()" (action)="onAction($event.action, $event.row)"
                     (bulk)="onBulk($event.action, $event.rows)"></app-data-table>
     <ng-container *ngIf="tab === 1">
       <div class="nx-banner" role="note">
@@ -57,62 +53,85 @@ const BCOLS: Column[] = [
                       emptyTitle="Ya agregaste todos los cumplimientos de la biblioteca" emptyText="Los encontrarás en Mis cumplimientos"
                       (bulk)="agregar($event.rows)"></app-data-table>
     </ng-container>
+    <app-modal *ngIf="nuevo as n" title="Crear cumplimiento" width="540px" (closed)="nuevo = null">
+      <form id="cu-form" class="nx-form" (ngSubmit)="crear()">
+        <label class="nx-field">Nombre*<input class="nx-input" name="nombre" maxlength="120" [(ngModel)]="n.nombre"></label>
+        <label class="nx-field">Normativa*<input class="nx-input" name="normativa" maxlength="80" [(ngModel)]="n.normativa" placeholder="Ej. Ley N° 29783"></label>
+        <label class="nx-field">Categoría<input class="nx-input" name="categoria" maxlength="80" [(ngModel)]="n.categoria" placeholder="Ej. Gestión de Riesgos"></label>
+        <label class="nx-field">Descripción<textarea class="nx-textarea" name="descripcion" rows="2" maxlength="500" [(ngModel)]="n.descripcion"></textarea></label>
+        <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
+      </form>
+      <ng-container modal-footer>
+        <button type="button" class="nx-btn nx-btn--outline" (click)="nuevo = null">Cancelar</button>
+        <button type="submit" form="cu-form" class="nx-btn nx-btn--primary">Crear</button>
+      </ng-container>
+    </app-modal>
   `
 })
 export class SstCumplimientosComponent {
   readonly cols = COLS;
   readonly bcols = BCOLS;
-  readonly actions: RowAction[] = ['cargar'];
+  readonly actions: RowAction[] = ['cargar', 'eliminar'];
   tab = 0;
   rows: Row[] = [];
   brows: Row[] = [];
-  private mios: Cumplimiento[] = [];
-  private biblioteca: CumplimientoBiblioteca[] = [];
+  nuevo: { nombre: string; normativa: string; categoria: string; descripcion: string } | null = null;
+  error = '';
+  private mios: CumplimientoSst[] = [];
 
-  constructor(data: HrDataService, public ui: UiStateService) {
-    data.cumplimientos().subscribe((c) => { this.mios = c; this.refresh(); });
-    data.bibliotecaSst().subscribe((b) => { this.biblioteca = b; this.refresh(); });
+  constructor(private api: SstService, public ui: UiStateService, private router: Router) { this.cargar(); }
+
+  private cargar(): void {
+    this.api.datos().subscribe({ next: (d) => this.refresh(d), error: (e) => this.ui.toast(mensajeError(e)) });
   }
 
-  private cumple(c: Cumplimiento): boolean {
-    const [cv, ct] = c.colaboradores, [ev, et] = c.empresas;
-    return ct + et > 0 && cv === ct && ev === et;
-  }
-
-  private refresh(): void {
-    this.rows = this.mios.map((c) => ({
+  private refresh(d: DatosSst): void {
+    this.mios = d.cumplimientos;
+    this.rows = d.cumplimientos.map((c) => ({
       id: c.id, n: c.nombre, no: c.normativa, c: c.categoria, ec: c.colaboradores.join('/'), ee: c.empresas.join('/'),
-      e: this.cumple(c) ? { text: 'Cumple', tone: 'success' as const } : { text: 'No cumple', tone: 'danger' as const },
+      e: c.cumple ? { text: 'Cumple', tone: 'success' as const } : { text: 'No cumple', tone: 'danger' as const },
       d: c.descripcion, u: c.actualizado, x: '',
     }));
-    const added = new Set(this.mios.map((c) => c.nombre));
-    this.brows = this.biblioteca.filter((b) => !added.has(b.nombre)).map((b) => ({
-      id: b.id, p: b.pais, n: b.nombre, no: b.normativa, c: { text: b.categoria, tone: 'neutral' as const },
+    this.brows = d.biblioteca.filter((b) => !b.agregado).map((b, i) => ({
+      id: i, p: 'Perú', n: b.nombre, no: b.normativa, c: { text: b.categoria, tone: 'neutral' as const },
       d: 'Requisito frecuente en auditorías de SST. Revisa la fuente oficial antes de aplicarlo.',
     }));
+  }
+
+  abrir(): void { this.error = ''; this.nuevo = { nombre: '', normativa: '', categoria: '', descripcion: '' }; }
+  crear(): void {
+    const n = this.nuevo;
+    if (!n) return;
+    this.api.crearCumplimiento({ nombre: n.nombre.trim(), normativa: n.normativa.trim(), categoria: n.categoria.trim(), descripcion: n.descripcion.trim() }).subscribe({
+      next: () => { this.nuevo = null; this.ui.toast('Cumplimiento creado: agrégale requisitos desde Requisitos'); this.cargar(); },
+      error: (e) => (this.error = mensajeError(e)),
+    });
+  }
+
+  onAction(action: RowAction, row: Row): void {
+    if (action === 'cargar') this.router.navigateByUrl('/sst/requisitos');
+    if (action === 'eliminar') this.eliminar([row]);
   }
 
   /** Adds library frameworks to "Mis cumplimientos" without evidences yet. */
   agregar(rows: Row[]): void {
     if (!rows.length) return;
-    const hoy = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const nuevos = this.biblioteca.filter((b) => rows.some((r) => r.id === b.id));
-    nuevos.forEach((b) => this.mios.unshift({
-      id: Math.max(0, ...this.mios.map((c) => c.id)) + 1, nombre: b.nombre, normativa: b.normativa, categoria: b.categoria,
-      colaboradores: [0, 0], empresas: [0, 0], descripcion: `Obligaciones de ${b.nombre.toLowerCase()} según la normativa vigente.`, actualizado: hoy,
-    }));
-    this.refresh();
-    this.ui.toast(nuevos.length === 1
-      ? `Cumplimiento agregado con éxito: ${nuevos[0].nombre} se agregó a Mis cumplimientos`
-      : `Cumplimientos agregados con éxito: ${nuevos.length} cumplimientos se agregaron a Mis cumplimientos`);
+    this.api.agregarBiblioteca(rows.map((r) => String(r['n']))).subscribe({
+      next: (n) => { this.ui.toast(n === 1 ? `Cumplimiento agregado con éxito: ${rows[0]['n']} se agregó a Mis cumplimientos` : `Cumplimientos agregados con éxito: ${n} cumplimientos se agregaron a Mis cumplimientos`); this.tab = 0; this.cargar(); },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
+  }
+
+  private eliminar(rows: Row[]): void {
+    forkJoin(rows.map((r) => this.api.eliminarCumplimiento(+r.id).pipe(map(() => ''), catchError((e) => of(mensajeError(e)))))).subscribe((r) => {
+      const errores = r.filter(Boolean);
+      this.ui.toast(errores.length ? errores[0] : `${rows.length} cumplimiento(s) eliminado(s)`);
+      this.cargar();
+    });
   }
 
   onBulk(action: string, rows: Row[]): void {
-    if (action === 'Eliminar') {
-      const ids = new Set(rows.map((r) => r.id));
-      for (let i = this.mios.length - 1; i >= 0; i--) if (ids.has(this.mios[i].id)) this.mios.splice(i, 1);
-      this.refresh();
-    }
-    this.ui.toast(`${action}: ${rows.length} cumplimiento(s)`);
+    if (action === 'Eliminar') this.eliminar(rows);
+    else this.ui.toast('Descarga las evidencias de cada asignación desde Requisitos › Asignaciones');
   }
 }

@@ -5,18 +5,18 @@
           [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
 </div>
 
-<div *ngIf="banner" class="nx-banner" role="note">
+<div class="nx-banner" role="note">
   <app-icon name="info" [size]="19"></app-icon>
-  <span class="nx-grow"><b>Nuevo:</b> Reportes con filas abiertas por tipo de comprobante… <a href="#" (click)="$event.preventDefault()">Conocer más</a></span>
-  <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Cerrar aviso" (click)="banner = false"><app-icon name="x" [size]="16"></app-icon></button>
+  <span class="nx-grow">Los reportes se generan en CSV con los datos actuales de Nexo RH (se abren en Excel). Los de remuneraciones piden el período de planilla.</span>
 </div>
 
 <app-data-table *ngIf="tab === 0" [columns]="cols" [rows]="rows" createLabel="Crear Reporte" [rowActions]="actions"
                 [bulkActions]="['Eliminar seleccionados']" [showAdvancedFilter]="false" tableLabel="Mis reportes" minWidth="1000px"
                 exportName="mis-reportes" (create)="openModal()" (action)="onAction($event.action, $event.row)"
                 (bulk)="eliminarVarios($event.rows)"></app-data-table>
-<app-data-table *ngIf="tab === 1" [columns]="hcols" [rows]="hrows" [rowActions]="hActions" [showBulk]="false" [showAdvancedFilter]="false"
+<app-data-table *ngIf="tab === 1" [columns]="hcols" [rows]="hrows" [rowActions]="hActions" [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false"
                 tableLabel="Historial de reportes" minWidth="1000px" exportName="historial-reportes"
+                emptyTitle="Aún no se han generado reportes" emptyText="Cada archivo que descargues desde Mis reportes quedará registrado aquí"
                 (action)="onHistorial($event.row)"></app-data-table>
 
 <app-modal *ngIf="modal" title="Plantillas" width="980px" (closed)="modal = false">
@@ -33,14 +33,16 @@
           <app-icon name="search" [size]="16"></app-icon>
           <input aria-label="Buscar plantilla" placeholder="Buscar plantilla" [(ngModel)]="query">
         </label>
-        <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--gray"></span>Reportes en Blanco</span>
         <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--orange"></span>Personalizados</span>
         <span class="nx-legend"><span class="nx-legend__dot"></span>Predefinidos</span>
+        <span class="nx-legend"><span class="nx-legend__dot nx-legend__dot--gray"></span>Próximamente</span>
       </div>
       <div class="nx-templates">
-        <button *ngFor="let p of plantillas" type="button" class="nx-tpl-card" [ngClass]="'is-' + p.tipo" [class.is-on]="seleccion === p"
-                [attr.aria-pressed]="seleccion === p" (click)="seleccion = p">
+        <button *ngFor="let p of plantillas" type="button" class="nx-tpl-card" [ngClass]="'is-' + (p.generable ? p.tipo : 'blank')" [class.is-on]="seleccion === p"
+                [attr.aria-pressed]="seleccion === p" [attr.aria-disabled]="!p.generable" [disabled]="!p.generable" (click)="elegir(p)">
           <b>{{ p.titulo }}</b><span>{{ p.descripcion }}</span>
+          <span *ngIf="!p.generable" class="nx-badge nx-badge--sm nx-tone-gray nx-self-start">Próximamente</span>
+          <span *ngIf="p.generable && p.requierePeriodo" class="nx-badge nx-badge--sm nx-tone-neutral nx-self-start">Por período</span>
         </button>
       </div>
       <p *ngIf="!plantillas.length" class="nx-muted nx-center">No hay plantillas en esta categoría.</p>
@@ -50,7 +52,20 @@
     <button type="button" class="nx-btn nx-btn--outline" (click)="modal = false">Cancelar</button>
     <div class="nx-row nx-row--center">
       <span class="nx-muted nx-small">{{ seleccion ? 'Seleccionada: ' + seleccion.titulo : 'Selecciona una plantilla' }}</span>
-      <button type="button" class="nx-btn nx-btn--primary" [disabled]="!seleccion" (click)="usarPlantilla()">Usar plantilla</button>
+      <button type="button" class="nx-btn nx-btn--primary" [disabled]="!seleccion || ocupado" (click)="usarPlantilla()">Usar plantilla</button>
     </div>
+  </ng-container>
+</app-modal>
+
+<app-modal *ngIf="pedirPeriodo as p" [title]="'Generar · ' + p.reporte.nombre" width="440px" (closed)="pedirPeriodo = null">
+  <form id="periodo-form" class="nx-form" (ngSubmit)="confirmarPeriodo()">
+    <label class="nx-field">Período de planilla
+      <select class="nx-select" name="periodo" [(ngModel)]="p.periodo"><option *ngFor="let x of periodos" [value]="x">{{ x }}</option></select>
+    </label>
+    <span class="nx-hint">Solo aparecen los períodos con boletas calculadas.</span>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="pedirPeriodo = null">Cancelar</button>
+    <button type="submit" form="periodo-form" class="nx-btn nx-btn--primary"><app-icon name="download" [size]="16"></app-icon>Descargar CSV</button>
   </ng-container>
 </app-modal>
