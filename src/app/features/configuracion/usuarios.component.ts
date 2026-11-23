@@ -3,6 +3,7 @@ import { AuthService, RolUsuario, mensajeError, rolPuedeVer } from '../../core/a
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador, PerfilCuenta, UsuarioCuenta } from '../../core/models';
 import { UiStateService } from '../../core/ui-state.service';
+import { ContextoService } from '../../core/contexto.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
 const UCOLS: Column[] = [
@@ -26,15 +27,15 @@ const PCOLS: Column[] = [
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Modules and the screen that represents them, to show what each role can open (same rules as the menu and routes). */
-const MODULOS: { nombre: string; ruta: string }[] = [
+const MODULOS: { nombre: string; ruta: string; modulo?: string }[] = [
   { nombre: 'Mi Portal', ruta: 'portal' },
   { nombre: 'Colaboradores vigentes y fichas', ruta: 'admin/colaboradores/vigentes' },
   { nombre: 'Administrativo (organización, asistencia, documentos)', ruta: 'admin/panel' },
-  { nombre: 'Control de Asistencia · panel, marcaciones, ausencias y horas extras', ruta: 'ca/panel' },
-  { nombre: 'Control de Asistencia · turnos, recintos y configuración', ruta: 'ca/turnos' },
-  { nombre: 'Remuneraciones', ruta: 'rem' },
+  { nombre: 'Control de Asistencia · panel, marcaciones, ausencias y horas extras', ruta: 'ca/panel', modulo: 'ATTENDANCE' },
+  { nombre: 'Control de Asistencia · turnos, recintos y configuración', ruta: 'ca/turnos', modulo: 'ATTENDANCE' },
+  { nombre: 'Remuneraciones', ruta: 'rem', modulo: 'PAYROLL' },
   { nombre: 'Desarrollo Organizacional', ruta: 'do' },
-  { nombre: 'Seguridad y Salud en el Trabajo', ruta: 'sst' },
+  { nombre: 'Seguridad y Salud en el Trabajo', ruta: 'sst', modulo: 'SST' },
   { nombre: 'Reportería', ruta: 'rep' },
   { nombre: 'Configuración del sistema (usuarios, perfiles, parámetros)', ruta: 'configuracion/usuarios' },
 ];
@@ -51,7 +52,8 @@ const ALCANCE: Record<RolUsuario, string> = {
 })
 export class UsuariosComponent {
   readonly ucols = UCOLS; readonly pcols = PCOLS;
-  readonly modulos = MODULOS;
+  /** Permissions of modules the company has not contracted are not shown (spec. 6.2). */
+  get modulos(): typeof MODULOS { return MODULOS.filter((m) => this.ctx.modulo(m.modulo)); }
   readonly alcance = ALCANCE;
   readonly uActions: RowAction[] = ['editar', 'restablecer', 'pausa'];
   readonly roles: RolUsuario[] = ['Administrador', 'Supervisor', 'Colaborador'];
@@ -65,7 +67,7 @@ export class UsuariosComponent {
 
   resumen: PerfilCuenta | null = null;
   resumenArea = 0;            // 0 = Resumen general, 1 = Accesos
-  userModal: { id: number | null; nombre: string; correo: string; perfilId: number | null; colaboradorId: number | null } | null = null;
+  userModal: { id: number | null; nombre: string; correo: string; perfilId: number | null; colaboradorId: number | null; invitar: boolean; dobleFactor: boolean } | null = null;
   /** Temporary password just generated: shown once so the administrator can hand it over. */
   temporal: { nombre: string; correo: string; password: string; creado: boolean } | null = null;
   confirmar: UsuarioCuenta | null = null;
@@ -75,7 +77,7 @@ export class UsuariosComponent {
   eliminarPerfilConfirmar: PerfilCuenta | null = null;
   intento = false;
 
-  constructor(private data: HrDataService, public ui: UiStateService, private auth: AuthService) {
+  constructor(private data: HrDataService, public ui: UiStateService, private auth: AuthService, private ctx: ContextoService) {
     data.colaboradores().subscribe((c) => (this.colaboradores = [...c].sort((x, y) => x.apellidos.localeCompare(y.apellidos))));
     this.cargarUsuarios();
     this.cargarPerfiles();
@@ -109,7 +111,8 @@ export class UsuariosComponent {
   private refresh(): void {
     this.uRows = this.usuarios.map((u) => ({
       id: u.id, n: u.nombre, e: u.correo, pf: u.perfil, p: u.rol, c: u.colaborador ?? '—', a: u.ultimoAcceso,
-      s: !u.activo ? { text: 'Inactivo', tone: 'gray' as const } : u.bloqueado ? { text: 'Bloqueado', tone: 'danger' as const }
+      s: !u.activo ? { text: 'Inactivo', tone: 'gray' as const } : u.pendienteActivacion ? { text: 'Invitación pendiente', tone: 'info' as const }
+        : u.bloqueado ? { text: 'Bloqueado', tone: 'danger' as const }
         : u.debeCambiarPassword ? { text: 'Clave temporal', tone: 'warning' as const } : { text: 'Activo', tone: 'success' as const }, x: '',
     }));
     this.pRows = this.perfiles.map((p) => ({
@@ -120,14 +123,16 @@ export class UsuariosComponent {
   // --- usuarios -------------------------------------------------------------
   nuevoUsuario(): void {
     this.intento = false; this.errorApi = '';
-    this.userModal = { id: null, nombre: '', correo: '', perfilId: this.perfilNormal?.id ?? null, colaboradorId: null };
+    this.userModal = { id: null, nombre: '', correo: '', perfilId: this.perfilNormal?.id ?? null, colaboradorId: null, invitar: true, dobleFactor: false };
   }
 
   onUsuario(action: RowAction, row: Row): void {
     const u = this.usuarios.find((x) => x.id === row.id);
     if (!u) return;
-    if (action === 'editar') { this.intento = false; this.errorApi = ''; this.userModal = { id: u.id, nombre: u.nombre, correo: u.correo, perfilId: u.perfilId, colaboradorId: u.colaboradorId }; }
-    if (action === 'restablecer') this.confirmar = u;
+    if (action === 'editar') { this.intento = false; this.errorApi = ''; this.userModal = { id: u.id, nombre: u.nombre, correo: u.correo, perfilId: u.perfilId, colaboradorId: u.colaboradorId, invitar: false, dobleFactor: u.dobleFactor }; }
+    // An invited account has no password yet: "restablecer" re-sends its invitation.
+    if (action === 'restablecer' && u.pendienteActivacion) this.reenviarInvitacion(u);
+    else if (action === 'restablecer') this.confirmar = u;
     if (action === 'pausa') {
       this.data.estadoUsuario(u.id, !u.activo).subscribe({
         next: (r) => { this.ui.toast(`${r.nombre}: usuario ${r.activo ? 'activado' : 'desactivado'}`); this.cargarUsuarios(); },
@@ -159,13 +164,17 @@ export class UsuariosComponent {
     this.errorApi = '';
     const m = this.userModal;
     if (!m || !m.nombre.trim() || m.perfilId === null || this.correoInvalido || this.correoDuplicado || this.faltaColaborador || this.guardando) return;
-    const datos = { nombre: m.nombre.trim(), correo: m.correo.trim(), perfilId: m.perfilId, colaboradorId: m.colaboradorId };
+    const datos = { nombre: m.nombre.trim(), correo: m.correo.trim(), perfilId: m.perfilId, colaboradorId: m.colaboradorId, invitar: m.id === null ? m.invitar : undefined };
     this.guardando = true;
     const fin = () => { this.guardando = false; this.userModal = null; this.cargarUsuarios(); this.cargarPerfiles(); };
     const fallo = (err: unknown) => { this.guardando = false; this.errorApi = mensajeError(err); };
     if (m.id === null) {
       this.data.crearUsuario(datos).subscribe({
-        next: (r) => { fin(); this.temporal = { nombre: r.usuario.nombre, correo: r.usuario.correo, password: r.passwordTemporal, creado: true }; },
+        next: (r) => {
+          fin();
+          if (r.passwordTemporal) this.temporal = { nombre: r.usuario.nombre, correo: r.usuario.correo, password: r.passwordTemporal, creado: true };
+          else this.ui.toast(`Invitación enviada a ${r.usuario.correo}`);
+        },
         error: fallo,
       });
     } else {
@@ -178,7 +187,24 @@ export class UsuariosComponent {
     if (!u) return;
     this.confirmar = null;
     this.data.restablecerUsuario(u.id).subscribe({
-      next: (r) => { this.temporal = { nombre: r.usuario.nombre, correo: r.usuario.correo, password: r.passwordTemporal, creado: false }; this.cargarUsuarios(); },
+      next: (r) => { this.temporal = { nombre: r.usuario.nombre, correo: r.usuario.correo, password: r.passwordTemporal ?? '', creado: false }; this.cargarUsuarios(); },
+      error: (err) => this.ui.toast(mensajeError(err)),
+    });
+  }
+
+  reenviarInvitacion(u: UsuarioCuenta): void {
+    this.data.invitarUsuario(u.id).subscribe({
+      next: (r) => this.ui.toast(`Invitación reenviada a ${r.correo}`),
+      error: (err) => this.ui.toast(mensajeError(err)),
+    });
+  }
+
+  /** From the edit modal: the person will set it up again (mandatory if the company policy requires it). */
+  quitarDobleFactor(): void {
+    const m = this.userModal;
+    if (!m || m.id === null) return;
+    this.data.quitarDobleFactor(m.id).subscribe({
+      next: (r) => { m.dobleFactor = false; this.ui.toast(`Doble factor quitado a ${r.nombre}`); this.cargarUsuarios(); },
       error: (err) => this.ui.toast(mensajeError(err)),
     });
   }

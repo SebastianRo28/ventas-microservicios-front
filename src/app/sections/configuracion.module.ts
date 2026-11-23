@@ -8,13 +8,21 @@ import { CatalogoComponent } from '../features/genericos/catalogo.component';
 import { ConfigFormComponent } from '../features/genericos/config-form.component';
 import { UsuariosComponent } from '../features/configuracion/usuarios.component';
 import { ParametrosComponent } from '../features/configuracion/parametros.component';
+import { MarcaComponent } from '../features/configuracion/marca.component';
+import { SeguridadComponent } from '../features/configuracion/seguridad.component';
+import { ImplementacionComponent } from '../features/configuracion/implementacion.component';
 import { HistorialCambiosComponent } from '../features/configuracion/historial-cambios.component';
 import { ApiAccesosComponent } from '../features/configuracion/api-accesos.component';
+import { DominioComponent } from '../features/configuracion/dominio.component';
 
 /** Screens of the "configuracion" section; loaded on first visit to /configuracion. */
 const SCREENS = {
   'configuracion/usuarios': UsuariosComponent,
   'configuracion/parametros': ParametrosComponent,
+  'configuracion/marca': MarcaComponent,
+  'configuracion/seguridad': SeguridadComponent,
+  'configuracion/dominio': DominioComponent,
+  'configuracion/implementacion': ImplementacionComponent,
   'configuracion/historial': HistorialCambiosComponent,
   'configuracion/api': ApiAccesosComponent,
   'configuracion/atributos': CatalogoComponent,
@@ -53,8 +61,12 @@ const routes: Routes = [
     EstadoCuentaComponent,
     UsuariosComponent,
     ParametrosComponent,
+    MarcaComponent,
+    SeguridadComponent,
+    ImplementacionComponent,
     HistorialCambiosComponent,
     ApiAccesosComponent,
+    DominioComponent,
   ],
   imports: [SharedModule, GenericosModule, RouterModule.forChild(routes)],
 })

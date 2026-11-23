@@ -4,6 +4,8 @@ import { Subscription, filter } from 'rxjs';
 import { Colaborador } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
+import { MarcaService } from '../../core/marca.service';
+import { ContextoService } from '../../core/contexto.service';
 import { PortalService } from '../../core/portal.service';
 import { NAV_SECTIONS, NavItem, NavSection, findLeaf } from '../nav.config';
 
@@ -31,8 +33,10 @@ export class NavComponent implements OnDestroy {
     return item.count;
   }
 
-  constructor(private router: Router, public data: HrDataService, private portal: PortalService, private auth: AuthService) {
+  constructor(private router: Router, public data: HrDataService, private portal: PortalService, private auth: AuthService, public marcas: MarcaService,
+    private ctx: ContextoService) {
     this.subs.add(auth.usuario$.subscribe(() => { this.filtrar(); this.sync(router.url); this.saludo(); }));
+    this.subs.add(ctx.contexto$.subscribe(() => { this.filtrar(); this.sync(router.url); }));
     this.subs.add(data.colaboradores().subscribe((cs) => { this.cs = cs; this.saludo(); }));
     this.sync(router.url);
     this.sub = router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
@@ -43,13 +47,14 @@ export class NavComponent implements OnDestroy {
 
   private filtrar(): void {
     if (this.auth.esAdmin) { this.sections = NAV_SECTIONS; return; }
-    const ver = (i: NavItem): NavItem | null => {
-      if (i.locked) return null;
+    // Collaborators and supervisors do not see modules the company has not contracted (the locks are for admins).
+    const ver = (i: NavItem, s: NavSection): NavItem | null => {
+      if (i.locked || !this.ctx.modulo(i.modulo ?? s.modulo)) return null;
       if (i.children) { const ch = i.children.filter((c) => c.path && this.auth.puedeVer(c.path)); return ch.length ? { ...i, children: ch } : null; }
       return i.path && this.auth.puedeVer(i.path) ? i : null;
     };
-    this.sections = NAV_SECTIONS.filter((s) => !s.locked && !s.external)
-      .map((s) => ({ ...s, items: s.items.map(ver).filter((i): i is NavItem => !!i) }))
+    this.sections = NAV_SECTIONS.filter((s) => !s.locked && !s.external && this.ctx.modulo(s.modulo))
+      .map((s) => ({ ...s, items: s.items.map((i) => ver(i, s)).filter((i): i is NavItem => !!i) }))
       .filter((s) => s.items.length);
     if (!this.sections.some((s) => s.id === this.current.id)) this.current = this.sections[0] ?? NAV_SECTIONS[0];
   }
@@ -78,5 +83,16 @@ export class NavComponent implements OnDestroy {
 
   pick(section: NavSection): void {
     this.current = section;
+  }
+
+  /** Product coming soon, or module not contracted (its own, or its section's). */
+  bloqueado(item: NavItem): boolean { return !!item.locked || !this.ctx.modulo(item.modulo ?? this.current.modulo); }
+  seccionBloqueada(s: NavSection): boolean { return !!s.locked || !this.ctx.modulo(s.modulo); }
+
+  /** Module not included in the plan (P-MT.5): a sales opportunity, not an error. */
+  abrirBloqueado(item?: NavItem): void {
+    const proximamente = item ? !!item.locked : !!this.current.locked;
+    const codigo = item?.modulo ?? this.current.modulo ?? null;
+    this.ctx.mostrarBloqueado(proximamente ? null : codigo, item?.label ?? this.current.label);
   }
 }

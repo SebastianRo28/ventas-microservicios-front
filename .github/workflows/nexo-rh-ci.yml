@@ -1,0 +1,25 @@
+# Compila el frontend de Nexo RH en modo producción en cada push a la rama nexo-rh y en sus pull requests.
+name: Nexo RH · CI
+
+on:
+  push:
+    branches: [nexo-rh]
+  pull_request:
+    branches: [nexo-rh]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:colores
+      - run: npx ng build --configuration production

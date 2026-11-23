@@ -1,5 +1,4 @@
-/**
- * Base URL of the Nexo RH API (repository nexo-rh-api). In development the API runs on http://localhost:5281;
- * change it here (or move it to an environment file) when the API is deployed.
- */
-export const API_URL = 'http://localhost:5281/api';
+import { environment } from '../../environments/environment';
+
+/** Base URL of the Nexo RH API: environment.ts in development, environment.production.ts in the production build. */
+export const API_URL = environment.apiUrl;

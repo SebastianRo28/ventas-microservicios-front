@@ -29,7 +29,9 @@
 
   <div class="nx-topbar__spacer"></div>
 
-  <span class="nx-topbar__trial">Prueba Gratuita <app-icon name="info" [size]="14"></app-icon></span>
+  <a *ngIf="trial$ | async as t" class="nx-topbar__trial" routerLink="/configuracion/estado-de-cuenta" [title]="t.texto">
+    Prueba Gratuita · {{ t.dias }} {{ t.dias === 1 ? 'día' : 'días' }} <app-icon name="info" [size]="14"></app-icon><b>Contratar</b>
+  </a>
 
   <button type="button" class="nx-topbar__ai" (click)="ui.openDrawer('ai')">
     <app-icon name="sparkle" [size]="16"></app-icon>Nexo AI
@@ -62,6 +64,7 @@
     <div *ngIf="menuUsuario" class="nx-popover nx-usermenu">
       <div class="nx-usermenu__who"><b>{{ auth.usuario?.nombre }}</b><span>{{ auth.usuario?.correo }}</span><span class="nx-badge nx-badge--sm nx-tone-info">{{ auth.usuario?.rol }}</span></div>
       <a class="nx-menu-item" routerLink="/cambiar-password" [queryParams]="{ vuelta: router.url }" (click)="menuUsuario = false"><app-icon name="key" [size]="16"></app-icon>Cambiar contraseña</a>
+      <a class="nx-menu-item" routerLink="/seguridad/doble-factor" [queryParams]="{ vuelta: router.url }" (click)="menuUsuario = false"><app-icon name="shield" [size]="16"></app-icon>Doble factor<span class="nx-badge nx-badge--sm" [class.nx-tone-success]="auth.usuario?.dobleFactor">{{ auth.usuario?.dobleFactor ? 'Activo' : 'Inactivo' }}</span></a>
       <button type="button" class="nx-menu-item" (click)="salir()"><app-icon name="logout" [size]="16"></app-icon>Cerrar sesión</button>
     </div>
   </div>

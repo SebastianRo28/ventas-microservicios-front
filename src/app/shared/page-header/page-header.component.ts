@@ -6,11 +6,11 @@ import { UiStateService } from '../../core/ui-state.service';
   selector: 'app-page-header',
   template: `
     <nav class="nx-breadcrumb" aria-label="Ruta">
-      <ng-container *ngFor="let c of crumbs">{{ c }} <app-icon name="chevron-right" [size]="13"></app-icon> </ng-container>
-      <span aria-current="page">{{ title }}</span>
+      <ng-container *ngFor="let c of crumbs">{{ c | termino }} <app-icon name="chevron-right" [size]="13"></app-icon> </ng-container>
+      <span aria-current="page">{{ title | termino }}</span>
     </nav>
     <div class="nx-page-head">
-      <h1>{{ title }}</h1>
+      <h1>{{ title | termino }}</h1>
       <button *ngIf="askAi" type="button" class="nx-ai-chip" (click)="ui.openDrawer('ai')">
         <app-icon name="sparkle" [size]="15"></app-icon>Pregúntale a Nexo AI
       </button>

@@ -78,7 +78,14 @@
       <span *ngIf="intento && correoInvalido" class="nx-error">Ingresa un correo válido.</span>
       <span *ngIf="intento && !correoInvalido && correoDuplicado" class="nx-error">Este correo ya está registrado.</span>
     </label>
-    <span *ngIf="m.id === null" class="nx-hint">Se generará una contraseña temporal que la persona deberá cambiar al ingresar.</span>
+    <ng-container *ngIf="m.id === null">
+      <label class="nx-check"><input type="checkbox" name="invitar" [(ngModel)]="m.invitar"> Enviar invitación por correo</label>
+      <span class="nx-hint">{{ m.invitar ? 'La persona recibirá el correo “Activa tu cuenta” (vence en 72 horas) y creará su propia contraseña.' : 'Se generará una contraseña temporal que la persona deberá cambiar al ingresar.' }}</span>
+    </ng-container>
+    <div *ngIf="m.id !== null && m.dobleFactor" class="nx-acceso__fila">
+      <span class="nx-hint"><app-icon name="shield" [size]="15"></app-icon> Doble factor activo.</span>
+      <button type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="quitarDobleFactor()">Quitar doble factor</button>
+    </div>
     <span *ngIf="errorApi" class="nx-error" role="alert">{{ errorApi }}</span>
   </form>
   <ng-container modal-footer>

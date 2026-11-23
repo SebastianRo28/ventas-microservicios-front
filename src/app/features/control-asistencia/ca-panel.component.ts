@@ -79,7 +79,7 @@ interface Barra { label: string; valor: number; texto: string; }
         <p class="nx-muted nx-small nx-mt-0">Días asistidos sobre días con turno, {{ mesLabel }} hasta el {{ fecha }}.</p>
         <div class="nx-rings">
           <div *ngFor="let r of anillos" class="nx-ring">
-            <span class="nx-ring__chart" [style.background]="'conic-gradient(var(--nx-primary-700) ' + r.pct * 3.6 + 'deg, #E6EAF2 0)'"><b>{{ r.pct }} %</b></span>
+            <span class="nx-ring__chart" [style.background]="'conic-gradient(var(--nx-primary-700) ' + r.pct * 3.6 + 'deg, var(--nx-gray-150) 0)'"><b>{{ r.pct }} %</b></span>
             <span class="nx-small"><b>{{ r.label }}</b><br>{{ r.n }} {{ r.n === 1 ? 'persona' : 'personas' }}</span>
           </div>
         </div>
@@ -219,6 +219,6 @@ export class CaPanelComponent implements OnDestroy {
     const rid = ca.filtro.recintoId;
     this.mapaRecintos = ca.recintos$.value.filter((r) => (rid ? r.id === rid : r.activo));
     this.puntos = cs.flatMap((c) => ca.marcasDe(c.id, f).filter((m) => m.metodo === 'App' || m.metodo === 'QR')
-      .map((m) => ({ lat: m.lat, lng: m.lng, color: m.tipo === 'Entrada' ? '#3F9C35' : '#F59E0B', label: `${c.apellidos}, ${c.nombres} · ${m.tipo} ${m.hora}` })));
+      .map((m) => ({ lat: m.lat, lng: m.lng, color: m.tipo === 'Entrada' ? 'var(--nx-success-500)' : 'var(--nx-orange)', label: `${c.apellidos}, ${c.nombres} · ${m.tipo} ${m.hora}` })));
   }
 }

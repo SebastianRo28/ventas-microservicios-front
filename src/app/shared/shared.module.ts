@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TerminoPipe } from '../core/marca.service';
+import { ChecklistImplementacionComponent } from './checklist/checklist-implementacion.component';
 import { RouterModule } from '@angular/router';
 import { PlaceholderComponent } from '../features/placeholder/placeholder.component';
 import { DataTableComponent } from './data-table/data-table.component';
@@ -9,7 +11,7 @@ import { ModalComponent } from './modal/modal.component';
 import { PageHeaderComponent } from './page-header/page-header.component';
 import { BoletaModalComponent } from './boleta/boleta-modal.component';
 
-const COMPONENTS = [IconComponent, DataTableComponent, PageHeaderComponent, ModalComponent, PlaceholderComponent, BoletaModalComponent];
+const COMPONENTS = [IconComponent, DataTableComponent, PageHeaderComponent, ModalComponent, PlaceholderComponent, BoletaModalComponent, TerminoPipe, ChecklistImplementacionComponent];
 
 /** Building blocks every screen uses (icons, table, modal, page header) plus Common/Forms/Router. */
 @NgModule({

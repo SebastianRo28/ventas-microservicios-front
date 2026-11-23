@@ -165,7 +165,7 @@ export class CaMarcacionesComponent implements OnDestroy {
     this.sel = m;
     const r = this.ca.recinto(m.recintoId);
     this.recintoSel = r ? [r] : [];
-    this.puntoSel = [{ lat: m.lat, lng: m.lng, color: m.tipo === 'Entrada' ? '#3F9C35' : '#F59E0B', label: `${m.tipo} ${m.hora}` }];
+    this.puntoSel = [{ lat: m.lat, lng: m.lng, color: m.tipo === 'Entrada' ? 'var(--nx-success-500)' : 'var(--nx-orange)', label: `${m.tipo} ${m.hora}` }];
   }
 }
 

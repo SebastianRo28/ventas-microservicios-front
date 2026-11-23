@@ -10,8 +10,10 @@ export interface NavItem {
   path?: string;
   badges?: NavBadge[];
   count?: number;
-  /** Module not contracted: shown dimmed with a lock. */
+  /** Product not available yet (Onboarding, Talento…): shown dimmed with a lock. */
   locked?: boolean;
+  /** Module code (spec. 6.2) the entry needs; without it the entry shows a lock and the commercial modal. */
+  modulo?: string;
   children?: NavItem[];
 }
 
@@ -21,6 +23,7 @@ export interface NavSection {
   icon: string;
   items: NavItem[];
   locked?: boolean;
+  modulo?: string;
   /** Section that opens a separate application instead of a menu. */
   external?: { text: string; cta: string };
 }
@@ -32,12 +35,12 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Mi ficha', icon: 'user', path: 'portal/mi-ficha' },
       { label: 'Mi Equipo', icon: 'users', path: 'portal/mi-equipo' },
       { label: 'Mis Beneficios', icon: 'gift', path: 'portal/mis-beneficios' },
-      { label: 'Mis Encuestas', icon: 'clipcheck', path: 'portal/mis-encuestas', count: 2 },
+      { label: 'Mis Encuestas', icon: 'clipcheck', path: 'portal/mis-encuestas', modulo: 'SURVEYS', count: 2 },
       { label: 'Mis Capacitaciones', icon: 'grad', path: 'portal/mis-capacitaciones' },
       { label: 'Mis Evaluaciones', icon: 'star', path: 'portal/mis-evaluaciones', count: 1 },
-      { label: 'Reconocimientos', icon: 'award', path: 'portal/reconocimientos' },
-      { label: 'Procesos Internos', icon: 'workflow', path: 'portal/procesos-internos' },
-      { label: 'Canal de Denuncias', icon: 'flag', path: 'portal/denuncias' },
+      { label: 'Reconocimientos', icon: 'award', path: 'portal/reconocimientos', modulo: 'COMMS' },
+      { label: 'Procesos Internos', icon: 'workflow', path: 'portal/procesos-internos', modulo: 'PRO' },
+      { label: 'Canal de Denuncias', icon: 'flag', path: 'portal/denuncias', modulo: 'WHISTLEBLOWER' },
       { label: 'Organigrama', icon: 'sitemap', path: 'portal/organigrama' },
       { label: 'Directorio', icon: 'book', path: 'portal/directorio' },
     ]
@@ -62,13 +65,13 @@ export const NAV_SECTIONS: NavSection[] = [
         ]
       },
       {
-        label: 'Workflow', icon: 'workflow', badges: ['PRO'], children: [
+        label: 'Workflow', icon: 'workflow', badges: ['PRO'], modulo: 'PRO', children: [
           { label: 'Solicitudes', path: 'admin/workflow/solicitudes' },
           { label: 'Plantillas', path: 'admin/workflow/plantillas' },
         ]
       },
       {
-        label: 'Asistencia', icon: 'calcheck', children: [
+        label: 'Asistencia', icon: 'calcheck', modulo: 'ATTENDANCE', children: [
           { label: 'Gestión de Ausencia', path: 'admin/asistencia/ausencia' },
           { label: 'Vacaciones', path: 'admin/asistencia/vacaciones' },
           { label: 'Solicitudes', path: 'admin/asistencia/solicitudes' },
@@ -80,7 +83,7 @@ export const NAV_SECTIONS: NavSection[] = [
         ]
       },
       {
-        label: 'Documentos y Firma', icon: 'filesig', children: [
+        label: 'Documentos y Firma', icon: 'filesig', modulo: 'DOCS', children: [
           { label: 'Documentos', path: 'admin/documentos' },
           { label: 'Plantillas', path: 'admin/documentos/plantillas' },
           { label: 'Configuraciones', path: 'admin/documentos/configuraciones' },
@@ -88,20 +91,20 @@ export const NAV_SECTIONS: NavSection[] = [
       },
       { label: 'Onboarding', icon: 'rocket', locked: true },
       {
-        label: 'Gestión de Activos', icon: 'laptop', children: [
+        label: 'Gestión de Activos', icon: 'laptop', modulo: 'ASSETS', children: [
           { label: 'Inventario', path: 'admin/activos/inventario' },
           { label: 'Órdenes', path: 'admin/activos/ordenes' },
           { label: 'Configuraciones', path: 'admin/activos/configuraciones' },
         ]
       },
       {
-        label: 'Headcount', icon: 'barchart', children: [
+        label: 'Headcount', icon: 'barchart', modulo: 'HEADCOUNT', children: [
           { label: 'Planificación', path: 'admin/headcount/planificacion' },
           { label: 'Configuraciones', path: 'admin/headcount/configuraciones' },
         ]
       },
       {
-        label: 'Compensaciones', icon: 'coins', children: [
+        label: 'Compensaciones', icon: 'coins', modulo: 'COMP', children: [
           { label: 'Bandas salariales', path: 'admin/compensaciones/bandas' },
           { label: 'Estudio salarial', path: 'admin/compensaciones/estudio' },
           { label: 'Configuraciones', path: 'admin/compensaciones/configuraciones' },
@@ -115,7 +118,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
-    id: 'rem', label: 'Remuneraciones', icon: 'dollar', items: [
+    id: 'rem', label: 'Remuneraciones', icon: 'dollar', modulo: 'PAYROLL', items: [
       { label: 'Panel de Control', icon: 'gauge', path: 'rem/panel' },
       { label: 'Procesos', icon: 'receipt', path: 'rem/procesos' },
       { label: 'Archivos y Pagos', icon: 'card', path: 'rem/archivos-pagos' },
@@ -136,7 +139,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
-    id: 'asis', label: 'Control de Asistencia', icon: 'clock', items: [
+    id: 'asis', label: 'Control de Asistencia', icon: 'clock', modulo: 'ATTENDANCE', items: [
       { label: 'Panel de Control', icon: 'gauge', path: 'ca/panel' },
       {
         label: 'Recintos', icon: 'location', children: [
@@ -194,7 +197,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Talento', icon: 'star', locked: true },
       { label: 'Selección', icon: 'user-search', locked: true },
       {
-        label: 'Comunicaciones', icon: 'message', children: [
+        label: 'Comunicaciones', icon: 'message', modulo: 'COMMS', children: [
           { label: 'Portal', path: 'do/comunicaciones/portal' },
           { label: 'Reconocimientos', path: 'do/comunicaciones/reconocimientos' },
           { label: 'Servicio al colaborador', path: 'do/comunicaciones/servicio' },
@@ -202,14 +205,14 @@ export const NAV_SECTIONS: NavSection[] = [
         ]
       },
       {
-        label: 'Encuestas', icon: 'clipcheck', children: [
+        label: 'Encuestas', icon: 'clipcheck', modulo: 'SURVEYS', children: [
           { label: 'Libre', path: 'do/encuestas/libre' },
           { label: 'Clima', path: 'do/encuestas/clima' },
           { label: 'Configuraciones', path: 'do/encuestas/configuraciones' },
         ]
       },
       {
-        label: 'Canal de denuncias', icon: 'flag', children: [
+        label: 'Canal de denuncias', icon: 'flag', modulo: 'WHISTLEBLOWER', children: [
           { label: 'Denuncias', path: 'do/denuncias' },
           { label: 'Configuraciones', path: 'do/denuncias/configuraciones' },
         ]
@@ -217,7 +220,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
-    id: 'sst', label: 'Seguridad y Salud en el Trabajo', icon: 'shield', items: [
+    id: 'sst', label: 'Seguridad y Salud en el Trabajo', icon: 'shield', modulo: 'SST', items: [
       {
         label: 'Registro de evidencias', icon: 'shield', children: [
           { label: 'Requisitos', path: 'sst/requisitos' },
@@ -231,7 +234,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { id: 'tal', label: 'Talento / Capacitaciones', icon: 'grad', items: [], locked: true },
   {
     id: 'rep', label: 'Reportería', icon: 'folder', items: [
-      { label: 'Analítica', icon: 'pie', path: 'rep/analitica', badges: ['Beta', 'PRO'] },
+      { label: 'Analítica', icon: 'pie', path: 'rep/analitica', modulo: 'PRO', badges: ['Beta', 'PRO'] },
       { label: 'Exportadores', icon: 'download', path: 'rep/exportadores' },
       {
         label: 'Importadores', icon: 'upload', children: [
@@ -255,6 +258,8 @@ export interface NavLeaf {
   label: string;
   section: NavSection;
   group?: NavItem;
+  /** Module the screen needs (its own, its group's or its section's). */
+  modulo?: string;
 }
 
 /** Flat list of every routable leaf, first occurrence wins for duplicated paths. */
@@ -264,7 +269,7 @@ export const NAV_LEAVES: NavLeaf[] = (() => {
   const add = (item: NavItem, section: NavSection, group?: NavItem) => {
     if (item.path && !seen.has(item.path)) {
       seen.add(item.path);
-      out.push({ path: item.path, label: item.label, section, group });
+      out.push({ path: item.path, label: item.label, section, group, modulo: item.modulo ?? group?.modulo ?? section.modulo });
     }
     item.children?.forEach((c) => add(c, section, item));
   };

@@ -1,0 +1,269 @@
+<app-page-header title="Personaliza tu marca" [crumbs]="['Administración']" [askAi]="false">
+  <button type="button" class="nx-btn nx-btn--outline" [disabled]="!datos" (click)="restablecer()">Restablecer valores por defecto</button>
+  <button type="button" class="nx-btn nx-btn--primary" [disabled]="!cambios || publicando" (click)="publicar()">{{ publicando ? 'Publicando…' : 'Publicar cambios' }}</button>
+</app-page-header>
+
+<p *ngIf="cargando" class="nx-muted">Cargando la marca…</p>
+
+<ng-container *ngIf="datos as d">
+  <div *ngIf="cambios" class="nx-banner nx-banner--compact" role="status">
+    <app-icon name="info" [size]="17"></app-icon>
+    <span>Tienes cambios sin publicar. Solo tú los ves en la vista previa; se aplican a todos al publicarlos.</span>
+    <button type="button" class="nx-link-btn" (click)="descartar()">Descartar</button>
+  </div>
+
+  <div class="nx-marca">
+    <!-- Editor -->
+    <section class="nx-card nx-settings nx-marca__editor" aria-label="Editor de la marca">
+      <div class="nx-tabs nx-tabs--scroll" role="tablist">
+        <button *ngFor="let t of tabs; let i = index" type="button" role="tab" class="nx-tab" [class.is-active]="tab === i" [attr.aria-selected]="tab === i" (click)="tab = i">{{ t }}</button>
+      </div>
+
+      <!-- Identidad -->
+      <div *ngIf="tab === 0" class="nx-stack">
+        <label class="nx-field">Nombre del portal del colaborador
+          <input class="nx-input" name="portal" maxlength="40" placeholder="Mi Portal" [(ngModel)]="d.nombrePortal" [class.is-invalid]="errores['nombrePortal']">
+          <span class="nx-hint">Por ejemplo “Mi Andino”. Reemplaza “Mi Portal” en el menú.</span>
+          <span *ngIf="errores['nombrePortal']" class="nx-error">{{ errores['nombrePortal'] }}</span>
+        </label>
+        <ng-container *ngTemplateOutlet="imagen; context: { tipo: 'horizontal', id: d.logos.horizontal, titulo: 'Logo horizontal para fondo oscuro', ayuda: 'Sidebar y login. SVG o PNG transparente, 400×120.', oscuro: true }"></ng-container>
+        <ng-container *ngTemplateOutlet="imagen; context: { tipo: 'horizontalClaro', id: d.logos.horizontalClaro, titulo: 'Logo horizontal para fondo claro', ayuda: 'Correos. SVG o PNG transparente, 400×120.', oscuro: false }"></ng-container>
+        <ng-container *ngTemplateOutlet="imagen; context: { tipo: 'cuadrado', id: d.logos.cuadrado, titulo: 'Isotipo cuadrado', ayuda: 'Login y pestaña del navegador (favicon). 150×150.', oscuro: false }"></ng-container>
+        <span *ngIf="errores['logos']" class="nx-error" role="alert">{{ errores['logos'] }}</span>
+      </div>
+
+      <!-- Login -->
+      <div *ngIf="tab === 1" class="nx-stack">
+        <ng-container *ngTemplateOutlet="imagen; context: { tipo: 'login', id: d.login.imagen, titulo: 'Imagen principal', ayuda: '1000×1000, JPG, PNG o WebP de hasta 2 MB. Sin imagen se usa el color primario con un patrón.', oscuro: false }"></ng-container>
+        <label class="nx-field">Título
+          <input class="nx-input" name="titulo" maxlength="80" [placeholder]="'¡Bienvenido a ' + empresa + '!'" [(ngModel)]="d.login.titulo">
+          <span *ngIf="errores['login.titulo']" class="nx-error">{{ errores['login.titulo'] }}</span>
+        </label>
+        <label class="nx-field">Mensaje de bienvenida
+          <textarea class="nx-input" name="mensaje" rows="2" maxlength="200" placeholder="Ingresa para ver tu información, tus boletas y tus solicitudes." [(ngModel)]="d.login.mensaje"></textarea>
+        </label>
+        <label class="nx-field">Texto de ayuda
+          <input class="nx-input" name="ayuda" maxlength="200" placeholder="¿Problemas? Escribe a rrhh@tuempresa.pe" [(ngModel)]="d.login.ayuda">
+        </label>
+        <label *ngIf="marcaBlanca; else sinMarcaBlanca" class="nx-check">
+          <input type="checkbox" name="powered" [(ngModel)]="d.login.mostrarPoweredBy"> Mostrar “Powered by Nexo RH” <span class="nx-hint">(en el login y en los correos)</span>
+        </label>
+        <ng-template #sinMarcaBlanca>
+          <label class="nx-check" title="Disponible en el plan Enterprise (marca blanca)">
+            <input type="checkbox" name="powered" [checked]="true" disabled> Mostrar “Powered by Nexo RH”
+            <span class="nx-badge nx-badge--sm">Enterprise</span>
+          </label>
+        </ng-template>
+      </div>
+
+      <!-- Colores y tipografía -->
+      <div *ngIf="tab === 2" class="nx-stack">
+        <div class="nx-field">
+          <span>Color primario</span>
+          <span class="nx-color">
+            <input type="color" aria-label="Elegir color primario" [ngModel]="d.colores.primario" (ngModelChange)="normalizarColor('primario', $event)">
+            <input class="nx-input nx-marca__hex" name="primario" aria-label="Código del color primario" [ngModel]="d.colores.primario" (ngModelChange)="normalizarColor('primario', $event)">
+            <span class="nx-marca__ratio" [class.is-mal]="falla(d.colores.primario)">{{ ratio(d.colores.primario) | number: '1.1-1' }}:1</span>
+          </span>
+          <span class="nx-hint">Botones, links, pestañas activas y foco. Debe tener un contraste de al menos 4.5:1 sobre blanco (WCAG AA).</span>
+          <ng-container *ngTemplateOutlet="aviso; context: { campo: 'primario', color: d.colores.primario }"></ng-container>
+        </div>
+        <div class="nx-marca__paleta" aria-label="Escala generada del primario">
+          <span *ngFor="let c of paleta" [style.background]="c.color" [title]="c.paso + ' · ' + c.color"><small>{{ c.paso }}</small></span>
+        </div>
+
+        <div *ngFor="let campo of ['sidebar', 'topbar']" class="nx-field">
+          <span>{{ campo === 'sidebar' ? 'Fondo del menú lateral' : 'Fondo de la barra superior' }}</span>
+          <label class="nx-check"><input type="checkbox" [checked]="!$any(d.colores)[campo]" (change)="automatico($any(campo), $any($event.target).checked)">
+            Automático ({{ campo === 'sidebar' ? 'tono 800' : 'tono 900' }} del primario)</label>
+          <span *ngIf="$any(d.colores)[campo]" class="nx-color">
+            <input type="color" [attr.aria-label]="'Elegir ' + campo" [ngModel]="$any(d.colores)[campo]" (ngModelChange)="normalizarColor($any(campo), $event)">
+            <input class="nx-input nx-marca__hex" [attr.aria-label]="'Código ' + campo" [ngModel]="$any(d.colores)[campo]" (ngModelChange)="normalizarColor($any(campo), $event)">
+            <span class="nx-marca__ratio" [class.is-mal]="falla($any(d.colores)[campo])">{{ ratio($any(d.colores)[campo]) | number: '1.1-1' }}:1</span>
+          </span>
+          <ng-container *ngIf="$any(d.colores)[campo]">
+            <ng-container *ngTemplateOutlet="aviso; context: { campo: campo, color: $any(d.colores)[campo] }"></ng-container>
+          </ng-container>
+        </div>
+
+        <div class="nx-field">
+          <span>Color de acento (opcional)</span>
+          <label class="nx-check"><input type="checkbox" [checked]="!!d.colores.acento" (change)="automatico('acento', !$any($event.target).checked)"> Usar un color de acento</label>
+          <span *ngIf="d.colores.acento" class="nx-color">
+            <input type="color" aria-label="Elegir color de acento" [ngModel]="d.colores.acento" (ngModelChange)="normalizarColor('acento', $event)">
+            <input class="nx-input nx-marca__hex" aria-label="Código del color de acento" [ngModel]="d.colores.acento" (ngModelChange)="normalizarColor('acento', $event)">
+          </span>
+          <span class="nx-hint">Badges destacados y gráficos. Los colores de éxito, alerta, error e información no se cambian: aseguran el significado.</span>
+        </div>
+
+        <label class="nx-field">Tipografía
+          <select class="nx-select" name="fuente" [ngModel]="d.tipografia" (ngModelChange)="elegirFuente($event)">
+            <option *ngFor="let f of fuentes" [value]="f">{{ f }}</option>
+          </select>
+          <span class="nx-hint">Fuentes de Google Fonts.</span>
+        </label>
+        <div class="nx-field">
+          <span>Bordes</span>
+          <div class="nx-segmented" role="radiogroup" aria-label="Radio de los bordes">
+            <button *ngFor="let r of radios" type="button" role="radio" [class.is-on]="d.radio === r.valor" [attr.aria-checked]="d.radio === r.valor" (click)="d.radio = r.valor">{{ r.texto }}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terminología -->
+      <div *ngIf="tab === 3" class="nx-stack">
+        <p class="nx-muted nx-mt-0">Cambia cómo se llaman las cosas en tu empresa. Se aplica al menú, los títulos y las columnas de las tablas.</p>
+        <label *ngFor="let x of terminos" class="nx-field">{{ x.etiqueta }}
+          <input class="nx-input" [name]="x.clave" maxlength="30" [placeholder]="porDefectoTerminos[x.clave]" [(ngModel)]="d.terminologia[x.clave]" [class.is-invalid]="errores['terminologia.' + x.clave]">
+          <span class="nx-hint">Por defecto “{{ porDefectoTerminos[x.clave] }}”. Plural: {{ plural(d.terminologia[x.clave] || porDefectoTerminos[x.clave]) }}.</span>
+          <span *ngIf="errores['terminologia.' + x.clave]" class="nx-error">{{ errores['terminologia.' + x.clave] }}</span>
+        </label>
+      </div>
+
+      <!-- Correos -->
+      <div *ngIf="tab === 4" class="nx-stack">
+        <label class="nx-field">Nombre del remitente
+          <input class="nx-input" name="remitente" maxlength="60" placeholder="Nexo RH" [(ngModel)]="d.correos.remitente">
+          <span class="nx-hint">Por ejemplo “RR.HH. {{ empresa }}”. Los correos salen con tu logo para fondo claro y tu color primario.</span>
+        </label>
+        <label class="nx-field">Firma
+          <textarea class="nx-input" name="firma" rows="3" maxlength="300" placeholder="Equipo de Gestión de Personas" [(ngModel)]="d.correos.firma"></textarea>
+        </label>
+      </div>
+
+      <div class="nx-settings__foot nx-marca__foot">
+        <input class="nx-input" name="nota" maxlength="200" placeholder="Nota de la versión (opcional)" [(ngModel)]="nota" aria-label="Nota de la versión">
+        <button type="button" class="nx-btn nx-btn--primary" [disabled]="!cambios || publicando" (click)="publicar()">{{ publicando ? 'Publicando…' : 'Publicar cambios' }}</button>
+      </div>
+    </section>
+
+    <!-- Vista previa en vivo -->
+    <section class="nx-card nx-settings nx-marca__vista" aria-label="Vista previa">
+      <div class="nx-acceso__fila">
+        <span class="nx-eyebrow">Vista previa</span>
+        <div class="nx-segmented nx-marca__vistas" role="tablist">
+          <button *ngFor="let v of vistas; let i = index" type="button" role="tab" [class.is-on]="vista === i" [attr.aria-selected]="vista === i" (click)="vista = i">{{ v }}</button>
+        </div>
+      </div>
+
+      <div class="nx-marca__lienzo" [ngStyle]="estiloPreview">
+        <!-- Login -->
+        <div *ngIf="vista === 0" class="nx-pv-login">
+          <div class="nx-pv-login__hero" [class.con-imagen]="!!imagenLogin" [style.background-image]="imagenLogin">
+            <img *ngIf="url(d.logos.horizontal) as l; else heroTexto" [src]="l" alt="">
+            <ng-template #heroTexto><b>{{ empresa }}</b></ng-template>
+          </div>
+          <div class="nx-pv-login__form">
+            <img *ngIf="url(d.logos.cuadrado) as l; else selloPv" class="nx-pv-sello nx-pv-sello--img" [src]="l" alt="">
+            <ng-template #selloPv><span class="nx-pv-sello">{{ iniciales }}</span></ng-template>
+            <b class="nx-pv-titulo">{{ tituloLogin }}</b>
+            <small class="nx-muted">{{ mensajeLogin }}</small>
+            <span class="nx-pv-input"></span><span class="nx-pv-input"></span>
+            <span class="nx-pv-link">¿Olvidaste tu contraseña?</span>
+            <span class="nx-pv-btn">Iniciar sesión</span>
+            <small *ngIf="d.login.ayuda" class="nx-muted">{{ d.login.ayuda }}</small>
+            <small *ngIf="d.login.mostrarPoweredBy || !marcaBlanca" class="nx-pv-pie">Powered by Nexo RH</small>
+          </div>
+        </div>
+
+        <!-- Administración -->
+        <div *ngIf="vista === 1" class="nx-pv-admin">
+          <div class="nx-pv-admin__top"><span>☰</span><span class="nx-pv-admin__buscar">Buscar</span><span class="nx-pv-avatar">RP</span></div>
+          <div class="nx-pv-admin__cuerpo">
+            <div class="nx-pv-admin__rail"><i></i><i></i><i></i><i></i></div>
+            <div class="nx-pv-admin__side">
+              <img *ngIf="url(d.logos.horizontal) as l; else logoPv" class="nx-pv-admin__logo" [src]="l" alt="">
+              <ng-template #logoPv><b class="nx-pv-admin__logo-txt">Nexo <span>RH</span></b></ng-template>
+              <small>ADMINISTRATIVO</small>
+              <span class="is-on">{{ t('colaborador', true) }}</span>
+              <span>{{ t('nivel1', true) }}</span><span>{{ t('nivel2', true) }}</span><span>{{ t('recinto', true) }}</span>
+            </div>
+            <div class="nx-pv-admin__main">
+              <b class="nx-pv-titulo">{{ t('colaborador', true) }} vigentes</b>
+              <div class="nx-pv-tabs"><span class="is-on">Activos</span><span>Inactivos</span></div>
+              <div class="nx-pv-fila"><span class="nx-pv-btn">Crear {{ t('colaborador') | lowercase }}</span><span class="nx-pv-chip">Nuevo</span><span class="nx-pv-link">Ver detalle</span></div>
+              <div class="nx-pv-tabla"><span>{{ t('colaborador') }}</span><span>{{ t('nivel1') }}</span><span>{{ t('nivel2') }}</span><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Portal -->
+        <div *ngIf="vista === 2" class="nx-pv-portal">
+          <div class="nx-pv-portal__portada"><b>¡Hola, Rosa!</b><small>Bienvenida a {{ portal }}</small></div>
+          <div class="nx-pv-portal__accesos">
+            <span><i></i>Mis boletas</span><span><i></i>Vacaciones</span><span><i></i>Mi ficha</span>
+          </div>
+          <div class="nx-pv-fila"><span class="nx-pv-chip">Reconocimiento</span><span class="nx-pv-link">Ver todos</span></div>
+          <small class="nx-muted">Menú: {{ portal }} · {{ t('recinto') }} Lima Centro</small>
+        </div>
+
+        <!-- Correo -->
+        <div *ngIf="vista === 3" class="nx-pv-correo">
+          <small class="nx-muted">De: {{ d.correos.remitente || 'Nexo RH' }} · Asunto: Activa tu cuenta de {{ empresa }}</small>
+          <div class="nx-pv-correo__hoja">
+            <img *ngIf="url(d.logos.horizontalClaro) as l; else correoTxt" class="nx-pv-correo__logo" [src]="l" alt="">
+            <ng-template #correoTxt><small class="nx-muted">{{ empresa }}</small></ng-template>
+            <b class="nx-pv-titulo">Activa tu cuenta</b>
+            <small>Hola Rosa: {{ empresa }} te invitó a su plataforma de Recursos Humanos.</small>
+            <span class="nx-pv-btn nx-pv-btn--correo">Activar mi cuenta</span>
+            <small *ngIf="d.correos.firma" class="nx-pv-firma">{{ d.correos.firma }}</small>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Historial de versiones -->
+  <section class="nx-card nx-settings nx-mt-16" aria-labelledby="versiones-title">
+    <h3 id="versiones-title" class="nx-settings__title nx-mt-0">Historial de versiones</h3>
+    <p *ngIf="!edicion?.versiones?.length" class="nx-muted">Todavía no publicaste cambios: se usa la marca por defecto de Nexo RH.</p>
+    <table *ngIf="edicion?.versiones?.length" class="nx-table nx-marca__versiones">
+      <thead><tr><th>Versión</th><th>Publicada</th><th>Por</th><th>Nota</th><th></th></tr></thead>
+      <tbody>
+        <tr *ngFor="let v of edicion?.versiones">
+          <td><b>{{ v.version }}</b> <span *ngIf="v.version === edicion?.version" class="nx-badge nx-badge--sm nx-tone-success">Actual</span></td>
+          <td>{{ v.publicadoEn }}</td><td>{{ v.publicadoPor }}</td><td>{{ v.nota || '—' }}</td>
+          <td class="nx-text-right"><button *ngIf="v.version !== edicion?.version" type="button" class="nx-link-btn" (click)="confirmarRestaurar = v">Volver a esta versión</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</ng-container>
+
+<app-modal *ngIf="confirmarRestaurar as v" title="Volver a una versión anterior" width="480px" (closed)="confirmarRestaurar = null">
+  <p>Se publicará de nuevo la versión {{ v.version }} ({{ v.publicadoEn }}) como una versión nueva. El historial se conserva.</p>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="confirmarRestaurar = null">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--primary" (click)="restaurar()">Volver a esta versión</button>
+  </ng-container>
+</app-modal>
+
+<!-- Image field (logo, isotype, login image) -->
+<ng-template #imagen let-tipo="tipo" let-id="id" let-titulo="titulo" let-ayuda="ayuda" let-oscuro="oscuro">
+  <div class="nx-field">
+    <span>{{ titulo }}</span>
+    <div class="nx-marca__imagen">
+      <span class="nx-marca__miniatura" [class.is-oscuro]="oscuro">
+        <img *ngIf="url(id) as u; else vacia" [src]="u" alt="">
+        <ng-template #vacia><app-icon name="image" [size]="22"></app-icon></ng-template>
+      </span>
+      <label class="nx-btn nx-btn--outline nx-btn--sm">
+        {{ subiendo === tipo ? 'Subiendo…' : url(id) ? 'Cambiar' : 'Subir imagen' }}
+        <input type="file" class="visually-hidden" accept="image/png,image/jpeg,image/webp,image/svg+xml" [disabled]="subiendo === tipo" (change)="subir(tipo, $event)">
+      </label>
+      <button *ngIf="id" type="button" class="nx-link-btn" (click)="quitar(tipo)">Quitar</button>
+    </div>
+    <span class="nx-hint">{{ ayuda }}</span>
+  </div>
+</ng-template>
+
+<!-- Contrast warning with the suggested tone -->
+<ng-template #aviso let-campo="campo" let-color="color">
+  <div *ngIf="falla(color)" class="nx-marca__aviso" role="alert">
+    <app-icon name="alert" [size]="16"></app-icon>
+    <span>Este color no tiene suficiente contraste ({{ ratio(color) | number: '1.1-1' }}:1). El tono más cercano que cumple es
+      <b><span class="nx-marca__muestra" [style.background]="sugerido(color)"></span>{{ sugerido(color) }}</b>.</span>
+    <button type="button" class="nx-btn nx-btn--sm nx-btn--outline" (click)="corregir(campo)">Usar este tono</button>
+  </div>
+  <span *ngIf="errores['colores.' + campo]" class="nx-error">{{ errores['colores.' + campo] }}</span>
+</ng-template>

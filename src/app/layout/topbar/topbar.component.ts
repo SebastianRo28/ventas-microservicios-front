@@ -1,5 +1,7 @@
 import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
+import { Observable, map } from 'rxjs';
+import { ContextoService } from '../../core/contexto.service';
 import { AuthService } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { UiStateService } from '../../core/ui-state.service';
@@ -21,7 +23,14 @@ export class TopbarComponent {
 
   menuUsuario = false;
 
-  constructor(public ui: UiStateService, public data: HrDataService, public router: Router, public auth: AuthService) {
+  /** Trial badge (admins): days left and "Contratar" (spec. 8). */
+  readonly trial$: Observable<{ dias: number; texto: string } | null>;
+
+  constructor(public ui: UiStateService, public data: HrDataService, public router: Router, public auth: AuthService, ctx: ContextoService) {
+    this.trial$ = ctx.contexto$.pipe(map((c) => {
+      const b = c?.banners.find((x) => x.tipo === 'trial');
+      return b && c && c.tenant.diasTrial !== null ? { dias: c.tenant.diasTrial, texto: b.texto } : null;
+    }));
     data.colaboradores().subscribe((list) => {
       this.people = list.map((p) => ({
         label: `${p.apellidos}, ${p.nombres}`, detail: p.cargo, path: `admin/colaboradores/ficha/${p.id}`

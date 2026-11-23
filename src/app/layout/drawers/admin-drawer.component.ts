@@ -5,6 +5,10 @@ interface AdminLink { label: string; icon: string; path: string; pro?: boolean; 
 
 const LINKS: AdminLink[] = [
   { label: 'Parámetros generales', icon: 'gear', path: 'configuracion/parametros' },
+  { label: 'Personaliza tu marca', icon: 'image', path: 'configuracion/marca' },
+  { label: 'Seguridad y acceso', icon: 'shield', path: 'configuracion/seguridad' },
+  { label: 'Dominio y correo', icon: 'external', path: 'configuracion/dominio' },
+  { label: 'Implementación', icon: 'rocket', path: 'configuracion/implementacion' },
   { label: 'Estado de cuenta', icon: 'wallet', path: 'configuracion/estado-de-cuenta' },
   { label: 'Atributos personalizados', icon: 'tag', path: 'configuracion/atributos' },
   { label: 'Recordatorios', icon: 'bell', path: 'configuracion/recordatorios' },

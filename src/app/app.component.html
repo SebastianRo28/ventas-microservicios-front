@@ -1,7 +1,9 @@
 <router-outlet *ngIf="esLogin"></router-outlet>
 <a *ngIf="!esLogin" class="nx-skip" href="#nx-main">Saltar al contenido</a>
 <div *ngIf="!esLogin" class="nx-app" [class.nx-nav-collapsed]="ui.navCollapsed$ | async">
+  <app-banner-soporte></app-banner-soporte>
   <app-topbar></app-topbar>
+  <app-banners></app-banners>
   <div class="nx-body">
     <app-nav></app-nav>
     <main id="nx-main" class="nx-main" tabindex="-1">
@@ -9,6 +11,7 @@
     </main>
   </div>
   <app-drawers></app-drawers>
+  <app-modulo-bloqueado></app-modulo-bloqueado>
   <div *ngIf="ui.toast$ | async as msg" class="nx-toast" role="status">
     <app-icon name="checkcircle" [size]="18"></app-icon>{{ msg }}
   </div>

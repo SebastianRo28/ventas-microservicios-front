@@ -25,13 +25,13 @@ interface Post {
 }
 
 const PORTADAS = [
-  { title: 'Bienvenidos al nuevo portal Nexo RH', text: 'Tus boletas, solicitudes y documentos, ahora en un solo lugar.', icon: 'home', bg: '#2D4DA4', blob: '#4B69C0' },
+  { title: 'Bienvenidos al nuevo portal Nexo RH', text: 'Tus boletas, solicitudes y documentos, ahora en un solo lugar.', icon: 'home', bg: 'var(--nx-primary-700)', blob: 'var(--nx-primary-600)' },
   { title: 'Campaña de vacunación 2026', text: 'Inscríbete hasta el 20/03/2026 en el tópico de la sede central.', icon: 'hospital', bg: '#1F6E55', blob: '#3C8C72' },
   { title: 'Encuesta de clima laboral', text: 'Tu opinión es anónima y nos ayuda a mejorar. Responde antes del 31/03/2026.', icon: 'clipcheck', bg: '#A55A17', blob: '#B9671F' },
 ];
 
 const VALORES = [
-  { name: 'Vamos por más!', hint: 'Buscamos superar las metas cada día.', color: '#2D4DA4', icon: 'trend' },
+  { name: 'Vamos por más!', hint: 'Buscamos superar las metas cada día.', color: 'var(--nx-primary-700)', icon: 'trend' },
   { name: 'Nos mueve la excelencia', hint: 'Hacemos las cosas bien desde el inicio.', color: '#1F6E55', icon: 'star' },
   { name: 'Pasión por el servicio', hint: 'Ponemos al cliente interno y externo al centro.', color: '#B4521F', icon: 'heart' },
   { name: 'Al infinito y más allá', hint: 'Nos atrevemos a innovar y aprender.', color: '#5B3FA8', icon: 'rocket' },

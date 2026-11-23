@@ -5,7 +5,7 @@ import { HrDataService } from '../../core/hr-data.service';
 import { PeriodoRem, Serie } from '../../core/models';
 
 const W = 480, H = 180, PAD = 20;
-const AVATAR_BG = ['#F5B400', '#C7F1AF', '#E3EEFF', '#FFD3CC', '#FFE0C2', '#E6EEFF'];
+const AVATAR_BG = ['var(--nx-yellow)', 'var(--nx-success-200)', 'var(--nx-info-bg)', 'var(--nx-danger-200)', 'var(--nx-orange-200)', 'var(--nx-primary-tint)'];
 
 interface Kpi { title: string; icon: string; sub: string; values: [string, string][]; }
 interface Point { x: number; y: number; left: string; mes: string; aria: string; }

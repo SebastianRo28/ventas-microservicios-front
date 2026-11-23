@@ -360,7 +360,7 @@ export class CaPerfilComponent implements OnDestroy {
     this.ultimaConFoto = marcas.find((m) => m.foto);
     const rc = ca.recinto(ca.recintoDe[c.id]);
     this.recintoCol = rc ? [rc] : [];
-    this.puntoUltimo = this.ultima ? [{ lat: this.ultima.lat, lng: this.ultima.lng, color: this.ultima.tipo === 'Entrada' ? '#3F9C35' : '#F59E0B', label: `${this.ultima.tipo} ${this.ultima.hora}` }] : [];
+    this.puntoUltimo = this.ultima ? [{ lat: this.ultima.lat, lng: this.ultima.lng, color: this.ultima.tipo === 'Entrada' ? 'var(--nx-success-500)' : 'var(--nx-orange)', label: `${this.ultima.tipo} ${this.ultima.hora}` }] : [];
     const lunes = sumarDias(f, -((parseFecha(f)!.getDay() + 6) % 7));
     this.semana = rangoFechas(lunes, sumarDias(lunes, 6)).map((d) => {
       const t = ca.turnoDe(c.id, d);

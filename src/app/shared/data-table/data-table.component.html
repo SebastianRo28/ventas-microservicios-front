@@ -41,7 +41,7 @@
     <div class="nx-dt__adv-title"><app-icon class="nx-primary" name="filter" [size]="16"></app-icon>Filtro avanzado</div>
     <div class="nx-dt__adv-row">
       <select #advField class="nx-select nx-select--sm" aria-label="Campo">
-        <option *ngFor="let c of view.cols" [value]="c.key" [hidden]="c.type === 'actions'">{{ c.label }}</option>
+        <option *ngFor="let c of view.cols" [value]="c.key" [hidden]="c.type === 'actions'">{{ c.label | termino }}</option>
       </select>
       <select class="nx-select nx-select--sm" aria-label="Operador"><option>contiene</option></select>
       <input #advValue class="nx-input nx-input--sm" aria-label="Valor" placeholder="Valor">
@@ -67,12 +67,12 @@
           <div *ngFor="let c of view.cols; trackBy: trackCol" role="columnheader" class="nx-dt__th"
                [attr.aria-sort]="sortKey === c.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : null">
             <button *ngIf="isSortable(c); else plainHead" type="button" class="nx-dt__sort" (click)="sort(c)">
-              {{ c.label }}
+              {{ c.label | termino }}
               <span class="nx-dt__sort-icon" [class.is-active]="sortKey === c.key">
                 <app-icon [name]="sortKey === c.key && sortDir === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="14"></app-icon>
               </span>
             </button>
-            <ng-template #plainHead><span class="nx-dt__head-label">{{ c.label }}</span></ng-template>
+            <ng-template #plainHead><span class="nx-dt__head-label">{{ c.label | termino }}</span></ng-template>
           </div>
           <div role="columnheader" class="nx-dt__cols nx-dt__menu-anchor">
             <button type="button" class="nx-icon-btn nx-icon-btn--ghost" aria-label="Configurar columnas"
@@ -83,7 +83,7 @@
               <span class="nx-eyebrow">Mostrar columnas</span>
               <ng-container *ngFor="let c of columns">
                 <label *ngIf="c.type !== 'actions'" class="nx-check">
-                  <input type="checkbox" [checked]="!hidden.has(c.key)" (change)="toggleColumn(c.key)">{{ c.label }}
+                  <input type="checkbox" [checked]="!hidden.has(c.key)" (change)="toggleColumn(c.key)">{{ c.label | termino }}
                 </label>
               </ng-container>
             </div>
@@ -93,7 +93,7 @@
         <div *ngIf="showFilters" role="row" class="nx-dt__row nx-dt__row--filters" [style.grid-template-columns]="view.grid">
           <div *ngIf="selectable"></div>
           <div *ngFor="let c of view.cols; trackBy: trackCol" class="nx-dt__filter" [ngSwitch]="c.type === 'actions' ? 'none' : (c.filter ?? 'text')">
-            <select *ngSwitchCase="'select'" class="nx-select nx-select--sm" [attr.aria-label]="'Filtrar ' + c.label"
+            <select *ngSwitchCase="'select'" class="nx-select nx-select--sm" [attr.aria-label]="'Filtrar ' + (c.label | termino)"
                     [value]="filters[c.key] || ''" (change)="setFilter(c.key, $any($event.target).value)">
               <option value="">Seleccionar</option>
               <option *ngFor="let o of options(c)" [value]="o">{{ o }}</option>
@@ -151,9 +151,9 @@
 
       <div *ngIf="!view.filtered.length" class="nx-empty">
         <svg width="120" height="96" viewBox="0 0 120 96" fill="none" aria-hidden="true">
-          <path d="M14 22a6 6 0 0 1 6-6h26l9 10h45a6 6 0 0 1 6 6v46a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" fill="#C9D8FF"/>
-          <path d="M8 38a6 6 0 0 1 6-6h92a6 6 0 0 1 6 6l-6 40a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" fill="#2D4DA4"/>
-          <path d="M44 56h32" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+          <path d="M14 22a6 6 0 0 1 6-6h26l9 10h45a6 6 0 0 1 6 6v46a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" style="fill: var(--nx-primary-200)"/>
+          <path d="M8 38a6 6 0 0 1 6-6h92a6 6 0 0 1 6 6l-6 40a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" style="fill: var(--nx-primary-700)"/>
+          <path d="M44 56h32" style="stroke: var(--nx-on-strong)" stroke-width="4" stroke-linecap="round"/>
         </svg>
         <b>{{ emptyTitle }}</b>
         <span>{{ emptyText }}</span>

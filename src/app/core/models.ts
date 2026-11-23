@@ -112,9 +112,12 @@ export interface UsuarioCuenta {
   ultimoAcceso: string;
   bloqueado: boolean;
   debeCambiarPassword: boolean;
+  /** Invited by e-mail and not activated yet. */
+  pendienteActivacion: boolean;
+  dobleFactor: boolean;
 }
 /** The role comes from the profile (perfilId). */
-export interface UsuarioGuardar { nombre: string; correo: string; perfilId: number; colaboradorId: number | null; }
+export interface UsuarioGuardar { nombre: string; correo: string; perfilId: number; colaboradorId: number | null; invitar?: boolean; }
 /** User profile (Administración › Perfiles): a name plus the base role that defines access. */
 export interface PerfilCuenta {
   id: number; nombre: string; rol: 'Administrador' | 'Supervisor' | 'Colaborador'; predefinido: boolean; descripcion: string;
@@ -122,4 +125,5 @@ export interface PerfilCuenta {
 }
 export interface PerfilGuardar { nombre: string; rol: string; descripcion: string; }
 /** Answer to creating an account or resetting its password: the temporary password is shown only once. */
-export interface UsuarioCreado { usuario: UsuarioCuenta; passwordTemporal: string; }
+/** passwordTemporal is null when an invitation was e-mailed instead. */
+export interface UsuarioCreado { usuario: UsuarioCuenta; passwordTemporal: string | null; }

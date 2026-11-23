@@ -93,7 +93,7 @@ export interface PuntoMapa { lat: number; lng: number; color: string; label: str
         <path [attr.d]="pin(r.x, r.y)" class="nx-camap__pin" [class.is-off]="!r.activo"/>
         <text [attr.x]="r.x + 14" [attr.y]="r.y - 8" class="nx-camap__label">{{ r.nombre }}</text>
       </g>
-      <circle *ngFor="let p of pts" [attr.cx]="p.x" [attr.cy]="p.y" r="5" [attr.fill]="p.color" class="nx-camap__dot"><title>{{ p.label }}</title></circle>
+      <circle *ngFor="let p of pts" [attr.cx]="p.x" [attr.cy]="p.y" r="5" [style.fill]="p.color" class="nx-camap__dot"><title>{{ p.label }}</title></circle>
     </svg>
   `
 })

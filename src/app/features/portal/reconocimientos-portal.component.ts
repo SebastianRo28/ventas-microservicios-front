@@ -100,7 +100,7 @@ export class ReconocimientosPortalComponent implements OnDestroy {
     const [v, n] = [...cuenta].sort((a, b) => b[1] - a[1])[0] ?? ['—', 0];
     return n ? `${v} (${n})` : '—';
   }
-  color(valor: string): string { return this.valores.find((v) => v.nombre === valor)?.color ?? '#2D4DA4'; }
+  color(valor: string): string { return this.valores.find((v) => v.nombre === valor)?.color ?? 'var(--nx-primary-700)'; }
   icono(valor: string): string { return this.valores.find((v) => v.nombre === valor)?.icono ?? 'award'; }
 
   abrir(): void { this.intento = false; this.modal = { para: '', valor: '', mensaje: '' }; }

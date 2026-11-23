@@ -156,6 +156,10 @@ export class HrDataService {
   modificarUsuario(id: number, u: UsuarioGuardar): Observable<UsuarioCuenta> { return this.http.put<UsuarioCuenta>(`${API_URL}/usuarios/${id}`, u); }
   estadoUsuario(id: number, activo: boolean): Observable<UsuarioCuenta> { return this.http.post<UsuarioCuenta>(`${API_URL}/usuarios/${id}/estado`, { activo }); }
   restablecerUsuario(id: number): Observable<UsuarioCreado> { return this.http.post<UsuarioCreado>(`${API_URL}/usuarios/${id}/restablecer`, {}); }
+  /** Re-sends the "Activa tu cuenta" e-mail to an account that has not been activated. */
+  invitarUsuario(id: number): Observable<UsuarioCuenta> { return this.http.post<UsuarioCuenta>(`${API_URL}/usuarios/${id}/invitar`, {}); }
+  /** Removes two-factor authentication (e.g. the person lost their phone). */
+  quitarDobleFactor(id: number): Observable<UsuarioCuenta> { return this.http.post<UsuarioCuenta>(`${API_URL}/usuarios/${id}/2fa/quitar`, {}); }
   nivelesBanda(): Observable<NivelBanda[]> { return of(NIVELES_BANDA); }
 
 

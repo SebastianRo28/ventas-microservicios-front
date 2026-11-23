@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { ADMIN_LINKS } from '../layout/drawers/admin-drawer.component';
 import { NAV_LEAVES } from '../layout/nav.config';
 import { PlaceholderComponent } from '../features/placeholder/placeholder.component';
+import { moduloGuard } from '../layout/modulo-bloqueado.component';
 
 /**
  * Child routes of a lazy-loaded section ("admin", "rem", "portal"…), generated from the menu config so the menu and
@@ -17,7 +18,9 @@ export function sectionRoutes(prefix: string, screens: Record<string, Type<unkno
       pathMatch: (leaf.path === prefix ? 'full' : 'prefix') as 'full' | 'prefix',
       component: screens[leaf.path] ?? PlaceholderComponent,
       title: `${leaf.label} · Nexo RH`,
-      data: { title: leaf.label, crumbs: [leaf.section.label, leaf.group?.label].filter(Boolean), ...extraData[leaf.path] },
+      // Screens of a module the company has not contracted open the commercial modal.
+      canActivate: leaf.modulo ? [moduloGuard] : [],
+      data: { title: leaf.label, crumbs: [leaf.section.label, leaf.group?.label].filter(Boolean), modulo: leaf.modulo, ...extraData[leaf.path] },
     })),
     ...ADMIN_LINKS.filter((l) => enSeccion(l.path)).map((l) => ({
       path: child(l.path), component: screens[l.path] ?? PlaceholderComponent, title: `${l.label} · Nexo RH`,
