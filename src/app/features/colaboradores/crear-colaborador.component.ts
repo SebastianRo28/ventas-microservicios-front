@@ -1,7 +1,9 @@
 import { Component } from '@angular/core';
 import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
-import { Division } from '../../core/models';
+import { GenericosService } from '../../core/genericos.service';
+import { CATALOGOS } from '../../core/sample/catalogos-config';
+import { Division, UbigeoDepartamento } from '../../core/models';
 
 const STEPS = [
   { label: 'Datos Personales', title: 'Paso 1 · Datos Personales', sub: 'Identificación, contacto y dirección del colaborador.' },
@@ -16,7 +18,7 @@ function emptyForm() {
   return {
     nombre: '', apellido: '', segundoApellido: '', tipoDoc: 'DNI', documento: '', nacionalidad: 'Perú',
     sexo: '', estadoCivil: '', nacimiento: '', telOficina: '', telefono: '', email: '', crearUsuario: true,
-    emailPersonal: '', direccion: '', distrito: '', educacion: '', centro: '',
+    emailPersonal: '', direccion: '', departamento: 'Lima', provincia: 'Lima', distrito: '', educacion: '', centro: '',
     planSalud: 'EsSalud', regimen: 'AFP', afp: 'Habitat', cuspp: '', comision: 'Flujo',
     banco: 'BCP', tipoCuenta: 'Ahorros', cuenta: '', formaPago: 'Transferencia',
     cargo: '', supervisor: '', division: 'Departamento de Administración', area: 'Finanzas', subArea: 'Tesorería',
@@ -44,12 +46,30 @@ export class CrearColaboradorComponent {
 
   cargos: string[] = [];
   divisiones: Division[] = [];
-  supervisores = ['Navarro Ríos, Gonzalo', 'Benavides Rojas, Diego', 'Espinoza Vargas, Martín', 'Huertas León, Paolo'];
+  departamentos: UbigeoDepartamento[] = [];
+  /** Active cost centers of Configuración › Centros de costo. */
+  get centros(): string[] { return this.gen.filas(CATALOGOS['centros-de-costo']).filter((f) => f['activo'] !== false).map((f) => `${f['codigo']} ${f['nombre']}`); }
+  /** Current collaborators of this company ("Apellidos, Nombres"). */
+  supervisores: string[] = [];
 
-  constructor(public data: HrDataService) {
+  constructor(public data: HrDataService, private gen: GenericosService) {
     data.cargos().subscribe((l) => (this.cargos = l.filter((c) => c.activo).map((c) => c.nombre)));
     data.divisiones().subscribe((d) => (this.divisiones = d));
+    data.ubigeo().subscribe((u) => (this.departamentos = u.departamentos));
+    data.colaboradores().subscribe((cs) => (this.supervisores = cs.map((c) => `${c.apellidos}, ${c.nombres}`).sort((a, b) => a.localeCompare(b, 'es'))));
   }
+
+  get provincias() { return this.departamentos.find((d) => d.nombre === this.f.departamento)?.provincias ?? []; }
+  get distritos() { return this.provincias.find((p) => p.nombre === this.f.provincia)?.distritos ?? []; }
+
+  onDepartamento(): void {
+    // Lima › Lima, Callao › Callao…: la provincia capital suele llamarse como el departamento.
+    const ps = this.provincias;
+    this.f.provincia = (ps.find((p) => p.nombre === this.f.departamento) ?? ps[0])?.nombre ?? '';
+    this.f.distrito = '';
+  }
+
+  onProvincia(): void { this.f.distrito = ''; }
 
   get areas() { return this.divisiones.find((d) => d.nombre === this.f.division)?.areas ?? []; }
   get subAreas() { return this.areas.find((a) => a.nombre === this.f.area)?.subAreas ?? []; }
@@ -99,8 +119,8 @@ export class CrearColaboradorComponent {
       documento: f.documento.trim(), cargo: f.cargo, division: f.division, area: f.area, subArea: f.subArea,
       ingreso: f.ingreso, sueldoNeto: sueldo,
       detalle: {
-        tipoDocumento: f.tipoDoc, emailCorporativo: f.email, telefono: f.telefono, nacimiento: f.nacimiento,
-        direccion: [f.direccion, f.distrito].filter(Boolean).join(', '), planSalud: f.planSalud,
+        tipoDocumento: f.tipoDoc, emailCorporativo: f.email, telefono: f.telefono, anexo: f.telOficina.trim() || undefined, nacimiento: f.nacimiento,
+        direccion: [f.direccion, f.distrito, f.provincia, f.departamento].filter((x, i, a) => x && a.indexOf(x) === i).join(', '), planSalud: f.planSalud,
         pension: f.regimen === 'AFP' ? `AFP ${f.afp} · comisión ${f.comision}` : 'ONP', cuspp: f.cuspp,
         banco: f.cuenta ? `${f.banco} · Cuenta de ${f.tipoCuenta.toLowerCase()} ****${f.cuenta.slice(-4)}` : f.banco,
         formaPago: f.formaPago, supervisor: f.supervisor, sueldoBase: sueldo, contrato: f.contrato,

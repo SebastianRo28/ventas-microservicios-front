@@ -18,7 +18,7 @@ import { Recinto } from '../../core/sample/control-asistencia';
         </select>
       </label>
       <label *ngIf="fecha" class="nx-cafil__f">Fecha
-        <input type="date" class="nx-input nx-input--sm" name="ca-fecha" [attr.name]="'ca-fecha'" [min]="minIso" [max]="maxIso" [ngModel]="iso" (ngModelChange)="setFecha($event)">
+        <span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" name="ca-fecha" [attr.name]="'ca-fecha'" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [ngModel]="iso" (ngModelChange)="setFecha($event)"><app-icon name="calendar" [size]="14"></app-icon></span>
       </label>
       <button *ngIf="fecha && f.fecha !== ca.corte" type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="ca.setFiltro({ fecha: ca.corte })">Hoy</button>
       <ng-container *ngIf="rapidos">

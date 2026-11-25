@@ -11,7 +11,7 @@
 <form *ngIf="tab === 0" class="nx-card nx-settings" (ngSubmit)="guardarOrg()">
   <div class="nx-form-grid">
     <label class="nx-field">País<select class="nx-select" name="pais" [(ngModel)]="org.pais"><option>Perú</option><option>Chile</option><option>Colombia</option></select></label>
-    <label class="nx-field">Nombre de la compañía<input class="nx-input" name="compania" [(ngModel)]="org.compania"></label>
+    <label class="nx-field">Nombre de la compañía<input class="nx-input" name="compania" [ngModel]="org.compania" readonly><span class="nx-hint">Es el nombre de la cuenta; lo cambia el proveedor desde la consola.</span></label>
     <label class="nx-field">Nombre de la contabilidad<input class="nx-input" name="contabilidad" [(ngModel)]="org.contabilidad"></label>
     <label class="nx-field">Días de alerta para recontratación<input class="nx-input" type="number" min="0" name="alerta" [(ngModel)]="org.alertaRecontratacion"></label>
     <label class="nx-field">Horas laborales<input class="nx-input" type="number" min="1" max="48" name="horas" [(ngModel)]="org.horas"></label>

@@ -1,7 +1,9 @@
 import { Component } from '@angular/core';
+import { combineLatest } from 'rxjs';
 import { HrDataService } from '../../core/hr-data.service';
 import { soles } from '../../core/format';
-import { ArchivoPago, ESTADO_TONE, MESES_ABIERTOS } from '../../core/sample/remuneraciones';
+import { ArchivoPago, ESTADO_TONE } from '../../core/sample/remuneraciones';
+import { PeriodoService } from '../../core/periodo.service';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
@@ -46,14 +48,17 @@ export class ArchivosPagosComponent {
   rows: Row[] = [];
   private all: ArchivoPago[] = [];
 
-  constructor(data: HrDataService, public ui: UiStateService) {
-    data.archivosPagos().subscribe((a) => { this.all = a; this.pick(0); });
+  constructor(data: HrDataService, public ui: UiStateService, private per: PeriodoService) {
+    combineLatest([data.archivosPagos(), per.periodos$]).subscribe(([a]) => { this.all = a; this.pick(this.seg); });
   }
+
+  /** Months of open payroll periods ("03-2026"): their files are in "Meses abiertos". */
+  private get abiertos(): Set<string> { return new Set(this.per.periodos$.value.filter((p) => !p.cerrado).map((p) => p.periodo.replace('/', '-'))); }
 
   pick(seg: number): void {
     this.seg = seg;
     this.rows = this.all
-      .filter((a) => (seg === 0) === MESES_ABIERTOS.has(a.mes))
+      .filter((a) => (seg === 0) === this.abiertos.has(a.mes))
       .map((a) => ({
         id: a.id, n: { text: a.nombre }, t: a.tipo, tc: a.comprobantes, c: a.cantidad, m: a.mes,
         e: { text: a.estado, tone: ESTADO_TONE[a.estado] }, cp: a.creadoPor, o: a.origen, f: a.fecha,

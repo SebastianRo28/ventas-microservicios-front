@@ -30,10 +30,10 @@ const ACCION_TONE = { Crear: 'success', Modificar: 'neutral', Eliminar: 'danger'
     </app-page-header>
     <form class="nx-card nx-audit-filters" (ngSubmit)="aplicar()">
       <label class="nx-field">Desde
-        <span class="nx-input-icon nx-input-icon--end"><input class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="f.desde"><app-icon name="calendar" [size]="16"></app-icon></span>
+        <span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="f.desde"><app-icon name="calendar" [size]="16"></app-icon></span>
       </label>
       <label class="nx-field">Hasta
-        <span class="nx-input-icon nx-input-icon--end"><input class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="f.hasta"><app-icon name="calendar" [size]="16"></app-icon></span>
+        <span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="f.hasta"><app-icon name="calendar" [size]="16"></app-icon></span>
       </label>
       <label class="nx-field">Modificado por
         <select class="nx-select" name="usuario" [(ngModel)]="f.usuario"><option value="">Todos</option><option *ngFor="let u of usuarios">{{ u }}</option></select>
@@ -53,7 +53,8 @@ const ACCION_TONE = { Crear: 'success', Modificar: 'neutral', Eliminar: 'danger'
 })
 export class HistorialCambiosComponent {
   readonly cols = COLS;
-  f = { desde: '01/01/2025', hasta: '31/12/2026', usuario: '', entidad: '', colaborador: '' };
+  /** From January 1st of last year until today. */
+  f = { desde: `01/01/${new Date().getFullYear() - 1}`, hasta: new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }), usuario: '', entidad: '', colaborador: '' };
   error = '';
   rows: Row[] = [];
   private filtrados: Cambio[] = [];

@@ -4,8 +4,9 @@ import { mensajeError } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
 import { PortalService } from '../../core/portal.service';
-import { Reconocimiento, VALORES_RECONOCIMIENTO } from '../../core/sample/reportes';
+import { Reconocimiento } from '../../core/sample/reportes';
 import { UiStateService } from '../../core/ui-state.service';
+import { PortalService as PortalValores, ValorReconocimiento } from '../../core/portal.service';
 
 const MAX = 280;
 
@@ -68,7 +69,7 @@ const MAX = 280;
 })
 export class ReconocimientosPortalComponent implements OnDestroy {
   readonly tabs = ['Todos', 'Recibidos', 'Enviados'];
-  readonly valores = VALORES_RECONOCIMIENTO;
+  get valores(): ValorReconocimiento[] { return this.portalValores.valores$.value; }
   readonly max = MAX;
   tab = 0;
   lista: Reconocimiento[] = [];
@@ -78,7 +79,7 @@ export class ReconocimientosPortalComponent implements OnDestroy {
   intento = false;
   private sub: Subscription;
 
-  constructor(data: HrDataService, private portal: PortalService, private ui: UiStateService) {
+  constructor(private portalValores: PortalValores, data: HrDataService, private portal: PortalService, private ui: UiStateService) {
     this.sub = combineLatest([data.colaboradores(), portal.reconocimientos$]).subscribe(([cs, rs]) => {
       const yo = cs.find((c) => c.id === portal.yoId);
       this.yo = yo ? `${yo.apellidos}, ${yo.nombres}` : '';

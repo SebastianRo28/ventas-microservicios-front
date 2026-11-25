@@ -74,7 +74,7 @@
       <span *ngIf="intento && !m.nombre.trim()" class="nx-error">Campo obligatorio.</span>
     </label>
     <label class="nx-field">Correo*
-      <input class="nx-input" name="correo" type="email" placeholder="nombre@comercialandina.pe" [(ngModel)]="m.correo" [class.is-invalid]="intento && (correoInvalido || correoDuplicado)">
+      <input class="nx-input" name="correo" type="email" placeholder="nombre@empresa.pe" [(ngModel)]="m.correo" [class.is-invalid]="intento && (correoInvalido || correoDuplicado)">
       <span *ngIf="intento && correoInvalido" class="nx-error">Ingresa un correo válido.</span>
       <span *ngIf="intento && !correoInvalido && correoDuplicado" class="nx-error">Este correo ya está registrado.</span>
     </label>

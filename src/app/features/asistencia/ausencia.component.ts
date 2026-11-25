@@ -52,8 +52,8 @@ const COLS: Column[] = [
           <span class="nx-hint">{{ goce[m.tipo] ? 'Con goce de haber: no se descuenta en remuneraciones.' : 'Sin goce de haber: se descuenta en el proceso de remuneraciones.' }}</span>
         </label>
         <div class="nx-grid nx-grid--2 nx-gap-16">
-          <label class="nx-field">Desde*<input class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="m.desde"></label>
-          <label class="nx-field">Hasta*<input class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="m.hasta"></label>
+          <label class="nx-field">Desde*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="m.desde"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Hasta*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="m.hasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         </div>
         <span class="nx-hint">Días calendario: <b>{{ dias }}</b></span>
         <span *ngIf="m.tipo === 'Descanso médico'" class="nx-hint">Desde el día 21 de descanso médico en el año, EsSalud paga el subsidio por incapacidad temporal.

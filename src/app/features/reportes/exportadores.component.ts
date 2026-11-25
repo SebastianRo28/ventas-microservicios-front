@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { mensajeError } from '../../core/auth.service';
 import { EjecucionApi, PlantillaReporteApi, ReporteApi, ReporteriaService } from '../../core/reporteria.service';
 import { UiStateService } from '../../core/ui-state.service';
+import { PeriodoService } from '../../core/periodo.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
 const COLS: Column[] = [
@@ -51,7 +52,7 @@ export class ExportadoresComponent {
   pedirPeriodo: { reporte: ReporteApi; periodo: string } | null = null;
   ocupado = false;
 
-  constructor(private api: ReporteriaService, private ui: UiStateService) { this.cargar(); }
+  constructor(private api: ReporteriaService, private ui: UiStateService, private per: PeriodoService) { this.cargar(); }
 
   cargar(): void {
     this.api.datos().subscribe({
@@ -97,7 +98,9 @@ export class ExportadoresComponent {
       if (!r.generable) { this.ui.toast(`El reporte “${r.plantilla}” todavía no se puede generar en Nexo RH`); return; }
       if (r.requierePeriodo) {
         if (!this.periodos.length) { this.ui.toast('Aún no hay períodos con boletas calculadas'); return; }
-        this.pedirPeriodo = { reporte: r, periodo: this.periodos[0] };
+        // Proposes the topbar period when it has payslips; otherwise the latest one.
+        const elegido = this.periodos.includes(this.per.seleccionado) ? this.per.seleccionado : this.periodos[0];
+        this.pedirPeriodo = { reporte: r, periodo: elegido };
       } else this.generar(r, null);
     }
     if (action === 'duplicar') {

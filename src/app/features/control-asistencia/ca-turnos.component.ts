@@ -242,7 +242,7 @@ interface EditAsig { ids: number[]; fecha: string; valor: string; modo: 'dia' | 
         <button *ngIf="e.ids.length === 1" type="button" class="nx-link-btn nx-self-start" (click)="e.historial = !e.historial">{{ e.historial ? 'Ocultar historial' : 'Ver historial' }}</button>
         <ul *ngIf="e.historial" class="nx-calog"><li *ngFor="let h of historial"><span class="nx-small nx-muted">{{ h.autor }}</span><span>{{ h.texto }}</span></li></ul>
         <div class="nx-grid nx-grid--2 nx-gap-16">
-          <label class="nx-field">Fecha*<input type="date" class="nx-input" name="fecha" [min]="minIso" [(ngModel)]="e.fecha"></label>
+          <label class="nx-field">Fecha*<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" name="fecha" [nxFechaMin]="minIso" [(ngModel)]="e.fecha"><app-icon name="calendar" [size]="16"></app-icon></span></label>
           <label class="nx-field">Turno*
             <select class="nx-select" name="turno" [attr.name]="'turno'" [(ngModel)]="e.valor">
               <option value="" disabled>Selecciona</option>
@@ -256,7 +256,7 @@ interface EditAsig { ids: number[]; fecha: string; valor: string; modo: 'dia' | 
             <label class="nx-check nx-check--plain"><input type="radio" name="modo" [attr.name]="'modo'" value="permanente" [(ngModel)]="e.modo">Permanente (nuevo turno base)</label>
           </div></fieldset>
         <ng-container *ngIf="e.modo === 'hasta'">
-          <label class="nx-field">Fecha de término*<input type="date" class="nx-input" name="hasta" [min]="e.fecha" [(ngModel)]="e.hasta"></label>
+          <label class="nx-field">Fecha de término*<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" name="hasta" [nxFechaMin]="e.fecha" [(ngModel)]="e.hasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
           <fieldset class="nx-field"><legend class="nx-field-label">Recurrencia (días de la semana)</legend>
             <div class="nx-row nx-wrap"><label *ngFor="let d of ordenDias" class="nx-check nx-check--plain"><input type="checkbox" [name]="'rd' + d" [checked]="e.dias.includes(d)" (change)="toggleRec(d)">{{ diasSemana[d] }}</label></div>
             <span class="nx-hint">Sin días marcados se aplica a todos los días del rango.</span></fieldset>

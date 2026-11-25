@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { HrDataService } from '../../core/hr-data.service';
+import { DatosService } from '../../core/datos.service';
 import { Dashboard, Widget } from '../../core/sample/catalogos';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
@@ -72,7 +73,7 @@ export class AnaliticaComponent {
   private dashboards: Dashboard[] = [];
   private widgets: Widget[] = [];
 
-  constructor(data: HrDataService, private ui: UiStateService) {
+  constructor(data: HrDataService, private ui: UiStateService, private datos: DatosService) {
     data.dashboards().subscribe((d) => { this.dashboards = d; this.refresh(); });
     data.widgets().subscribe((w) => { this.widgets = w; this.refresh(); });
   }
@@ -88,18 +89,15 @@ export class AnaliticaComponent {
     this.intento = true;
     if (!this.nombre.trim()) return;
     const hoy = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    this.dashboards.unshift({ id: Math.max(0, ...this.dashboards.map((d) => d.id)) + 1, nombre: this.nombre.trim(), descripcion: this.descripcion.trim(), editado: hoy });
-    this.refresh();
+    this.datos.crear('dashboards', { nombre: this.nombre.trim(), descripcion: this.descripcion.trim(), editado: hoy }).subscribe();
     this.modal = false;
     this.ui.toast(`Dashboard “${this.nombre.trim()}” creado`);
   }
 
   eliminar(kind: 'dash' | 'widget', row: Row): void {
     const list: { id: number; nombre: string }[] = kind === 'dash' ? this.dashboards : this.widgets;
-    const i = list.findIndex((x) => x.id === row.id);
-    if (i < 0) return;
-    const [item] = list.splice(i, 1);
-    this.refresh();
-    this.ui.toast(`“${item.nombre}” eliminado`);
+    const item = list.find((x) => x.id === row.id);
+    if (!item) return;
+    this.datos.eliminar(kind === 'dash' ? 'dashboards' : 'widgets', item.id).subscribe(() => this.ui.toast(`“${item.nombre}” eliminado`));
   }
 }

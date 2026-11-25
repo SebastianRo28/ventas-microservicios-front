@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { GenericosService } from './genericos.service';
+import { CONFIG_FORMS } from './sample/config-forms';
 import { BehaviorSubject } from 'rxjs';
 import { AsistenciaApi } from './asistencia-api.service';
 import { AuditService } from './audit.service';
@@ -6,7 +8,7 @@ import { AuthService } from './auth.service';
 import { parseFecha } from './format';
 import { Colaborador } from './models';
 import {
-  AUSENCIA_CON_GOCE, Ausencia, CONFIG_ASISTENCIA, ConfigAsistencia, DIAS_VACACIONES_ANUALES, FECHA_CORTE, FECHA_SALDO_INICIAL, Feriado, LicenciaMedica,
+  AUSENCIA_CON_GOCE, Ausencia, ConfigAsistencia, DIAS_VACACIONES_ANUALES, FECHA_CORTE, FECHA_SALDO_INICIAL, Feriado, LicenciaMedica,
   RecargoDomingo, SolicitudAsistencia, TipoAusencia, Vacacion
 } from './sample/asistencia';
 
@@ -49,7 +51,8 @@ export class AsistenciaService {
   readonly licencias$ = new BehaviorSubject<LicenciaMedica[]>([]);
   readonly solicitudes$ = new BehaviorSubject<SolicitudAsistencia[]>([]);
   readonly recargos$ = new BehaviorSubject<RecargoDomingo[]>([]);
-  readonly config: ConfigAsistencia = CONFIG_ASISTENCIA;
+  /** Configuración de asistencia (/api/configuracion/asistencia, with its defaults). */
+  get config(): ConfigAsistencia { return this.genericosCfg.valores(CONFIG_FORMS['asistencia']) as unknown as ConfigAsistencia; }
   /** Daily wage of collaborators paid by the day; others are monthly. */
   readonly jornales: Record<number, number> = {};
   private feriados: Feriado[] = [];
@@ -58,7 +61,7 @@ export class AsistenciaService {
   /** Temporary ids for records not yet confirmed by the API. */
   private tmp = -1;
 
-  constructor(private audit: AuditService, private api: AsistenciaApi, private auth: AuthService) {
+  constructor(private genericosCfg: GenericosService, private audit: AuditService, private api: AsistenciaApi, private auth: AuthService) {
     api.datos$.subscribe((d) => {
       this.corteApi = d?.corte ?? FECHA_CORTE;
       this.feriados = d?.feriados ?? [];

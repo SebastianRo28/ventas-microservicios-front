@@ -127,19 +127,20 @@ export class TiposKpiComponent implements OnDestroy {
     this.intento = true;
     const f = this.form;
     if (!f || this.error) return;
-    const t = this.kpi.guardarTipo({
+    const codigo = f.codigo.trim().toUpperCase();
+    this.kpi.guardarTipo({
       id: f.id, codigo: f.codigo.trim().toUpperCase(), nombre: f.nombre.trim(), unidad: f.unidad, sentido: f.sentido, meta: num(f.meta),
       bono: num(f.bono), umbralPct: num(f.umbralPct), topePct: num(f.topePct), activo: f.activo, colaboradores: [...f.colaboradores],
     });
     this.form = null;
-    this.ui.toast(f.id === null ? `KPI ${t.codigo} creado` : `KPI ${t.codigo} actualizado`);
+    this.ui.toast(f.id === null ? `KPI ${codigo} creado` : `KPI ${codigo} actualizado`);
   }
 
   onAction(action: RowAction, row: Row): void {
     const t = this.tipos.find((x) => x.id === row.id);
     if (!t) return;
     if (action === 'editar') this.abrir(t);
-    else if (action === 'pausa') { this.kpi.toggleTipo(t); this.ui.toast(t.activo ? `${t.nombre} activado` : `${t.nombre} desactivado: no paga bono`); }
+    else if (action === 'pausa') { this.kpi.toggleTipo(t); this.ui.toast(!t.activo ? `${t.nombre} activado` : `${t.nombre} desactivado: no paga bono`); }
     else if (action === 'eliminar') {
       if (this.kpi.usos(t.id)) this.ui.toast(`No se puede eliminar: tiene ${this.kpi.usos(t.id)} datos cargados. Desactívalo en su lugar`);
       else this.borrar = t;

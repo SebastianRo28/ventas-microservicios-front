@@ -20,7 +20,7 @@ const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
             <option [ngValue]="null" disabled>Selecciona un colaborador</option>
             <option *ngFor="let c of colaboradores" [ngValue]="c.id">{{ c.apellidos }}, {{ c.nombres }} · {{ c.documento }}</option></select></label>
         <div class="nx-grid nx-grid--2 nx-gap-16">
-          <label class="nx-field">Fecha*<input type="date" class="nx-input" name="fecha" [min]="minIso" [max]="maxIso" [(ngModel)]="m.fecha"></label>
+          <label class="nx-field">Fecha*<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" name="fecha" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [(ngModel)]="m.fecha"><app-icon name="calendar" [size]="16"></app-icon></span></label>
           <label class="nx-field">Hora*<input type="time" class="nx-input" name="hora" [(ngModel)]="m.hora"></label>
         </div>
         <fieldset class="nx-field"><legend class="nx-field-label">Tipo*</legend>

@@ -3,6 +3,8 @@ import { AuditService } from '../../core/audit.service';
 import { ParametrosRemService } from '../../core/parametros-rem.service';
 import { ConfigRem } from '../../core/sample/parametros-rem';
 import { UiStateService } from '../../core/ui-state.service';
+import { GenericosService } from '../../core/genericos.service';
+import { CONFIG_FORMS } from '../../core/sample/config-forms';
 
 /** Remuneraciones › Configuraciones: pay schedule, rounding and how payslips are delivered. */
 @Component({
@@ -64,7 +66,7 @@ export class RemConfigComponent {
   f: ConfigRem;
   error = '';
 
-  constructor(private params: ParametrosRemService, private audit: AuditService, private ui: UiStateService) { this.f = { ...params.config }; }
+  constructor(private gen: GenericosService, private params: ParametrosRemService, private audit: AuditService, private ui: UiStateService) { this.f = { ...params.config }; }
 
   get ejemplo(): string {
     const n = 2078.72;
@@ -79,9 +81,8 @@ export class RemConfigComponent {
       : this.f.periodicidad === 'Quincenal' && Number(this.f.diaAdelanto) >= Number(this.f.diaPago) ? 'El adelanto debe pagarse antes del día de pago.'
       : this.f.periodicidad === 'Quincenal' && !entero(this.f.adelantoPct, 10, 50) ? 'El adelanto debe estar entre 10 % y 50 %.' : '';
     if (this.error) { this.tab = 0; return; }
-    const cambios = (Object.keys(this.f) as (keyof ConfigRem)[]).filter((k) => String(this.f[k]) !== String(this.params.config[k]));
-    Object.assign(this.params.config, { ...this.f, diaPago: Number(this.f.diaPago), diaAdelanto: Number(this.f.diaAdelanto), adelantoPct: Number(this.f.adelantoPct) });
-    if (cambios.length) this.audit.registrar({ colaborador: '—', documento: '—', entidad: 'Configuración de remuneraciones', accion: 'Modificar', propiedad: cambios.join(', ') });
+    const cambios = this.gen.guardarConfig(CONFIG_FORMS['remuneraciones'], 'Configuración de remuneraciones',
+      { ...this.f, diaPago: Number(this.f.diaPago), diaAdelanto: Number(this.f.diaAdelanto), adelantoPct: Number(this.f.adelantoPct) });
     this.ui.toast(cambios.length ? 'Configuración de remuneraciones guardada' : 'No hay cambios que guardar');
   }
 }

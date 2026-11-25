@@ -81,7 +81,7 @@ const num = (s: string) => Number(String(s).replace(',', '.'));
       <form id="param-form" class="nx-form" (ngSubmit)="guardar()">
         <ng-container *ngIf="e.tipo === 'general'">
           <label class="nx-field">Valor ({{ e.p.unidad }})*<input class="nx-input" name="valor" inputmode="decimal" [(ngModel)]="e.valor"></label>
-          <label class="nx-field">Vigente desde*<input class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="e.desde"></label>
+          <label class="nx-field">Vigente desde*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="e.desde"><app-icon name="calendar" [size]="16"></app-icon></span></label>
           <span *ngIf="e.p.clave === 'rmv' || e.p.clave === 'asigFamiliarPct'" class="nx-hint">Cambia la asignación familiar y el jornal mínimo que usan Asignación de ítems y Sueldos Diarios.</span>
         </ng-container>
         <ng-container *ngIf="e.tipo === 'afp'">

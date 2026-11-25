@@ -1,7 +1,7 @@
 /** Definitions for the generic catalog and settings screens (configured per route through route data). */
 
 /** Where a select field gets its options when they come from other data. */
-export type FuenteOpciones = 'colaboradores' | 'areas' | 'cargos' | 'items' | `catalogo:${string}`;
+export type FuenteOpciones = 'colaboradores' | 'areas' | 'cargos' | 'items' | 'departamentos' | `catalogo:${string}`;
 
 export interface CampoCatalogo {
   key: string;

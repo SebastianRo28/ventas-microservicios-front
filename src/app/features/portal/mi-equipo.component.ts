@@ -5,7 +5,6 @@ import { iniciales, parseFecha } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
 import { emailDe, PortalService } from '../../core/portal.service';
-import { CONTACTO } from '../../core/sample/portal';
 
 interface Miembro { c: Colaborador; ini: string; rol: 'Jefatura' | 'Compañero(a)' | 'A tu cargo' | 'Tú'; estado: string; tone: string; email: string; anexo: string; }
 interface Ausencia { c: Colaborador; detalle: string; desde: string; hasta: string; }
@@ -93,7 +92,7 @@ export class MiEquipoComponent implements OnDestroy {
     this.miembros = ids.map(([id, rol]) => cs.find((c) => c.id === id) && { id, rol }).filter((x): x is { id: number; rol: Miembro['rol'] } => !!x)
       .map(({ id, rol }) => {
         const c = cs.find((x) => x.id === id)!;
-        return { c, rol, ini: iniciales(c.nombres, c.apellidos), email: emailDe(c), anexo: CONTACTO[c.id]?.anexo ?? '—', ...this.estado(c.id) };
+        return { c, rol, ini: iniciales(c.nombres, c.apellidos), email: emailDe(c), anexo: c.contacto?.anexo || '—', ...this.estado(c.id) };
       });
     const corte = parseFecha(this.asis.corte)!, fin = new Date(corte.getTime() + 30 * 86_400_000);
     const enEquipo = new Set(this.miembros.map((m) => m.c.id));

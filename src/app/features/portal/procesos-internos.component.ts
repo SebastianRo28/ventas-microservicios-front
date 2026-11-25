@@ -2,7 +2,7 @@ import { Component, OnDestroy } from '@angular/core';
 import { combineLatest, Subscription } from 'rxjs';
 import { AsistenciaService } from '../../core/asistencia.service';
 import { mensajeError } from '../../core/auth.service';
-import { soles } from '../../core/format';
+import { soles, parseFecha } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
 import { PortalService } from '../../core/portal.service';
@@ -60,7 +60,12 @@ import { UiStateService } from '../../core/ui-state.service';
   `
 })
 export class ProcesosInternosComponent implements OnDestroy {
-  readonly procesos = PROCESOS_PORTAL;
+  /** Request types of the portal; the 5th-category certificate offers the last two closed years. */
+  readonly procesos: ProcesoPortal[] = PROCESOS_PORTAL.map((p) => {
+    if (p.id !== 'quinta') return p;
+    const anio = (parseFecha(this.asis.corte) ?? new Date()).getFullYear();
+    return { ...p, campo: { ...p.campo, opciones: [String(anio - 1), String(anio - 2)] } };
+  });
   mias: SolicitudWf[] = [];
   form: { p: ProcesoPortal; valor: string } | null = null;
   intento = false;

@@ -7,6 +7,10 @@ const EVENTOS: [string, string][] = [
 
 /** Generic settings forms, keyed by the `config` value in the route data. */
 export const CONFIG_FORMS: Record<string, ConfigFormDef> = {
+  // Screens with their own form (Asistencia, Remuneraciones, Parámetros generales): stored the same way.
+  'asistencia': { clave: 'asistencia', tabs: [], valores: {umbralSaldo: 30, permitirAdelanto: false, anticipacionDias: 3, sobretasaDomingo: 100, horasJornada: 8} },
+  'remuneraciones': { clave: 'remuneraciones', tabs: [], valores: {periodicidad: 'Mensual', diaPago: 31, diaAdelanto: 15, adelantoPct: 40, redondeo: 'Sin redondeo', boletaAportes: true, boletaFirma: true, boletaCorreo: true, boletaPortal: true} },
+  'parametros-generales': { clave: 'parametros-generales', tabs: [], valores: {pais: 'Perú', contabilidad: '', alertaRecontratacion: 30, horas: 43, dias: 30, mailAdmin: 'Gestión de Personas', mailCumple: 'Comunicaciones Internas', mailEncuestas: 'Clima y Cultura', formatoNombre: 'Apellido, Nombre'} },
   documentos: {
     clave: 'documentos',
     tabs: [{ nombre: 'General', secciones: [

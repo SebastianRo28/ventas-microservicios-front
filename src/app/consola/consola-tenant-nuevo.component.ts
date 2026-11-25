@@ -64,7 +64,7 @@ type EstadoSlug = 'vacio' | 'verificando' | 'available' | 'taken' | 'reserved' |
         </div>
         <div class="nx-form-grid nx-mt-16">
           <label class="nx-field">Precio del plan por colaborador (S/) *<input class="nx-input" type="number" min="0.01" step="0.1" [(ngModel)]="d.precioPorColaborador"></label>
-          <label class="nx-field">Fin del trial<input class="nx-input" type="date" [(ngModel)]="d.trialHasta"><span class="nx-hint">Vacío = activo desde hoy.</span></label>
+          <label class="nx-field">Fin del trial<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" [(ngModel)]="d.trialHasta"><app-icon name="calendar" [size]="16"></app-icon></span><span class="nx-hint">Vacío = activo desde hoy.</span></label>
           <div class="nx-field"><span>Precio total estimado</span><b>{{ soles(total) }} por colaborador / mes</b></div>
         </div>
         <p *ngIf="intento && !paso3Ok" class="nx-error">Elige un plan, al menos un módulo y un precio mayor que cero.</p>

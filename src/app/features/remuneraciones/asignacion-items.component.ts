@@ -5,6 +5,7 @@ import { parseFecha, soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { ParametrosRemService } from '../../core/parametros-rem.service';
 import { ItemsService, periodoNum, vigenteEn } from '../../core/items.service';
+import { PeriodoService, nombreMes } from '../../core/periodo.service';
 import { Colaborador } from '../../core/models';
 import { AsignacionItem, CLASE_TONE, TipoItem } from '../../core/sample/items';
 import { UiStateService } from '../../core/ui-state.service';
@@ -32,13 +33,15 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
   selector: 'app-asignacion-items',
   template: `
     <app-page-header title="Asignación de ítems" [crumbs]="['Remuneraciones', 'Ítems']"></app-page-header>
-    <div class="nx-row nx-row--center nx-mb-16">
+    <!-- With payroll periods the month is the topbar one; without them, this local selector. -->
+    <div *ngIf="!per.disponible" class="nx-row nx-row--center nx-mb-16">
       <label class="nx-field nx-field--inline">Período
         <select class="nx-select nx-select--sm" name="periodo" [(ngModel)]="periodo" (ngModelChange)="refrescar()">
           <option *ngFor="let p of periodos" [value]="p.value">{{ p.label }}</option>
         </select>
       </label>
     </div>
+    <app-periodo-aviso></app-periodo-aviso>
     <div class="nx-grid nx-grid--4 nx-mb-16">
       <div class="nx-card nx-stat"><span>Haberes del período</span><b>{{ stats.haberes }}</b></div>
       <div class="nx-card nx-stat"><span>Descuentos del período</span><b>{{ stats.descuentos }}</b></div>
@@ -66,8 +69,8 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
         </label>
         <label class="nx-field">Monto (S/)*<input class="nx-input" name="monto" inputmode="decimal" placeholder="0.00" [(ngModel)]="m.monto"></label>
         <div class="nx-grid nx-grid--2 nx-gap-16">
-          <label class="nx-field">Desde (MM/YYYY)*<input class="nx-input" name="desde" placeholder="03/2026" [(ngModel)]="m.desde"></label>
-          <label class="nx-field">Hasta (MM/YYYY)<input class="nx-input" name="hasta" placeholder="Sin fecha de término" [(ngModel)]="m.hasta"></label>
+          <label class="nx-field">Desde (MM/YYYY)*<span class="nx-input-icon nx-input-icon--end"><input nxFecha="mes" class="nx-input" name="desde" [placeholder]="periodo" [(ngModel)]="m.desde"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Hasta (MM/YYYY)<span class="nx-input-icon nx-input-icon--end"><input nxFecha="mes" class="nx-input" name="hasta" placeholder="Sin fecha de término" [(ngModel)]="m.hasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         </div>
         <label class="nx-field">Observación<input class="nx-input" name="observacion" placeholder="Opcional" [(ngModel)]="m.observacion"></label>
         <span *ngIf="intento && error" class="nx-error">{{ error }}</span>
@@ -90,8 +93,14 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 export class AsignacionItemsComponent implements OnDestroy {
   readonly cols = COLS;
   readonly actions: RowAction[] = ['eliminar'];
-  readonly periodos: { value: string; label: string }[];
-  periodo: string;
+  private readonly periodosLocal: { value: string; label: string }[];
+  private periodoLocal: string;
+  /** Selected month (MM/YYYY): the topbar period when there are payroll periods, otherwise the local selector. */
+  get periodo(): string { return this.per.disponible ? this.per.seleccionado : this.periodoLocal; }
+  set periodo(v: string) { if (this.per.disponible) this.per.seleccionar(v); else this.periodoLocal = v; }
+  get periodos(): { value: string; label: string }[] {
+    return this.per.disponible ? this.per.periodos$.value.map((p) => ({ value: p.periodo, label: nombreMes(p.periodo) })) : this.periodosLocal;
+  }
   rows: Row[] = [];
   colaboradores: Colaborador[] = [];
   stats = { haberes: '', descuentos: '', colaboradores: 0, automaticos: 0 };
@@ -102,15 +111,16 @@ export class AsignacionItemsComponent implements OnDestroy {
   private asignaciones: AsignacionItem[] = [];
   private sub: Subscription;
 
-  constructor(data: HrDataService, public items: ItemsService, private asis: AsistenciaService, private params: ParametrosRemService, private ui: UiStateService) {
+  constructor(data: HrDataService, public items: ItemsService, private asis: AsistenciaService, private params: ParametrosRemService, private ui: UiStateService,
+              public per: PeriodoService) {
     const corte = parseFecha(asis.corte)!;
     const pad = (n: number) => String(n).padStart(2, '0');
-    this.periodo = `${pad(corte.getMonth() + 1)}/${corte.getFullYear()}`;
-    this.periodos = Array.from({ length: 6 }, (_, i) => {
+    this.periodoLocal = `${pad(corte.getMonth() + 1)}/${corte.getFullYear()}`;
+    this.periodosLocal = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(corte.getFullYear(), corte.getMonth() - 3 + i, 1);
       return { value: `${pad(d.getMonth() + 1)}/${d.getFullYear()}`, label: `${MESES[d.getMonth()]} ${d.getFullYear()}` };
     });
-    this.sub = combineLatest([data.colaboradores(), items.tipos$, items.asignaciones$, asis.recargos$, asis.ausencias$]).subscribe(([cs, ts, as]) => {
+    this.sub = combineLatest([data.colaboradores(), items.tipos$, items.asignaciones$, asis.recargos$, asis.ausencias$, per.seleccionado$]).subscribe(([cs, ts, as]) => {
       this.colaboradores = cs;
       this.tipos = ts;
       this.asignaciones = as;
@@ -171,7 +181,9 @@ export class AsignacionItemsComponent implements OnDestroy {
 
   abrir(): void {
     this.intento = false;
-    this.modal = { colaboradorId: null, tipoId: null, monto: '', desde: this.periodo, hasta: '', observacion: '' };
+    // In a closed period nothing can be assigned: start from the open one.
+    const desde = this.per.cerrado(this.periodo) && this.per.abierto ? this.per.abierto : this.periodo;
+    this.modal = { colaboradorId: null, tipoId: null, monto: '', desde, hasta: '', observacion: '' };
   }
   sugerir(): void {
     const m = this.modal;
@@ -186,6 +198,8 @@ export class AsignacionItemsComponent implements OnDestroy {
     const d = periodoNum(m.desde), h = m.hasta.trim() ? periodoNum(m.hasta) : Infinity;
     if (Number.isNaN(d) || Number.isNaN(h)) return 'Usa el formato MM/YYYY en los períodos.';
     if (h < d) return 'El período “Hasta” debe ser igual o posterior a “Desde”.';
+    const abierto = this.per.abierto;
+    if (abierto && d < periodoNum(abierto)) return `Desde ${nombreMes(abierto)} en adelante: los períodos anteriores ya están cerrados.`;
     const choque = this.asignaciones.find((a) => a.colaboradorId === +m.colaboradorId! && a.tipoId === +m.tipoId! &&
       periodoNum(a.desde) <= h && (a.hasta ? periodoNum(a.hasta) : Infinity) >= d);
     if (choque) return `Ya tiene este ítem asignado desde ${choque.desde}${choque.hasta ? ' hasta ' + choque.hasta : ''}.`;
@@ -201,7 +215,7 @@ export class AsignacionItemsComponent implements OnDestroy {
     const a = this.items.asignar(c, { tipoId: +m.tipoId, monto: Math.round(Number(String(m.monto).replace(',', '.')) * 100) / 100,
       desde: m.desde.trim(), hasta: m.hasta.trim(), observacion: m.observacion.trim() });
     this.modal = null;
-    if (!vigenteEn(a, this.periodo)) this.periodo = this.periodos.find((p) => p.value === a.desde)?.value ?? this.periodo;
+    if (!vigenteEn(a, this.periodo) && this.periodos.some((p) => p.value === a.desde)) this.periodo = a.desde;
     this.refrescar();
     this.ui.toast(`${this.items.tipo(a.tipoId)?.nombre} asignado a ${c.nombres} ${c.apellidos.split(' ')[0]}`);
   }

@@ -137,7 +137,7 @@ export class ConsolaPlanesComponent {
     <app-modal *ngIf="sel" [title]="'Publicar nueva versión · ' + sel.nombre" width="560px" (closed)="sel = null">
       <div class="nx-form-grid">
         <label class="nx-field">Versión *<input class="nx-input" [(ngModel)]="version" placeholder="v2027.1"></label>
-        <label class="nx-field">Vigente desde *<input class="nx-input" type="date" [(ngModel)]="vigente"></label>
+        <label class="nx-field">Vigente desde *<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" [(ngModel)]="vigente"><app-icon name="calendar" [size]="16"></app-icon></span></label>
       </div>
       <label class="nx-field">Archivo CSV *<input type="file" accept=".csv,text/csv" (change)="archivo = $any($event.target).files?.[0] ?? null">
         <span class="nx-hint">Columnas: {{ sel.columnas }}</span></label>
@@ -202,8 +202,8 @@ export class ConsolaCatalogosComponent {
         <div class="nx-field"><span>Segmentación por módulo (vacío = todos)</span>
           <div class="cx-modulos-sel"><label *ngFor="let m of modulos" class="nx-check"><input type="checkbox" [checked]="f.modulos.has(m[0])" (change)="alternar(f.modulos, m[0])"> {{ m[1] }}</label></div></div>
         <div class="nx-form-grid">
-          <label class="nx-field">Publicar desde<input class="nx-input" type="datetime-local" [(ngModel)]="f.desde"></label>
-          <label class="nx-field">Ocultar desde<input class="nx-input" type="datetime-local" [(ngModel)]="f.hasta"></label>
+          <label class="nx-field">Publicar desde<span class="nx-input-icon nx-input-icon--end"><input nxFecha="hora" nxFechaIso="hora" class="nx-input" [(ngModel)]="f.desde"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Ocultar desde<span class="nx-input-icon nx-input-icon--end"><input nxFecha="hora" nxFechaIso="hora" class="nx-input" [(ngModel)]="f.hasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
           <label class="nx-field">Canal<select class="nx-select" [(ngModel)]="f.canal"><option value="banner">Banner en la app</option><option value="modal">Modal al ingresar</option><option value="banner_correo">Banner + correo a admins</option></select></label>
         </div>
         <div class="cx-preview-anuncio"><span class="nx-eyebrow">Vista previa en la app del cliente</span>

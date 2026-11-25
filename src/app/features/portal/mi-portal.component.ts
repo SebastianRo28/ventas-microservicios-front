@@ -24,46 +24,48 @@ interface Post {
   likes: number; loves: number; smiles: number; comments: number;
 }
 
-const PORTADAS = [
-  { title: 'Bienvenidos al nuevo portal Nexo RH', text: 'Tus boletas, solicitudes y documentos, ahora en un solo lugar.', icon: 'home', bg: 'var(--nx-primary-700)', blob: 'var(--nx-primary-600)' },
-  { title: 'Campaña de vacunación 2026', text: 'Inscríbete hasta el 20/03/2026 en el tópico de la sede central.', icon: 'hospital', bg: '#1F6E55', blob: '#3C8C72' },
-  { title: 'Encuesta de clima laboral', text: 'Tu opinión es anónima y nos ayuda a mejorar. Responde antes del 31/03/2026.', icon: 'clipcheck', bg: '#A55A17', blob: '#B9671F' },
+/** Colors of the covers, in turn (palette tokens). */
+const PALETA = [
+  { bg: 'var(--nx-primary-700)', blob: 'var(--nx-primary-600)' }, { bg: 'var(--nx-success-700)', blob: 'var(--nx-success-900)' },
+  { bg: 'var(--nx-orange-700)', blob: 'var(--nx-orange-600)' },
 ];
-
-const VALORES = [
-  { name: 'Vamos por más!', hint: 'Buscamos superar las metas cada día.', color: 'var(--nx-primary-700)', icon: 'trend' },
-  { name: 'Nos mueve la excelencia', hint: 'Hacemos las cosas bien desde el inicio.', color: '#1F6E55', icon: 'star' },
-  { name: 'Pasión por el servicio', hint: 'Ponemos al cliente interno y externo al centro.', color: '#B4521F', icon: 'heart' },
-  { name: 'Al infinito y más allá', hint: 'Nos atrevemos a innovar y aprender.', color: '#5B3FA8', icon: 'rocket' },
-];
-
-const CUMPLES: [string, [string, string, string][]][] = [
-  ['Enero', [['SM', 'Sofía Medina', '08/01']]], ['Febrero', [['GN', 'Gonzalo Navarro', '19/02']]],
-  ['Marzo', [['AR', 'Ana Ríos', '12/03'], ['LP', 'Luis Pérez', '28/03']]],
-  ['Abril', [['FA', 'Florencia Alamos', '14/04'], ['RC', 'Renato Chávez', '22/04']]],
-  ['Mayo', [['VH', 'Valeria Herrera', '03/05']]], ['Junio', [['DB', 'Diego Benavides', '17/06']]],
-  ['Julio', [['AD', 'Andrea Delgado', '09/07']]], ['Agosto', [['ME', 'Martín Espinoza', '25/08']]],
-  ['Septiembre', [['CF', 'Carolina Flores', '11/09']]], ['Octubre', [['JG', 'Javier Gutiérrez', '30/10']]],
-  ['Noviembre', [['PH', 'Paolo Huertas', '06/11'], ['DO', 'Daniela Ortiz', '21/11']]],
-  ['Diciembre', [['MZ', 'Miguel Zapata', '15/12'], ['LC', 'Lucía Cáceres', '27/12']]],
-];
+const ICONOS = ['home', 'hospital', 'clipcheck', 'star'];
+/** Shortcuts that Comunicaciones › Portal › Acciones rápidas can show, by title. */
+const ACCESOS: Record<string, { icon: string; path: string }> = {
+  'Generar certificado o documento': { icon: 'file', path: '/admin/documentos' },
+  'Solicitar permiso': { icon: 'calcheck', path: '/admin/asistencia/solicitudes' },
+  'Beneficios': { icon: 'gift', path: '/portal/mis-beneficios' },
+  'Crear solicitud de workflow': { icon: 'workflow', path: '/portal/procesos-internos' },
+};
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 /** P-01.13 Portal del Colaborador ("Mi portal"), with P-12.3 Nuevo Reconocimiento and P-12.4 calendar. */
-import { PortalService } from '../../core/portal.service';
+import { PortalService, ValorReconocimiento } from '../../core/portal.service';
 import { Boleta } from '../../core/models';
 import { Reconocimiento } from '../../core/sample/reportes';
 import { ComunicacionService } from '../../core/comunicacion.service';
 import { mensajeError } from '../../core/auth.service';
-import { iniciales } from '../../core/format';
+import { iniciales, parseFecha } from '../../core/format';
+import { PendientesService } from '../../core/pendientes.service';
+import { ElementoPortal } from '../../core/sample/reportes';
 import { nombrePeriodo } from '../../shared/boleta/boleta-modal.component';
 @Component({
   selector: 'app-mi-portal',
   templateUrl: './mi-portal.component.html'
 })
 export class MiPortalComponent {
-  readonly portadas = PORTADAS;
-  readonly valores = VALORES;
-  readonly cumples = CUMPLES;
+  /** Visible covers of Comunicaciones › Portal. */
+  portadas: { title: string; text: string; icon: string; bg: string; blob: string }[] = [];
+  /** Visible quick actions of Comunicaciones › Portal (all of them while the company has not configured any). */
+  private acciones: ElementoPortal[] = [];
+  muestra(titulo: string): boolean { return !this.acciones.length || this.acciones.some((a) => a.titulo === titulo && a.visible); }
+  get accesos(): { icon: string; label: string; path: string }[] {
+    return Object.entries(ACCESOS).filter(([t]) => this.muestra(t)).map(([label, a]) => ({ label, ...a }));
+  }
+  /** Birthdays of the year by month, from each collaborator's record (day and month). */
+  cumples: [string, [string, string, string][]][] = [];
+  readonly anio: number;
+  get valores(): ValorReconocimiento[] { return this.portal.valores$.value; }
   readonly chips: [Feed, string][] = [['all', 'Todo'], ['pub', 'Publicaciones'], ['rec', 'Reconocimientos'], ['bday', 'Cumpleaños']];
   slide = 0;
   feed: Feed = 'all';
@@ -73,29 +75,11 @@ export class MiPortalComponent {
   recintos: Recinto[] = [];
   ubicacion = 0;
 
-  /** Fixed posts (publications and birthdays) until Comunicaciones has an API; recognitions come from the API. */
-  private fijos: Post[] = [
-    { id: 'p1', kind: 'pub', pinned: true, image: true, ini: 'GP', avatarTone: 'info', author: 'Gestión de Personas', meta: '02/03/2026 · Publicación',
-      text: '¡Bienvenidos a Nexo RH! Desde este mes tus boletas de pago, solicitudes de vacaciones y documentos estarán disponibles en el portal. Si tienes dudas, escríbenos por el chat de Servicio al Colaborador.',
-      likes: 24, loves: 12, smiles: 3, comments: 8 },
-    { id: 'p3', kind: 'pub', ini: 'CI', avatarTone: 'info', author: 'Comunicaciones Internas', meta: '09/03/2026 · Publicación',
-      text: 'Recordatorio: el viernes 13/03/2026 la sede central cerrará a las 3:00 p. m. por mantenimiento eléctrico. El trabajo remoto está habilitado para todas las áreas administrativas.',
-      likes: 9, loves: 2, smiles: 0, comments: 1 },
-    { id: 'p4', kind: 'bday', ini: 'AR', avatarTone: 'yellow', author: 'Ana Ríos Calderón', meta: 'CUMPLEAÑOS · 12/03/2026', role: 'Asistente Contable · Contabilidad',
-      likes: 31, loves: 18, smiles: 4, comments: 12 },
-  ];
-
-  tareas = [
-    { tag: 'Solicitudes', tone: 'info', who: 'Navarro Ríos, Gonzalo', what: '#18747 Aporte Patronal está pendiente de revisión', when: '12/03/2026' },
-    { tag: 'Solicitud de ausentismo', tone: 'info', who: 'Chávez Quispe, Renato', what: 'Permiso por trámite personal el 14/03/2026', when: '11/03/2026' },
-    { tag: 'Acciones pendientes - Evaluación', tone: 'neutral', who: 'Gestión de Personas', what: 'Autoevaluación de desempeño 2026', when: '09/03/2026' },
-  ];
-  accesos = [
-    { icon: 'file', label: 'Generar certificado o documento', path: '/admin/documentos' },
-    { icon: 'calcheck', label: 'Solicitar permiso', path: '/admin/asistencia/solicitudes' },
-    { icon: 'gift', label: 'Beneficios', path: '/portal/mis-beneficios' },
-    { icon: 'workflow', label: 'Crear solicitud de workflow', path: '/portal/procesos-internos' },
-  ];
+  /** Birthday posts of the day (attendance cut-off date), from the collaborators' records. */
+  private fijos: Post[] = [];
+  /** First pending tasks (PendientesService) and how many there are. */
+  tareas: { tag: string; tone: string; who: string; what: string; when: string }[] = [];
+  totalTareas = 0;
 
   /** Modals */
   recon = 0;            // 0 closed · 1 valor · 2 destinatarios · 3 publicado
@@ -109,10 +93,31 @@ export class MiPortalComponent {
   /** Vacation balance of the signed-in collaborator. */
   saldoVacaciones = 0;
 
-  constructor(data: HrDataService, public ui: UiStateService, asistencia: AsistenciaService, private ca: ControlAsistenciaService, public portal: PortalService, private com: ComunicacionService) {
+  constructor(data: HrDataService, public ui: UiStateService, asistencia: AsistenciaService, private ca: ControlAsistenciaService, public portal: PortalService, private com: ComunicacionService,
+              pendientes: PendientesService) {
+    const hoy = parseFecha(asistencia.corte) ?? new Date();
+    this.anio = hoy.getFullYear();
+    const ddmm = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    data.portadas().subscribe((ps) => {
+      this.portadas = ps.filter((p) => p.visible).map((p, i) => ({ title: p.titulo, text: p.descripcion, icon: ICONOS[i % ICONOS.length], ...PALETA[i % PALETA.length] }));
+      this.slide = 0;
+    });
+    data.accionesRapidas().subscribe((a) => (this.acciones = a));
+    pendientes.items$().subscribe((l) => {
+      this.totalTareas = l.length;
+      this.tareas = l.slice(0, 3).map((p) => ({ tag: p.etiqueta, tone: p.tone, who: p.titulo, what: p.detalle, when: p.fecha }));
+    });
     this.recintos = ca.recintos$.value.filter((r) => r.activo);
     this.ubicacion = ca.recintoDe[this.portal.yoId] ?? this.recintos[0]?.id ?? 0;
     data.colaboradores().subscribe((l) => {
+      const conCumple = l.filter((c) => c.contacto?.cumpleanos).sort((a, b) => a.contacto!.cumpleanos!.split('/').reverse().join('').localeCompare(b.contacto!.cumpleanos!.split('/').reverse().join('')));
+      this.cumples = MESES.map((m, i) => [m, conCumple.filter((c) => +c.contacto!.cumpleanos!.slice(3) === i + 1)
+        .map((c) => [iniciales(c.nombres, c.apellidos), `${c.nombres.split(' ')[0]} ${c.apellidos.split(' ')[0]}`, c.contacto!.cumpleanos!] as [string, string, string])] as [string, [string, string, string][]])
+        .filter(([, ps]) => ps.length);
+      this.fijos = conCumple.filter((c) => c.contacto!.cumpleanos === ddmm).map((c): Post => ({
+        id: 'b' + c.id, kind: 'bday', ini: iniciales(c.nombres, c.apellidos), avatarTone: 'yellow', author: `${c.nombres} ${c.apellidos}`,
+        meta: `CUMPLEAÑOS · ${ddmm}/${this.anio}`, role: `${c.cargo} · ${c.area}`, likes: 0, loves: 0, smiles: 0, comments: 0 }));
+      this.componer();
       const otros = l.filter((c) => c.id !== this.portal.yoId);
       this.personas = otros.map((c) => `${c.apellidos}, ${c.nombres}`);
       this.idPorNombre = new Map(otros.map((c) => [`${c.apellidos}, ${c.nombres}`, c.id]));
@@ -128,7 +133,7 @@ export class MiPortalComponent {
   posts: Post[] = [];
   private armarMuro(rs: Reconocimiento[]): void {
     const recs: Post[] = rs.slice(0, 8).map((r) => {
-      const v = VALORES.find((x) => x.name === r.valor);
+      const v = this.valores.find((x) => x.nombre === r.valor);
       const autor = r.autor.split(', ').reverse().join(' ');
       return { id: 'r' + r.id, kind: 'rec', ini: iniciales(r.autor.split(', ')[1] ?? r.autor, r.autor.split(', ')[0] ?? ''), avatarTone: 'warning', author: '', meta: `${r.fecha} · Reconocimiento`,
         from: autor, to: r.para.split('; ').map((n) => n.split(', ').reverse().join(' ')).join(', '), valor: r.valor, valorColor: v?.color,
@@ -159,8 +164,8 @@ export class MiPortalComponent {
   get visibles(): Post[] { return this.posts.filter((p) => this.feed === 'all' || p.kind === this.feed); }
   get reconOpts(): string[] { return this.personas.filter((p) => !this.reconWho.includes(p)); }
 
-  prev(): void { this.slide = (this.slide + PORTADAS.length - 1) % PORTADAS.length; }
-  next(): void { this.slide = (this.slide + 1) % PORTADAS.length; }
+  prev(): void { const n = this.portadas.length; if (n) this.slide = (this.slide + n - 1) % n; }
+  next(): void { const n = this.portadas.length; if (n) this.slide = (this.slide + 1) % n; }
 
   toggleLike(p: Post): void { this.liked.has(p.id) ? this.liked.delete(p.id) : this.liked.add(p.id); }
 
@@ -191,7 +196,7 @@ export class MiPortalComponent {
     if (!this.reconWho.length) return;
     const ids = this.reconWho.map((n) => this.idPorNombre.get(n)).filter((x): x is number => x !== undefined);
     this.reconError = '';
-    this.portal.reconocer(ids, VALORES[this.valor].name, this.reconMsg.trim() || '¡Buen trabajo equipo!').subscribe({
+    this.portal.reconocer(ids, this.valores[this.valor]?.nombre ?? '', this.reconMsg.trim() || '¡Buen trabajo equipo!').subscribe({
       next: () => (this.recon = 3),
       error: (e) => (this.reconError = mensajeError(e)),
     });

@@ -19,12 +19,15 @@ export interface Colaborador {
   reservado?: boolean;
   /** Optional record details shown in the Ficha; missing values render as "—". */
   detalle?: ColaboradorDetalle;
+  /** Directory data everyone sees: corporate e-mail, extension, site (main recinto) and birthday ("dd/MM"). */
+  contacto?: { email?: string | null; anexo?: string | null; sede?: string | null; cumpleanos?: string | null };
 }
 
 export interface ColaboradorDetalle {
   tipoDocumento?: string;
   emailCorporativo?: string;
   telefono?: string;
+  anexo?: string;
   nacimiento?: string;
   direccion?: string;
   carrera?: string;
@@ -57,6 +60,16 @@ export interface Competencia { id: number; nombre: string; descripcion: string; 
 
 export interface SubArea { nombre: string; colaboradores: number; }
 export interface Area { nombre: string; colaboradores: number; subAreas: SubArea[]; }
+/** GET /api/ubigeo: versión vigente del catálogo global (INEI). */
+export interface UbigeoDistrito { codigo: string; nombre: string; }
+export interface UbigeoProvincia { nombre: string; distritos: UbigeoDistrito[]; }
+export interface UbigeoDepartamento { nombre: string; provincias: UbigeoProvincia[]; }
+export interface Ubigeo { version: string | null; departamentos: UbigeoDepartamento[]; }
+/** "Lurín" = "lurin": the INEI publishes names without accents, older records may have them. */
+export function mismoLugar(a: string | null | undefined, b: string | null | undefined): boolean {
+  const n = (s: string | null | undefined) => (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  return n(a) === n(b);
+}
 export interface Division { nombre: string; colaboradores: number; areas: Area[]; }
 
 export interface ProcesoPago { nombre: string; estado: string; tone: Tone; colaboradores: number; fechaPago: string; }

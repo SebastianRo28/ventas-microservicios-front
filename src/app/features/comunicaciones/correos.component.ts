@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { HrDataService } from '../../core/hr-data.service';
+import { DatosService } from '../../core/datos.service';
 import { CorreoAutomatico } from '../../core/sample/sst';
 import { UiStateService } from '../../core/ui-state.service';
 
@@ -37,12 +38,12 @@ import { UiStateService } from '../../core/ui-state.service';
 export class CorreosComponent {
   correos: CorreoAutomatico[] = [];
 
-  constructor(data: HrDataService, public ui: UiStateService) {
+  constructor(data: HrDataService, public ui: UiStateService, private datos: DatosService) {
     data.correos().subscribe((c) => (this.correos = c));
   }
 
   toggle(c: CorreoAutomatico): void {
-    c.activo = !c.activo;
-    this.ui.toast(`“${c.nombre}” ${c.activo ? 'activado' : 'detenido'}`);
+    const activo = !c.activo;
+    this.datos.actualizar('correos-automaticos', { ...c, activo }).subscribe(() => this.ui.toast(`“${c.nombre}” ${activo ? 'activado' : 'detenido'}`));
   }
 }

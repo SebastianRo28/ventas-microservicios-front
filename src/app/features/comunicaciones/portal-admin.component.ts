@@ -3,6 +3,7 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { downloadCsv } from '../../core/csv';
 import { HrDataService } from '../../core/hr-data.service';
+import { DatosService } from '../../core/datos.service';
 import { ESTADO_PUBLICACION_TONE, ElementoPortal } from '../../core/sample/reportes';
 import { ComunicacionService, PublicacionApi } from '../../core/comunicacion.service';
 import { mensajeError } from '../../core/auth.service';
@@ -57,11 +58,11 @@ const PCOLS: Column[] = [
     <app-data-table *ngIf="tab === 1" [columns]="pcols" [rows]="portadaRows" createLabel="Crear Portada" [rowActions]="elemActions"
                     [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false" tableLabel="Portadas" minWidth="1000px" exportName="portadas"
                     (create)="ui.toast('El editor de portadas llegará en la próxima versión')"
-                    (action)="onElem(portadas, $event.action, $event.row)"></app-data-table>
+                    (action)="onElem('portal-portadas', portadas, $event.action, $event.row)"></app-data-table>
     <app-data-table *ngIf="tab === 2" [columns]="pcols" [rows]="accionRows" createLabel="Crear Acción Rápida" [rowActions]="elemActions"
                     [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false" tableLabel="Acciones rápidas" minWidth="1000px" exportName="acciones-rapidas"
                     (create)="ui.toast('El editor de acciones rápidas llegará en la próxima versión')"
-                    (action)="onElem(acciones, $event.action, $event.row)"></app-data-table>
+                    (action)="onElem('portal-accesos', acciones, $event.action, $event.row)"></app-data-table>
 
     <app-modal *ngIf="pubModal as m" [title]="m.id === null ? 'Crear Publicación' : 'Editar Publicación'" width="640px" (closed)="pubModal = null">
       <form id="pub-form" class="nx-form" (ngSubmit)="guardarPub()">
@@ -69,8 +70,8 @@ const PCOLS: Column[] = [
         <label class="nx-field">Contenido*<textarea class="nx-textarea" name="texto" rows="5" maxlength="4000" [(ngModel)]="m.texto"></textarea></label>
         <label class="nx-field">Autor<input class="nx-input" name="autor" maxlength="80" [(ngModel)]="m.autor" placeholder="Gestión de Personas"></label>
         <div class="nx-grid nx-grid--2">
-          <label class="nx-field">Publicar el (DD/MM/AAAA)<input class="nx-input" name="publicarEl" [(ngModel)]="m.publicarEl" placeholder="Vacío = borrador"></label>
-          <label class="nx-field">Expira el (DD/MM/AAAA)<input class="nx-input" name="expira" [(ngModel)]="m.expira" placeholder="Sin expiración"></label>
+          <label class="nx-field">Publicar el (DD/MM/AAAA)<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="publicarEl" [(ngModel)]="m.publicarEl" placeholder="Vacío = borrador"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Expira el (DD/MM/AAAA)<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="expira" [(ngModel)]="m.expira" placeholder="Sin expiración"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         </div>
         <label class="nx-check nx-check--plain"><input type="checkbox" name="fijada" [(ngModel)]="m.fijada">Fijar al inicio del muro</label>
         <span class="nx-hint">Sin fecha queda como borrador; con fecha futura queda programada.</span>
@@ -95,10 +96,10 @@ export class PortalAdminComponent {
   errorPub = '';
   ocupado = false;
 
-  constructor(data: HrDataService, public ui: UiStateService, private router: Router, private api: ComunicacionService) {
+  constructor(data: HrDataService, public ui: UiStateService, private router: Router, private api: ComunicacionService, private datos: DatosService) {
     this.cargarPubs();
-    data.portadas().subscribe((p) => (this.portadas = p));
-    data.accionesRapidas().subscribe((a) => (this.acciones = a));
+    data.portadas().subscribe((p) => { this.portadas = p; this.refresh(); });
+    data.accionesRapidas().subscribe((a) => { this.acciones = a; this.refresh(); });
     this.refresh();
   }
 
@@ -160,13 +161,14 @@ export class PortalAdminComponent {
     });
   }
 
-  onElem(list: ElementoPortal[], action: RowAction, row: Row): void {
-    const i = list.findIndex((e) => e.id === row.id);
-    if (i < 0) return;
-    const e = list[i];
-    if (action === 'ocultar') { e.visible = !e.visible; this.ui.toast(`“${e.titulo}” ahora está ${e.visible ? 'visible' : 'oculto'} en el portal`); }
-    if (action === 'eliminar') { list.splice(i, 1); this.ui.toast(`“${e.titulo}” eliminado`); }
+  onElem(coleccion: 'portal-portadas' | 'portal-accesos', list: ElementoPortal[], action: RowAction, row: Row): void {
+    const e = list.find((x) => x.id === row.id);
+    if (!e) return;
+    if (action === 'ocultar') {
+      const visible = !e.visible;
+      this.datos.actualizar(coleccion, { ...e, visible }).subscribe(() => this.ui.toast(`“${e.titulo}” ahora está ${visible ? 'visible' : 'oculto'} en el portal`));
+    }
+    if (action === 'eliminar') this.datos.eliminar(coleccion, e.id).subscribe(() => this.ui.toast(`“${e.titulo}” eliminado`));
     if (action === 'editar') this.ui.toast('La edición llegará en la próxima versión');
-    this.refresh();
   }
 }

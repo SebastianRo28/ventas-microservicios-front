@@ -54,8 +54,3 @@ export interface ConfigRem {
   boletaCorreo: boolean;
   boletaPortal: boolean;
 }
-
-export const CONFIG_REM: ConfigRem = {
-  periodicidad: 'Mensual', diaPago: 31, diaAdelanto: 15, adelantoPct: 40, redondeo: 'Sin redondeo',
-  boletaAportes: true, boletaFirma: true, boletaCorreo: true, boletaPortal: true,
-};

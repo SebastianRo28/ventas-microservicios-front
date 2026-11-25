@@ -10,8 +10,10 @@ import { IconComponent } from './icon/icon.component';
 import { ModalComponent } from './modal/modal.component';
 import { PageHeaderComponent } from './page-header/page-header.component';
 import { BoletaModalComponent } from './boleta/boleta-modal.component';
+import { FechaDirective, FechaIsoDirective } from './fecha/fecha.directive';
+import { PeriodoAvisoComponent } from './periodo/periodo-aviso.component';
 
-const COMPONENTS = [IconComponent, DataTableComponent, PageHeaderComponent, ModalComponent, PlaceholderComponent, BoletaModalComponent, TerminoPipe, ChecklistImplementacionComponent];
+const COMPONENTS = [IconComponent, DataTableComponent, PageHeaderComponent, ModalComponent, PlaceholderComponent, BoletaModalComponent, TerminoPipe, ChecklistImplementacionComponent, FechaDirective, FechaIsoDirective, PeriodoAvisoComponent];
 
 /** Building blocks every screen uses (icons, table, modal, page header) plus Common/Forms/Router. */
 @NgModule({

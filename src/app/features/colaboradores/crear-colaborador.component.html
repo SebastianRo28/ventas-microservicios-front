@@ -39,9 +39,9 @@
 
     <!-- Paso 1 -->
     <div *ngIf="step === 0" class="nx-form-grid">
-      <ng-container *ngTemplateOutlet="text; context: { k: 'nombre', label: 'Nombre*', ph: 'Ej. Florencia' }"></ng-container>
-      <ng-container *ngTemplateOutlet="text; context: { k: 'apellido', label: 'Apellido*', ph: 'Ej. Alamos' }"></ng-container>
-      <ng-container *ngTemplateOutlet="text; context: { k: 'segundoApellido', label: 'Segundo Apellido', ph: 'Ej. Ruiz' }"></ng-container>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'nombre', label: 'Nombre*', ph: 'Ej. María' }"></ng-container>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'apellido', label: 'Apellido*', ph: 'Ej. García' }"></ng-container>
+      <ng-container *ngTemplateOutlet="text; context: { k: 'segundoApellido', label: 'Segundo Apellido', ph: 'Ej. López' }"></ng-container>
       <label class="nx-field">Tipo de Documento
         <select class="nx-select" name="tipoDoc" [(ngModel)]="f.tipoDoc"><option>DNI</option><option>Carné de extranjería</option><option>Pasaporte</option></select>
       </label>
@@ -74,14 +74,25 @@
         <span class="nx-hint">Prefijo de país sin +</span>
       </label>
       <div class="nx-field-stack">
-        <ng-container *ngTemplateOutlet="text; context: { k: 'email', label: 'Email Corporativo*', ph: 'nombre@comercialandina.pe', type: 'email' }"></ng-container>
+        <ng-container *ngTemplateOutlet="text; context: { k: 'email', label: 'Email Corporativo*', ph: 'nombre@empresa.pe', type: 'email' }"></ng-container>
         <label class="nx-check nx-check--plain"><input type="checkbox" name="crearUsuario" [(ngModel)]="f.crearUsuario">Crear Usuario (Perfil Normal)</label>
       </div>
       <ng-container *ngTemplateOutlet="text; context: { k: 'emailPersonal', label: 'Email Personal', ph: 'nombre@gmail.com', type: 'email' }"></ng-container>
       <ng-container *ngTemplateOutlet="text; context: { k: 'direccion', label: 'Dirección', ph: 'Ej. Av. Javier Prado Este 1250' }"></ng-container>
+      <label class="nx-field">Departamento
+        <select class="nx-select" name="departamento" [(ngModel)]="f.departamento" (ngModelChange)="onDepartamento()">
+          <option *ngFor="let d of departamentos" [value]="d.nombre">{{ d.nombre }}</option>
+        </select>
+      </label>
+      <label class="nx-field">Provincia
+        <select class="nx-select" name="provincia" [(ngModel)]="f.provincia" (ngModelChange)="onProvincia()">
+          <option *ngFor="let p of provincias" [value]="p.nombre">{{ p.nombre }}</option>
+        </select>
+      </label>
       <label class="nx-field">Distrito
         <select class="nx-select" name="distrito" [(ngModel)]="f.distrito">
-          <option value="">Seleccionar</option><option>San Isidro</option><option>Miraflores</option><option>Surco</option><option>San Borja</option><option>La Molina</option><option>Jesús María</option><option>Callao</option>
+          <option value="">Seleccionar</option>
+          <option *ngFor="let d of distritos" [value]="d.nombre">{{ d.nombre }}</option>
         </select>
       </label>
       <label class="nx-field">Situación Educativa
@@ -103,8 +114,6 @@
           <label class="nx-field">Tipo de vía<select class="nx-select"><option>Avenida</option><option>Jirón</option><option>Calle</option><option>Pasaje</option></select></label>
           <label class="nx-field">Nombre de vía<input class="nx-input" maxlength="20" placeholder="Máx. 20 caracteres"></label>
           <label class="nx-field">Número<input class="nx-input" placeholder="1250"></label>
-          <label class="nx-field">Departamento<select class="nx-select"><option>Lima</option><option>Arequipa</option><option>Callao</option><option>Cusco</option><option>La Libertad</option><option>Piura</option></select></label>
-          <label class="nx-field">Provincia<select class="nx-select"><option>Lima</option><option>Callao</option><option>Arequipa</option></select></label>
         </div>
       </div>
     </div>
@@ -169,7 +178,7 @@
         <span *ngIf="errors['sueldo']" class="nx-error">{{ errors['sueldo'] }}</span>
       </label>
       <label class="nx-field">Moneda<select class="nx-select"><option>Soles (PEN)</option><option>Dólares (USD)</option></select></label>
-      <label class="nx-field">Centro de costo<select class="nx-select"><option>CC-120 Administración</option><option>CC-200 Operaciones</option><option>CC-300 Comercial</option><option>CC-400 Tecnología</option></select></label>
+      <label class="nx-field">Centro de costo<select class="nx-select"><option value="">{{ centros.length ? 'Seleccionar' : 'Sin centros de costo registrados' }}</option><option *ngFor="let c of centros">{{ c }}</option></select></label>
       <label class="nx-field">Sindicalizado<select class="nx-select"><option>No</option><option>Sí</option></select></label>
       <label class="nx-field">Política de vacaciones<select class="nx-select"><option>General · 30 días calendario</option></select></label>
     </div>
@@ -184,7 +193,7 @@
     <ng-template #date let-k="k" let-label="label">
       <label class="nx-field">{{ label }}
         <span class="nx-input-icon nx-input-icon--end">
-          <input class="nx-input" [name]="k" [attr.name]="k" placeholder="DD/MM/YYYY" [(ngModel)]="$any(f)[k]" [class.is-invalid]="errors[k]" [attr.aria-invalid]="!!errors[k]">
+          <input nxFecha class="nx-input" [name]="k" [attr.name]="k" placeholder="DD/MM/YYYY" [(ngModel)]="$any(f)[k]" [class.is-invalid]="errors[k]" [attr.aria-invalid]="!!errors[k]">
           <app-icon name="calendar" [size]="16"></app-icon>
         </span>
         <span *ngIf="errors[k]" class="nx-error">{{ errors[k] }}</span>

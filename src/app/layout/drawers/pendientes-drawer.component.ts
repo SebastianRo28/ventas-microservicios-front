@@ -1,10 +1,12 @@
-import { Component } from '@angular/core';
-import { HrDataService } from '../../core/hr-data.service';
+import { Component, OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { Pendiente } from '../../core/models';
+import { PendientesService } from '../../core/pendientes.service';
 import { UiStateService } from '../../core/ui-state.service';
 
 type Filtro = 'all' | Pendiente['tipo'];
 
+/** "Mis pendientes": what is actually pending for the signed-in user (PendientesService). */
 @Component({
   selector: 'app-pendientes-drawer',
   template: `
@@ -16,10 +18,7 @@ type Filtro = 'all' | Pendiente['tipo'];
         </button>
       </div>
       <div class="nx-drawer__filters">
-        <select class="nx-select nx-select--bold" aria-label="Estado de las tareas">
-          <option>Pendientes ({{ items.length }})</option>
-          <option>Completadas</option>
-        </select>
+        <span class="nx-muted nx-small">Pendientes ({{ items.length }})</span>
         <div class="nx-chips">
           <button *ngFor="let c of chips" type="button" class="nx-chip" [class.is-on]="filtro === c[0]"
                   [attr.aria-pressed]="filtro === c[0]" (click)="filtro = c[0]">{{ c[1] }}</button>
@@ -34,20 +33,23 @@ type Filtro = 'all' | Pendiente['tipo'];
           <b>{{ p.titulo }}</b>
           <span class="nx-muted">{{ p.detalle }}</span>
         </article>
+        <div *ngIf="!visibles.length" class="nx-empty nx-empty--compact"><b>No tienes pendientes</b><span class="nx-muted">Todo al día.</span></div>
       </div>
     </aside>
   `
 })
-export class PendientesDrawerComponent {
+export class PendientesDrawerComponent implements OnDestroy {
   readonly chips: [Filtro, string][] = [
-    ['all', 'Todas'], ['aus', 'Solicitud de Ausentismo'], ['vac', 'Solicitud de Vacaciones'], ['sst', 'SST'], ['eva', 'Evaluaciones']
+    ['all', 'Todas'], ['aus', 'Solicitud de Ausentismo'], ['vac', 'Solicitud de Vacaciones'], ['sst', 'SST'], ['eva', 'Evaluaciones'], ['otro', 'Otras solicitudes']
   ];
   filtro: Filtro = 'all';
   items: Pendiente[] = [];
+  private sub: Subscription;
 
-  constructor(public ui: UiStateService, data: HrDataService) {
-    data.pendientes().subscribe((p) => (this.items = p));
+  constructor(public ui: UiStateService, pendientes: PendientesService) {
+    this.sub = pendientes.items$().subscribe((l) => (this.items = l));
   }
+  ngOnDestroy(): void { this.sub.unsubscribe(); }
 
   get visibles(): Pendiente[] {
     return this.items.filter((p) => this.filtro === 'all' || p.tipo === this.filtro);

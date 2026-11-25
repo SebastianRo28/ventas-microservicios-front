@@ -2,13 +2,13 @@ import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output } from '@a
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ControlAsistenciaService } from '../../core/control-asistencia.service';
-import { Colaborador } from '../../core/models';
+import { Colaborador, UbigeoDepartamento, mismoLugar } from '../../core/models';
+import { HrDataService } from '../../core/hr-data.service';
 import { emailDe } from '../../core/portal.service';
 import { Recinto } from '../../core/sample/control-asistencia';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
-const DEPARTAMENTOS = ['Lima', 'Callao', 'Arequipa', 'La Libertad', 'Piura', 'Cusco', 'Ica', 'Junín', 'Lambayeque'];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 type FormRecinto = Omit<Recinto, 'id'> & { id: number | null };
 
@@ -22,9 +22,11 @@ type FormRecinto = Omit<Recinto, 'id'> & { id: number | null };
           <label class="nx-field">Nombre*<input class="nx-input" name="nombre" [(ngModel)]="r.nombre" maxlength="60"></label>
           <label class="nx-field">Clave*<input class="nx-input" name="clave" [(ngModel)]="r.clave" maxlength="10" placeholder="Ej. SC-01"></label>
           <label class="nx-field">Departamento*
-            <select class="nx-select" name="departamento" [attr.name]="'departamento'" [(ngModel)]="r.departamento"><option *ngFor="let d of departamentos">{{ d }}</option></select></label>
-          <label class="nx-field">Provincia*<input class="nx-input" name="provincia" [(ngModel)]="r.provincia"></label>
-          <label class="nx-field">Distrito*<input class="nx-input" name="distrito" [(ngModel)]="r.distrito"></label>
+            <select class="nx-select" name="departamento" [attr.name]="'departamento'" [(ngModel)]="r.departamento" (ngModelChange)="onDepartamento()"><option *ngFor="let d of departamentos" [value]="d.nombre">{{ d.nombre }}</option></select></label>
+          <label class="nx-field">Provincia*
+            <select class="nx-select" name="provincia" [attr.name]="'provincia'" [(ngModel)]="r.provincia" (ngModelChange)="r.distrito = ''"><option *ngFor="let p of provincias" [value]="p.nombre">{{ p.nombre }}</option></select></label>
+          <label class="nx-field">Distrito*
+            <select class="nx-select" name="distrito" [attr.name]="'distrito'" [(ngModel)]="r.distrito"><option value="">Seleccionar</option><option *ngFor="let d of distritos" [value]="d.nombre">{{ d.nombre }}</option></select></label>
           <label class="nx-field">Dirección*<input class="nx-input" name="direccion" [(ngModel)]="r.direccion"></label>
           <label class="nx-field">Jefatura a cargo
             <select class="nx-select" name="jefatura" [attr.name]="'jefatura'" [(ngModel)]="r.jefaturaId">
@@ -53,12 +55,36 @@ export class CaRecintoFormComponent implements OnChanges {
   @Input() recinto: Recinto | null = null;
   @Output() cerrar = new EventEmitter<void>();
   @Output() guardado = new EventEmitter<Recinto>();
-  readonly departamentos = DEPARTAMENTOS;
+  departamentos: UbigeoDepartamento[] = [];
   r!: FormRecinto;
   intento = false;
   colaboradores: Colaborador[] = [];
 
-  constructor(private ca: ControlAsistenciaService, private ui: UiStateService) { this.colaboradores = ca.colaboradores; this.ngOnChanges(); }
+  constructor(private ca: ControlAsistenciaService, private ui: UiStateService, data: HrDataService) {
+    this.colaboradores = ca.colaboradores;
+    this.ngOnChanges();
+    data.ubigeo().subscribe((u) => { this.departamentos = u.departamentos; this.alUbigeo(); });
+  }
+
+  get provincias() { return this.departamentos.find((d) => d.nombre === this.r.departamento)?.provincias ?? []; }
+  get distritos() { return this.provincias.find((p) => p.nombre === this.r.provincia)?.distritos ?? []; }
+
+  /** Older recintos may say "Lurín": select the official name ("Lurin") so the lists show it. */
+  private alUbigeo(): void {
+    const d = this.departamentos.find((x) => mismoLugar(x.nombre, this.r.departamento));
+    if (!d) return;
+    this.r.departamento = d.nombre;
+    const p = d.provincias.find((x) => mismoLugar(x.nombre, this.r.provincia));
+    if (p) this.r.provincia = p.nombre;
+    const di = p?.distritos.find((x) => mismoLugar(x.nombre, this.r.distrito));
+    if (di) this.r.distrito = di.nombre;
+  }
+
+  onDepartamento(): void {
+    const ps = this.provincias;
+    this.r.provincia = (ps.find((p) => p.nombre === this.r.departamento) ?? ps[0])?.nombre ?? '';
+    this.r.distrito = '';
+  }
 
   ngOnChanges(): void {
     const base = this.ca.recintos$.value[0];
@@ -67,6 +93,7 @@ export class CaRecintoFormComponent implements OnChanges {
       distrito: '', direccion: '', clave: '', info: '', jefaturaId: null, administrativoId: null, lat: -12.0464, lng: -77.0428,
       radio: Number(this.ca.metodos['radioDefecto']) || 150, emails: [], activo: true, usuarios: [],
     };
+    if (this.departamentos?.length) this.alUbigeo();
   }
 
   get error(): string {

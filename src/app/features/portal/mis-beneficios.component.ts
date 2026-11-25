@@ -90,8 +90,7 @@ export class MisBeneficiosComponent implements OnDestroy {
 
   canjear(b: Beneficio): void {
     if (this.motivo(b)) return;
-    this.portal.canjear(b);
     this.confirmar = null;
-    this.ui.toast(`Canje de “${b.nombre}” solicitado`);
+    this.portal.canjear(b).subscribe(() => this.ui.toast(`Canje de “${b.nombre}” solicitado`));
   }
 }

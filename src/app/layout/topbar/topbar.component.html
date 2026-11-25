@@ -4,11 +4,28 @@
     <app-icon name="menu"></app-icon>
   </button>
 
-  <button type="button" class="nx-topbar__period" aria-label="Cambiar período activo">
-    <app-icon name="calendar" [size]="16"></app-icon>
-    <span>{{ data.periodo }}</span>
-    <app-icon name="chevron-down" [size]="14"></app-icon>
-  </button>
+  <!-- Payroll period (administrators with Payroll); disabled on screens whose data is not monthly. -->
+  <div *ngIf="periodo.disponible" class="nx-dt__menu-anchor nx-periodo">
+    <button type="button" class="nx-topbar__period" [class.is-otro]="periodo.viendoOtro" [disabled]="!usaPeriodo"
+            [attr.aria-label]="'Período de trabajo: ' + periodo.etiqueta + (usaPeriodo ? '. Cambiar período' : '. Esta pantalla no depende del período')"
+            [title]="usaPeriodo ? 'Período de trabajo' : 'Esta pantalla no depende del período'"
+            [attr.aria-expanded]="menuPeriodo" (click)="menuPeriodo = !menuPeriodo">
+      <app-icon name="calendar" [size]="16"></app-icon>
+      <span>{{ periodo.etiqueta }}</span>
+      <span *ngIf="periodo.cerrado()" class="nx-topbar__period-tag">Cerrado</span>
+      <app-icon name="chevron-down" [size]="14"></app-icon>
+    </button>
+    <div *ngIf="menuPeriodo && usaPeriodo" class="nx-popover nx-periodo__menu" role="listbox" aria-label="Períodos de planilla">
+      <div class="nx-periodo__titulo">Período de trabajo</div>
+      <button *ngFor="let p of periodo.periodos$ | async" type="button" class="nx-menu-item" role="option"
+              [class.is-sel]="p.periodo === periodo.seleccionado" [attr.aria-selected]="p.periodo === periodo.seleccionado"
+              (click)="elegirPeriodo(p.periodo)">
+        <span class="nx-grow">{{ nombreMes(p.periodo) }}</span>
+        <span class="nx-badge nx-badge--sm" [class.nx-tone-success]="!p.cerrado" [class.nx-tone-gray]="p.cerrado">{{ p.cerrado ? 'Cerrado' : 'Abierto' }}</span>
+      </button>
+      <p class="nx-periodo__ayuda">Cambia el mes que ven el panel, los procesos de planilla, los ítems, los KPI, los sueldos diarios y los exportadores.</p>
+    </div>
+  </div>
 
   <div class="nx-topbar__search">
     <label class="nx-topbar__search-box">
@@ -45,9 +62,9 @@
   <button *ngIf="auth.esAdmin" type="button" class="nx-topbar__icon" aria-label="Administración" (click)="ui.openDrawer('admin')">
     <app-icon name="gear"></app-icon>
   </button>
-  <button type="button" class="nx-topbar__icon" aria-label="Mis pendientes, 99 notificaciones" (click)="ui.openDrawer('pendientes')">
+  <button type="button" class="nx-topbar__icon" [attr.aria-label]="'Mis pendientes, ' + pendientes + ' pendientes'" (click)="ui.openDrawer('pendientes')">
     <app-icon name="bell"></app-icon>
-    <span class="nx-topbar__count">99</span>
+    <span *ngIf="pendientes" class="nx-topbar__count">{{ pendientes > 99 ? '99+' : pendientes }}</span>
   </button>
   <button type="button" class="nx-topbar__icon nx-hide-sm" aria-label="Novedades del producto">
     <app-icon name="megaphone"></app-icon>

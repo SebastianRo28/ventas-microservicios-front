@@ -1,10 +1,12 @@
 import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, map } from 'rxjs';
+import { Observable, map, of, switchMap } from 'rxjs';
 import { ContextoService } from '../../core/contexto.service';
 import { AuthService } from '../../core/auth.service';
 import { HrDataService } from '../../core/hr-data.service';
 import { UiStateService } from '../../core/ui-state.service';
+import { PeriodoService, nombreMes, rutaUsaPeriodo } from '../../core/periodo.service';
+import { PendientesService } from '../../core/pendientes.service';
 import { NAV_LEAVES, findLeaf } from '../nav.config';
 
 interface SearchHit { label: string; detail: string; path: string; }
@@ -22,11 +24,30 @@ export class TopbarComponent {
   private people: SearchHit[] = [];
 
   menuUsuario = false;
+  menuPeriodo = false;
+  /** Number of pending items of the signed-in user (bell badge). */
+  pendientes = 0;
+  readonly nombreMes = nombreMes;
+  /** Whether the current screen follows the topbar period. */
+  get usaPeriodo(): boolean { return rutaUsaPeriodo(this.router.url); }
+
+  elegirPeriodo(p: string): void {
+    this.periodo.seleccionar(p);
+    this.menuPeriodo = false;
+  }
+
+  /** Closes the period menu when clicking outside of it. */
+  @HostListener('document:click', ['$event'])
+  alClicFuera(e: MouseEvent): void {
+    if (this.menuPeriodo && !(e.target as HTMLElement).closest('.nx-periodo')) this.menuPeriodo = false;
+  }
 
   /** Trial badge (admins): days left and "Contratar" (spec. 8). */
   readonly trial$: Observable<{ dias: number; texto: string } | null>;
 
-  constructor(public ui: UiStateService, public data: HrDataService, public router: Router, public auth: AuthService, ctx: ContextoService) {
+  constructor(public ui: UiStateService, public data: HrDataService, public router: Router, public auth: AuthService, ctx: ContextoService,
+              public periodo: PeriodoService, pendientesSrv: PendientesService) {
+    auth.usuario$.pipe(switchMap((u) => (u && !u.debeCambiarPassword ? pendientesSrv.items$() : of([])))).subscribe((l) => (this.pendientes = l.length));
     this.trial$ = ctx.contexto$.pipe(map((c) => {
       const b = c?.banners.find((x) => x.tipo === 'trial');
       return b && c && c.tenant.diasTrial !== null ? { dias: c.tenant.diasTrial, texto: b.texto } : null;

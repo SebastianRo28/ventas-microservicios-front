@@ -81,8 +81,8 @@ const DIAS_CARGO_EMPLEADOR = 20;
         <div class="nx-grid nx-grid--2 nx-gap-16">
           <label class="nx-field">Folio / N° CITT*<input class="nx-input" name="folio" placeholder="A-2026-000000" [(ngModel)]="m.folio"></label>
           <label class="nx-field">Emisor*<input class="nx-input" name="emisor" placeholder="EsSalud · Hospital…" [(ngModel)]="m.emisor"></label>
-          <label class="nx-field">Desde*<input class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="m.desde"></label>
-          <label class="nx-field">Hasta*<input class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="m.hasta"></label>
+          <label class="nx-field">Desde*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="desde" placeholder="DD/MM/YYYY" [(ngModel)]="m.desde"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Hasta*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="hasta" placeholder="DD/MM/YYYY" [(ngModel)]="m.hasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         </div>
         <span class="nx-hint">Días calendario: <b>{{ dias }}</b></span>
         <label class="nx-field">Diagnóstico<input class="nx-input" name="diagnostico" placeholder="Opcional" [(ngModel)]="m.diagnostico"></label>

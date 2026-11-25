@@ -54,7 +54,7 @@ const COLUMNS: Column[] = [
         <label class="nx-field">Solicitado para*
           <select class="nx-select" name="para" [(ngModel)]="n.paraId"><option [ngValue]="null">Seleccionar colaborador</option>
             <option *ngFor="let p of personas" [ngValue]="p.id">{{ p.nombre }}</option></select></label>
-        <label class="nx-field">Fecha para asignar*<input class="nx-input" name="asignarEl" [(ngModel)]="n.asignarEl" placeholder="DD/MM/AAAA"></label>
+        <label class="nx-field">Fecha para asignar*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="asignarEl" [(ngModel)]="n.asignarEl" placeholder="DD/MM/AAAA"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         <label class="nx-field">Comentario<input class="nx-input" name="comentario" maxlength="300" [(ngModel)]="n.comentario"></label>
         <span *ngIf="error" class="nx-error" role="alert">{{ error }}</span>
       </form>

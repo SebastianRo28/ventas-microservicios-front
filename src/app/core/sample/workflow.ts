@@ -32,10 +32,3 @@ export interface SolicitudWf {
 }
 
 export interface PlantillaWf { nombre: string; tipo: string; }
-
-export const PLANTILLAS_WF: PlantillaWf[] = [
-  { nombre: 'Alta simple', tipo: 'Alta' }, { nombre: 'Alta con documentos', tipo: 'Alta' },
-  { nombre: 'Solicitud bono', tipo: 'Flexible' }, { nombre: 'Solicitud de Pre Ingreso', tipo: 'Pre-Ingreso' },
-  { nombre: 'Cambio de cargo', tipo: 'Movimiento' }, { nombre: 'Cambio de sueldo', tipo: 'Movimiento' },
-  { nombre: 'Baja voluntaria', tipo: 'Baja' }, { nombre: 'Solicitud de activo', tipo: 'Flexible' },
-];

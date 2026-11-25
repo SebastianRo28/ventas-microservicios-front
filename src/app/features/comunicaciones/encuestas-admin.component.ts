@@ -49,8 +49,8 @@ const COLUMNS: Column[] = [
         <label class="nx-field">Nombre<input class="nx-input" name="nombre" maxlength="120" [(ngModel)]="f.nombre" [placeholder]="f.plantilla"></label>
         <label class="nx-field">Descripción para los colaboradores<textarea class="nx-textarea" name="descripcion" rows="2" maxlength="500" [(ngModel)]="f.descripcion"></textarea></label>
         <div class="nx-grid nx-grid--2">
-          <label class="nx-field">Inicio (DD/MM/AAAA)*<input class="nx-input" name="inicio" [(ngModel)]="f.inicio"></label>
-          <label class="nx-field">Término (DD/MM/AAAA)*<input class="nx-input" name="termino" [(ngModel)]="f.termino"></label>
+          <label class="nx-field">Inicio (DD/MM/AAAA)*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="inicio" [(ngModel)]="f.inicio"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Término (DD/MM/AAAA)*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="termino" [(ngModel)]="f.termino"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         </div>
         <label class="nx-check nx-check--plain"><input type="checkbox" name="anonima" [(ngModel)]="f.anonima">Anónima: las respuestas no se asocian al nombre de quien responde</label>
         <span class="nx-hint">Va dirigida a todos los colaboradores. Las preguntas son las de la plantilla.</span>

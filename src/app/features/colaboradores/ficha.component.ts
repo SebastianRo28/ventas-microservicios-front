@@ -10,8 +10,6 @@ import { UiStateService } from '../../core/ui-state.service';
 
 const TABS = ['Resumen', 'Boletas de Pago', 'Documentos', 'Historia', 'Bitácora', 'Asistencia', 'Ítems', 'Vacaciones', 'Talento', 'Capacitaciones', 'Activos'];
 const DROP = new Set(['Asistencia', 'Talento', 'Ítems']);
-/** "Today" of the sample data (period Marzo 2026), used for ages and seniority. */
-const HOY = new Date(2026, 2, 12);
 
 interface Field { label: string; value: string; link?: string; action?: string; }
 interface Bars { title: string; unit: string; values: number[]; fmt: (n: number) => string; }
@@ -98,6 +96,8 @@ export class FichaComponent implements OnDestroy {
     const dash = (v?: string | number | null) => (v === undefined || v === null || v === '' ? '—' : String(v));
     const nac = parseFecha(d.nacimiento);
     const ingreso = parseFecha(c.ingreso);
+    // "Today" for age and seniority: the attendance cut-off date (the real date outside development).
+    const HOY = parseFecha(this.asistencia.corte) ?? new Date();
     const edad = nac ? Math.floor((HOY.getTime() - nac.getTime()) / (365.25 * 864e5)) : null;
 
     this.ini = iniciales(c.nombres, c.apellidos);
@@ -140,13 +140,34 @@ export class FichaComponent implements OnDestroy {
       { label: 'Saldo Vacaciones', value: `${this.asistencia.saldo(c)} días`, link: '/admin/asistencia/vacaciones' },
     ];
     this.data.boletas(c.id).subscribe((bs) => (this.boletas = bs));
-    this.data.asistencia(c.id).subscribe((a) => {
-      this.meses = a.meses;
-      this.charts = [
-        { title: 'Días no Trabajados', unit: 'días', values: a.diasNoTrabajados, fmt: (n) => String(n) },
-        { title: 'Horas Extras', unit: 'horas', values: a.horasExtras, fmt: (n) => n.toFixed(1) },
-      ];
+    this.armarAsistencia(c.id);
+  }
+
+  /**
+   * Last six months up to the attendance cut-off: days not worked (absences, medical leaves and vacations in each month)
+   * and overtime hours, from Asistencia and Control de Asistencia.
+   */
+  private armarAsistencia(id: number): void {
+    const corte = parseFecha(this.asistencia.corte) ?? new Date();
+    const meses = Array.from({ length: 6 }, (_, i) => new Date(corte.getFullYear(), corte.getMonth() - 5 + i, 1));
+    const rangos = [...this.asistencia.ausencias$.value, ...this.asistencia.licencias$.value, ...this.asistencia.vacaciones$.value]
+      .filter((x) => x.colaboradorId === id).map((x) => [parseFecha(x.desde), parseFecha(x.hasta)] as const)
+      .filter((r): r is readonly [Date, Date] => !!r[0] && !!r[1]);
+    const dias = meses.map((m) => {
+      const fin = new Date(m.getFullYear(), m.getMonth() + 1, 0);
+      return rangos.reduce((s, [d, h]) => {
+        const a = d > m ? d : m, b = h < fin ? h : fin;
+        return s + (b >= a ? Math.round((b.getTime() - a.getTime()) / 86_400_000) + 1 : 0);
+      }, 0);
     });
+    const clave = (m: Date) => `${String(m.getMonth() + 1).padStart(2, '0')}/${m.getFullYear()}`;
+    const horas = meses.map((m) => Math.round(this.ca.excesos().filter((e) => e.colaboradorId === id && this.ca.periodoDe(e.fecha) === clave(m))
+      .reduce((s, e) => s + e.minutos, 0) / 6) / 10);
+    this.meses = meses.map((m) => m.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '').replace(/^./, (x) => x.toUpperCase()));
+    this.charts = [
+      { title: 'Días no Trabajados', unit: 'días', values: dias, fmt: (n) => String(n) },
+      { title: 'Horas Extras', unit: 'horas', values: horas, fmt: (n) => n.toFixed(1) },
+    ];
   }
 
   barHeight(values: number[], v: number): number {

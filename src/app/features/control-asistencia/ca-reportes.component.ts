@@ -39,8 +39,8 @@ const nombre = (c: Colaborador) => ({ text: `${c.apellidos}, ${c.nombres}`, link
     <section *ngIf="sel && tabla" class="nx-card nx-pad" [attr.aria-label]="sel.titulo">
       <div class="nx-section__head"><h2>{{ sel.titulo }}</h2>
         <ng-container *ngIf="!sel.rangoFijo">
-          <label class="nx-cafil__f">Desde<input type="date" class="nx-input nx-input--sm" [min]="minIso" [max]="maxIso" [(ngModel)]="desde" (ngModelChange)="generar()"></label>
-          <label class="nx-cafil__f">Hasta<input type="date" class="nx-input nx-input--sm" [min]="minIso" [max]="maxIso" [(ngModel)]="hasta" (ngModelChange)="generar()"></label>
+          <label class="nx-cafil__f">Desde<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [(ngModel)]="desde" (ngModelChange)="generar()"><app-icon name="calendar" [size]="14"></app-icon></span></label>
+          <label class="nx-cafil__f">Hasta<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [(ngModel)]="hasta" (ngModelChange)="generar()"><app-icon name="calendar" [size]="14"></app-icon></span></label>
         </ng-container>
         <span *ngIf="sel.rangoFijo" class="nx-small nx-muted">{{ sel.rangoFijo }}</span>
       </div>

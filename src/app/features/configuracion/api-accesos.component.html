@@ -17,10 +17,7 @@
       <tbody>
         <tr *ngFor="let k of keys">
           <td>{{ k.id }}</td><td><b>{{ k.descripcion }}</b></td><td>{{ k.limitarEmpresas ? 'Sí' : 'No' }}</td>
-          <td><span class="nx-token"><code>{{ mask(k) }}</code>
-            <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" [attr.aria-label]="visibles.has(k.id) ? 'Ocultar token' : 'Mostrar token'" (click)="toggleToken(k)"><app-icon [name]="visibles.has(k.id) ? 'eye-off' : 'eye'" [size]="15"></app-icon></button>
-            <button *ngIf="visibles.has(k.id)" type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Copiar token" (click)="copiar(k.token)"><app-icon name="copy" [size]="15"></app-icon></button>
-          </span></td>
+          <td><span class="nx-token"><code>{{ mask(k) }}</code></span></td>
           <td>{{ k.empresas }}</td><td>{{ k.ultimaIp }}</td><td>{{ k.ultimoAcceso }}</td><td>{{ k.creada }}</td>
           <td class="nx-dt__actions">
             <button type="button" class="nx-icon-btn nx-icon-btn--ghost nx-icon-btn--sm" aria-label="Revocar API Key" title="Revocar API Key" (click)="borrarKey = k"><app-icon name="trash" [size]="16"></app-icon></button>

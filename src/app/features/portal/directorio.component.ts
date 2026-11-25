@@ -3,7 +3,6 @@ import { iniciales } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador } from '../../core/models';
 import { emailDe, PortalService } from '../../core/portal.service';
-import { CONTACTO } from '../../core/sample/portal';
 import { UiStateService } from '../../core/ui-state.service';
 
 interface Persona { c: Colaborador; ini: string; email: string; anexo: string; sede: string; jefe: string; texto: string; }
@@ -63,9 +62,8 @@ export class DirectorioComponent {
     data.colaboradores().subscribe((cs) => {
       const nombre = (id: number | null | undefined) => { const j = cs.find((x) => x.id === id); return j ? `${j.nombres} ${j.apellidos}` : '—'; };
       this.personas = cs.map((c) => {
-        const k = CONTACTO[c.id] ?? { anexo: '—', sede: 'Sede central · San Isidro' };
         const email = emailDe(c);
-        return { c, ini: iniciales(c.nombres, c.apellidos), email, anexo: k.anexo, sede: k.sede, jefe: nombre(portal.jefes[c.id]),
+        return { c, ini: iniciales(c.nombres, c.apellidos), email, anexo: c.contacto?.anexo || '—', sede: c.contacto?.sede || 'Sin sede asignada', jefe: nombre(portal.jefes[c.id]),
           texto: `${c.nombres} ${c.apellidos} ${c.cargo} ${email}`.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() };
       });
       this.areas = [...new Set(cs.map((c) => c.area))].sort();

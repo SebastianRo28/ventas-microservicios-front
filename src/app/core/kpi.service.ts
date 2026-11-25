@@ -1,19 +1,22 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { AuditService } from './audit.service';
+import { DatosService } from './datos.service';
 import { ItemsService } from './items.service';
 import { Colaborador } from './models';
-import { DATOS_KPI, DatoKpi, TIPOS_KPI, TipoKpi } from './sample/kpi';
+import { DatoKpi, TipoKpi } from './sample/kpi';
 
-/** KPI definitions, monthly values and the bonus they pay (sent to Asignación de ítems as BON-KPI). */
+/**
+ * KPI definitions, monthly values and the bonus they pay (sent to Asignación de ítems as BON-KPI). Stored by the API per
+ * company (/api/datos: kpi-tipos, kpi-datos and kpi-envios, the periods whose bonuses were sent); the API records the changes.
+ */
 @Injectable({ providedIn: 'root' })
 export class KpiService {
-  readonly tipos$ = new BehaviorSubject<TipoKpi[]>(TIPOS_KPI);
-  readonly datos$ = new BehaviorSubject<DatoKpi[]>(DATOS_KPI);
+  get tipos$(): BehaviorSubject<TipoKpi[]> { return this.datos.lista$<TipoKpi>('kpi-tipos'); }
+  get datos$(): BehaviorSubject<DatoKpi[]> { return this.datos.lista$<DatoKpi>('kpi-datos'); }
   /** Periods whose bonuses were already sent to Asignación de ítems. */
-  readonly enviados = new Set<string>();
+  get enviados(): Set<string> { return new Set(this.datos.lista$<{ id: number; periodo: string }>('kpi-envios').value.map((e) => e.periodo)); }
 
-  constructor(private items: ItemsService, private audit: AuditService) {}
+  constructor(private items: ItemsService, private datos: DatosService) {}
 
   /** Achievement in %, rounded to one decimal. For "lower is better" it is meta / real. */
   cumplimiento(k: TipoKpi, real: number): number {
@@ -34,28 +37,18 @@ export class KpiService {
 
   guardarDato(k: TipoKpi, c: Colaborador, periodo: string, real: number): void {
     const actual = this.dato(k.id, c.id, periodo);
-    const anterior = actual ? String(actual.real) : '—';
-    if (actual) actual.real = real;
-    else this.datos$.value.push({ id: Math.max(0, ...this.datos$.value.map((d) => d.id)) + 1, kpiId: k.id, colaboradorId: c.id, periodo, real });
-    this.datos$.next([...this.datos$.value]);
-    this.audit.registrar({ colaborador: `${c.apellidos}, ${c.nombres}`, documento: c.documento, entidad: `KPI ${k.codigo} ${periodo}`,
-      accion: actual ? 'Modificar' : 'Crear', propiedad: 'valor_real', anterior, actual: String(real) });
+    if (actual) this.datos.actualizar('kpi-datos', { ...actual, real }).subscribe();
+    else this.datos.crear('kpi-datos', { kpiId: k.id, colaboradorId: c.id, periodo, real }).subscribe();
   }
 
-  guardarTipo(t: Omit<TipoKpi, 'id'> & { id: number | null }): TipoKpi {
-    const list = this.tipos$.value;
-    if (t.id === null) {
-      const nuevo: TipoKpi = { ...t, id: Math.max(0, ...list.map((x) => x.id)) + 1 };
-      this.tipos$.next([...list, nuevo]);
-      return nuevo;
-    }
-    const actual = list.find((x) => x.id === t.id)!;
-    Object.assign(actual, t);
-    this.tipos$.next([...list]);
-    return actual;
+  guardarTipo(t: Omit<TipoKpi, 'id'> & { id: number | null }): void {
+    const { id, ...datos } = t;
+    if (id === null) this.datos.crear('kpi-tipos', datos).subscribe();
+    else this.datos.actualizar('kpi-tipos', { ...datos, id }).subscribe();
   }
-  toggleTipo(t: TipoKpi): void { t.activo = !t.activo; this.tipos$.next([...this.tipos$.value]); }
-  eliminarTipo(t: TipoKpi): void { this.tipos$.next(this.tipos$.value.filter((x) => x !== t)); }
+
+  toggleTipo(t: TipoKpi): void { this.datos.actualizar('kpi-tipos', { ...t, activo: !t.activo }).subscribe(); }
+  eliminarTipo(t: TipoKpi): void { this.datos.eliminar('kpi-tipos', t.id).subscribe(); }
   usos(kpiId: number): number { return this.datos$.value.filter((d) => d.kpiId === kpiId).length; }
 
   /**
@@ -87,7 +80,7 @@ export class KpiService {
         total += monto;
       }
     }
-    this.enviados.add(periodo);
+    if (!this.enviados.has(periodo)) this.datos.crear('kpi-envios', { periodo }).subscribe();
     return { personas, total: Math.round(total * 100) / 100 };
   }
 }

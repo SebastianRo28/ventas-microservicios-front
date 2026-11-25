@@ -182,7 +182,7 @@ export const CATALOGOS: Record<string, CatalogoConfig> = {
       { key: 'nombre', label: 'Nombre', tipo: 'texto', obligatorio: true, unico: true },
       { key: 'tipo', label: 'Tipo', tipo: 'select', opciones: ['Oficina', 'Almacén', 'Tienda', 'Remoto'], obligatorio: true },
       { key: 'direccion', label: 'Dirección', tipo: 'texto', requeridoSi: { campo: 'tipo', valor: 'Oficina' }, ancho: 'minmax(220px, 1.5fr)' },
-      { key: 'departamento', label: 'Departamento', tipo: 'select', opciones: ['Lima', 'Arequipa', 'La Libertad', 'Piura', 'Cusco', 'Ica', 'Junín', 'Lambayeque'], obligatorio: true },
+      { key: 'departamento', label: 'Departamento', tipo: 'select', opciones: 'departamentos', obligatorio: true },
       { key: 'activo', label: 'Estado', tipo: 'switch', etiquetas: ['Activa', 'Inactiva'] },
     ],
     filas: [

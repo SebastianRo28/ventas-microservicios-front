@@ -35,7 +35,10 @@ export interface Certificado { tenantId: string; slug: string; razonSocial: stri
 export interface ResumenCicloVida { en: string; trialsVencidos: number; morosos: number; suspendidos: number; reactivados: number; eliminados: number; usos: number; facturas: number; eventos: string[]; }
 export interface UsoLimite { clave: string; nombre: string; usado: number; maximo: number; unidad: string; pct: number; estado: string; }
 export interface UsoTenant { colaboradores: { periodo: string; colaboradores: number }[]; limites: UsoLimite[]; usuariosActivos30d: number; correos30d: number; sesionesSoporte: number; }
-export interface Factura { numero: string; periodo: string; emitida: string; vence: string; colaboradores: number; subtotal: number; igv: number; total: number; estado: string; sunatEstado: string; }
+export interface Factura {
+  numero: string; periodo: string; emitida: string; vence: string; colaboradores: number; subtotal: number; igv: number; total: number; estado: string; sunatEstado: string;
+  pagadaEn: string | null; medioPago: string | null; proximoCobro: string | null; ultimoCobro: string | null;
+}
 export interface RegistroDns { tipo: string; nombre: string; valor: string; ttl: number; ok: boolean | null; }
 export interface Dominio {
   id: number; host: string; tipo: string; verificado: boolean; principal: boolean; estadoCertificado: 'Pendiente' | 'Emitiendo' | 'Activo';

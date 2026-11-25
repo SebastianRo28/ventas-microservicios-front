@@ -4,6 +4,7 @@ import { AsistenciaService } from '../../core/asistencia.service';
 import { parseFecha, soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { KpiService } from '../../core/kpi.service';
+import { PeriodoService, nombreMes } from '../../core/periodo.service';
 import { Colaborador } from '../../core/models';
 import { TipoKpi } from '../../core/sample/kpi';
 import { UiStateService } from '../../core/ui-state.service';
@@ -26,10 +27,12 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
   selector: 'app-datos-kpi',
   template: `
     <app-page-header title="Datos de KPI" [crumbs]="['Remuneraciones', 'KPI']">
-      <button type="button" class="nx-btn nx-btn--primary" (click)="confirmar = true">
+      <button type="button" class="nx-btn nx-btn--primary" (click)="confirmar = true" [disabled]="cerrado"
+              [title]="cerrado ? 'El período está cerrado' : ''">
         <app-icon name="upload" [size]="16"></app-icon>{{ enviado ? 'Reenviar bonos' : 'Enviar bonos a ítems' }}</button>
     </app-page-header>
-    <div class="nx-row nx-row--center nx-mb-16">
+    <app-periodo-aviso></app-periodo-aviso>
+    <div *ngIf="!per.disponible" class="nx-row nx-row--center nx-mb-16">
       <label class="nx-field nx-field--inline">Período
         <select class="nx-select nx-select--sm" name="periodo" [(ngModel)]="periodo" (ngModelChange)="refrescar()">
           <option *ngFor="let p of periodos" [value]="p.value">{{ p.label }}</option>
@@ -75,9 +78,17 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 })
 export class DatosKpiComponent implements OnDestroy {
   readonly cols = COLS;
-  readonly actions: RowAction[] = ['editar'];
-  readonly periodos: { value: string; label: string }[];
-  periodo: string;
+  get actions(): RowAction[] { return this.cerrado ? [] : ['editar']; }
+  private readonly periodosLocal: { value: string; label: string }[];
+  private periodoLocal: string;
+  /** Selected month (MM/YYYY): the topbar period when there are payroll periods, otherwise the local selector. */
+  get periodo(): string { return this.per.disponible ? this.per.seleccionado : this.periodoLocal; }
+  set periodo(v: string) { if (this.per.disponible) this.per.seleccionar(v); else this.periodoLocal = v; }
+  get periodos(): { value: string; label: string }[] {
+    return this.per.disponible ? this.per.periodos$.value.map((p) => ({ value: p.periodo, label: nombreMes(p.periodo) })) : this.periodosLocal;
+  }
+  /** Closed payroll period: its KPI data and bonuses can no longer change. */
+  get cerrado(): boolean { return this.per.cerrado(this.periodo); }
   rows: Row[] = [];
   stats = { cargados: 0, total: 0, promedio: '—', bono: '' };
   editar: { k: TipoKpi; c: Colaborador; real: string } | null = null;
@@ -87,15 +98,15 @@ export class DatosKpiComponent implements OnDestroy {
   private tipos: TipoKpi[] = [];
   private sub: Subscription;
 
-  constructor(data: HrDataService, public kpi: KpiService, asis: AsistenciaService, private ui: UiStateService) {
+  constructor(data: HrDataService, public kpi: KpiService, asis: AsistenciaService, private ui: UiStateService, public per: PeriodoService) {
     const corte = parseFecha(asis.corte)!;
     const pad = (n: number) => String(n).padStart(2, '0');
-    this.periodo = `${pad(corte.getMonth() + 1)}/${corte.getFullYear()}`;
-    this.periodos = Array.from({ length: 4 }, (_, i) => {
+    this.periodoLocal = `${pad(corte.getMonth() + 1)}/${corte.getFullYear()}`;
+    this.periodosLocal = Array.from({ length: 4 }, (_, i) => {
       const d = new Date(corte.getFullYear(), corte.getMonth() - 2 + i, 1);
       return { value: `${pad(d.getMonth() + 1)}/${d.getFullYear()}`, label: `${MESES[d.getMonth()]} ${d.getFullYear()}` };
     });
-    this.sub = combineLatest([data.colaboradores(), kpi.tipos$, kpi.datos$]).subscribe(([cs, ts]) => {
+    this.sub = combineLatest([data.colaboradores(), kpi.tipos$, kpi.datos$, per.seleccionado$]).subscribe(([cs, ts]) => {
       this.colaboradores = cs;
       this.tipos = ts;
       this.refrescar();
@@ -106,7 +117,7 @@ export class DatosKpiComponent implements OnDestroy {
   num(s: string): number { return Number(String(s).replace(',', '.')); }
   fmt(n: number): string { return soles(n); }
   get enviado(): boolean { return this.kpi.enviados.has(this.periodo); }
-  get periodoLabel(): string { return (this.periodos.find((p) => p.value === this.periodo)?.label ?? this.periodo).toLowerCase(); }
+  get periodoLabel(): string { return nombreMes(this.periodo).toLowerCase(); }
   metaTexto(k: TipoKpi, v = k.meta): string { return k.unidad === 'S/' ? soles(v) : `${v}${k.unidad === '%' ? ' %' : ''}`; }
 
   refrescar(): void {
@@ -161,6 +172,7 @@ export class DatosKpiComponent implements OnDestroy {
   }
 
   enviar(): void {
+    if (this.cerrado) { this.confirmar = false; return; }
     const r = this.kpi.enviar(this.periodo, this.colaboradores);
     this.confirmar = false;
     this.refrescar();

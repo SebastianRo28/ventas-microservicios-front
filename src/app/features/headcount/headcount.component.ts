@@ -5,15 +5,16 @@ import { HrDataService } from '../../core/hr-data.service';
 import { Colaborador, Division, Tone } from '../../core/models';
 import { HeadcountService, PosicionApi as Posicion } from '../../core/administracion.service';
 import { mensajeError } from '../../core/auth.service';
-import { CENTRO_COSTO_DIVISION, INGRESOS_PLANIFICADOS } from '../../core/sample/plataforma';
+import { AsistenciaService } from '../../core/asistencia.service';
+import { GenericosService } from '../../core/genericos.service';
+import { CATALOGOS } from '../../core/sample/catalogos-config';
 import { UiStateService } from '../../core/ui-state.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
 type EstadoHc = 'Completo' | 'Insuficiente' | 'Excedido';
 const TONE: Record<EstadoHc, Tone> = { Completo: 'success', Insuficiente: 'warning', Excedido: 'danger' };
-const MESES = ['Oct', 'Nov', 'Dic', 'Ene', 'Feb', 'Mar'];
+const NOMBRES_MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 /** Months of the sample period (Oct 2025 – Mar 2026) as [month, year]. */
-const PERIODO: [number, number][] = [[9, 2025], [10, 2025], [11, 2025], [0, 2026], [1, 2026], [2, 2026]];
 
 interface Linea { nombre: string; detalle: string; esperado: number; actual: number; vacante: number; estado: EstadoHc; }
 
@@ -41,7 +42,9 @@ const linea = (nombre: string, detalle: string, esperado: number, actual: number
 export class HeadcountComponent {
   readonly tabs = ['Áreas y cargos', 'Posiciones', 'Analítica'];
   readonly tone = TONE;
-  readonly meses = MESES;
+  /** Six months up to the attendance cut-off month ([month 0-11, year]) and their labels. */
+  readonly periodo: [number, number][];
+  readonly meses: string[];
   readonly pcols = PCOLS;
   readonly actions: RowAction[] = ['eliminar'];
   tab = 0;
@@ -60,7 +63,10 @@ export class HeadcountComponent {
   error = '';
   ocupado = false;
 
-  constructor(public data: HrDataService, private api: HeadcountService, private ui: UiStateService) {
+  constructor(public data: HrDataService, private api: HeadcountService, private ui: UiStateService, asis: AsistenciaService, private gen: GenericosService) {
+    const corte = parseFecha(asis.corte) ?? new Date();
+    this.periodo = Array.from({ length: 6 }, (_, i) => { const d = new Date(corte.getFullYear(), corte.getMonth() - 5 + i, 1); return [d.getMonth(), d.getFullYear()] as [number, number]; });
+    this.meses = this.periodo.map(([m]) => NOMBRES_MES[m]);
     data.colaboradores().subscribe((c) => (this.colaboradores = c));
     data.divisiones().subscribe((d) => (this.divisiones = d));
     data.cargos().subscribe((c) => (this.cargos = c.filter((x) => x.activo).map((x) => x.nombre)));
@@ -76,12 +82,18 @@ export class HeadcountComponent {
 
   get nivelLabel(): string { return { division: 'División', area: 'Área', subarea: 'Sub-área' }[this.data.hcNivel]; }
 
+  /** Cost center of an area (or of the first area of a division) from Configuración › Centros de costo. */
+  private centroDe(areas: string[]): string {
+    const c = this.gen.filas(CATALOGOS['centros-de-costo']).find((f) => f['activo'] !== false && areas.includes(String(f['area'])));
+    return c ? `${c['codigo']} ${c['nombre']}` : '—';
+  }
+
   /** Rows of "Áreas" grouped at the level chosen in Headcount › Configuraciones. */
   get lineasNivel(): Linea[] {
     const actual = (pred: (c: Colaborador) => boolean) => this.colaboradores.filter(pred).length;
     const abiertas = (pred: (p: Posicion) => boolean) => this.posiciones.filter((p) => p.vigente && pred(p)).length;
     if (this.data.hcNivel === 'division') {
-      return this.divisiones.map((d) => linea(d.nombre, CENTRO_COSTO_DIVISION[d.nombre] ?? '—',
+      return this.divisiones.map((d) => linea(d.nombre, this.centroDe(d.areas.map((a) => a.nombre)),
         d.areas.reduce((s, a) => s + (this.planArea[a.nombre] ?? 0), 0), actual((c) => c.division === d.nombre)));
     }
     if (this.data.hcNivel === 'subarea') {
@@ -90,7 +102,7 @@ export class HeadcountComponent {
         return linea(s.nombre, a.nombre, act + abiertas((p) => p.subArea === s.nombre), act);
       })));
     }
-    return this.divisiones.flatMap((d) => d.areas.map((a) => linea(a.nombre, CENTRO_COSTO_DIVISION[d.nombre] ?? '—',
+    return this.divisiones.flatMap((d) => d.areas.map((a) => linea(a.nombre, this.centroDe([a.nombre]),
       this.planArea[a.nombre] ?? 0, actual((c) => c.area === a.nombre))));
   }
 
@@ -175,12 +187,18 @@ export class HeadcountComponent {
   // --- Analítica ------------------------------------------------------------
   /** Real hires per month counted from collaborators' start dates. */
   get ingresosReales(): number[] {
-    return PERIODO.map(([m, y]) => this.colaboradores.filter((c) => {
+    return this.periodo.map(([m, y]) => this.colaboradores.filter((c) => {
       const d = parseFecha(c.ingreso);
       return d && d.getMonth() === m && d.getFullYear() === y;
     }).length);
   }
-  readonly planificados = INGRESOS_PLANIFICADOS;
+  /** Planned hires per month: positions of the headcount plan whose start date falls in it. */
+  get planificados(): number[] {
+    return this.periodo.map(([m, y]) => this.posiciones.filter((p) => {
+      const d = parseFecha(p.ingreso);
+      return d && d.getMonth() === m && d.getFullYear() === y;
+    }).length);
+  }
   get maxIngresos(): number { return Math.max(1, ...this.planificados, ...this.ingresosReales); }
   get maxArea(): number { return Math.max(1, ...this.lineasNivel.flatMap((l) => [l.esperado, l.actual])); }
 
@@ -189,7 +207,7 @@ export class HeadcountComponent {
       downloadCsv('headcount-esperado-vs-actual', [this.nivelLabel, 'Esperado', 'Actual'], this.lineasNivel.map((l) => [l.nombre, String(l.esperado), String(l.actual)]));
     } else {
       const reales = this.ingresosReales;
-      downloadCsv('ingresos-planificados-vs-reales', ['Mes', 'Ingreso planificado', 'Ingresos reales'], MESES.map((m, i) => [m, String(this.planificados[i]), String(reales[i])]));
+      downloadCsv('ingresos-planificados-vs-reales', ['Mes', 'Ingreso planificado', 'Ingresos reales'], this.meses.map((m, i) => [m, String(this.planificados[i]), String(reales[i])]));
     }
   }
 }

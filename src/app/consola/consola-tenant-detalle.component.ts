@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 import { UiStateService } from '../core/ui-state.service';
 import { MarcaPublica, variablesMarca } from '../core/marca.service';
 import { TenantModal } from './consola-modales.component';
+import { CobroPago, PagosCuenta } from '../core/pagos.service';
 import {
   AdminTenant, Certificado, ConsolaService, CorreoDominio, DetalleTenant, ResumenCicloVida, Dominio, Trabajo, EventoAuditoria, Factura, MESES, ModuloTenant, Nota, TONOS_ESTADO, UsoTenant, errorConsola, soles,
 } from './consola.service';
@@ -79,7 +80,7 @@ type Tab = 'resumen' | 'modulos' | 'uso' | 'facturacion' | 'dominios' | 'marca' 
             <label class="nx-field">Industria<input class="nx-input" name="in" [(ngModel)]="f.industria"></label>
             <label class="nx-field">Ejecutivo de cuenta<input class="nx-input" name="ej" [(ngModel)]="f.ejecutivo"></label>
             <label class="nx-field">Correo de facturación<input class="nx-input" name="cf" type="email" [(ngModel)]="f.correoFacturacion"></label>
-            <label class="nx-field">Fin de trial<input class="nx-input" name="th" type="date" [(ngModel)]="f.trialHasta"></label>
+            <label class="nx-field">Fin de trial<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" name="th" [(ngModel)]="f.trialHasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
             <div class="nx-settings__foot"><button type="button" class="nx-btn nx-btn--outline" (click)="editando = false">Cancelar</button><button type="submit" class="nx-btn nx-btn--primary">Guardar</button></div>
           </form>
         </section>
@@ -112,7 +113,7 @@ type Tab = 'resumen' | 'modulos' | 'uso' | 'facturacion' | 'dominios' | 'marca' 
                         [disabled]="!c.esAdmin || m.condicion.startsWith('Incluido')" (click)="m.activo = !m.activo; pendientes.add(m.codigo)"><span></span></button></td>
             <td><b>{{ m.nombre }}</b></td>
             <td>{{ m.condicion.startsWith('Incluido') ? m.condicion : 'Adicional ' + soles(m.precio) + ' / colab.' }}</td>
-            <td><input *ngIf="!m.condicion.startsWith('Incluido') && pendientes.has(m.codigo); else fecha" class="nx-input nx-input--sm" type="date" [(ngModel)]="vigencias[m.codigo]" [attr.aria-label]="'Vigencia de ' + m.nombre">
+            <td><span *ngIf="!m.condicion.startsWith('Incluido') && pendientes.has(m.codigo); else fecha" class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [(ngModel)]="vigencias[m.codigo]" [attr.aria-label]="'Vigencia de ' + m.nombre"><app-icon name="calendar" [size]="14"></app-icon></span>
               <ng-template #fecha>{{ m.desde ? (m.desde | date: 'dd/MM/yyyy') : '—' }}</ng-template></td>
             <td><span class="nx-badge nx-badge--sm" [ngClass]="m.activo ? 'nx-tone-success' : ''">{{ pendientes.has(m.codigo) ? 'Cambio pendiente' : m.activo ? 'Activo' : 'No contratado' }}</span></td>
           </tr></tbody>
@@ -148,12 +149,37 @@ type Tab = 'resumen' | 'modulos' | 'uso' | 'facturacion' | 'dominios' | 'marca' 
           <tbody>
             <tr *ngFor="let x of facturas"><td><b>{{ x.numero }}</b></td><td>{{ mesLargo(x.periodo) }}</td><td class="nx-num">{{ x.colaboradores }}</td><td class="nx-num">{{ soles(x.total) }}</td>
               <td>{{ x.emitida }}</td><td>{{ x.vence }}</td>
-              <td><span class="nx-badge nx-badge--sm" [ngClass]="x.estado === 'Pagada' ? 'nx-tone-success' : x.estado === 'Vencida' ? 'nx-tone-danger' : 'nx-tone-warning'">{{ x.estado }}</span></td>
+              <td><span class="nx-badge nx-badge--sm" [ngClass]="x.estado === 'Pagada' ? 'nx-tone-success' : x.estado === 'Vencida' ? 'nx-tone-danger' : 'nx-tone-warning'">{{ x.estado }}</span>
+                <div *ngIf="x.medioPago" class="nx-small nx-muted">{{ x.medioPago }}</div>
+                <div *ngIf="x.estado !== 'Pagada' && x.ultimoCobro" class="nx-small nx-error-text">{{ x.ultimoCobro }}</div>
+                <div *ngIf="x.estado !== 'Pagada' && x.proximoCobro" class="nx-small nx-muted">Próximo cobro: {{ x.proximoCobro }}</div></td>
               <td class="nx-muted nx-small">{{ x.sunatEstado }}</td>
-              <td class="nx-text-right"><button *ngIf="c.esAdmin && x.estado !== 'Pagada'" type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="pagar(x)">Marcar pagada</button></td></tr>
+              <td class="nx-text-right nx-nowrap">
+                <button *ngIf="c.esAdmin && x.estado !== 'Pagada' && pagos?.tarjeta" type="button" class="nx-btn nx-btn--primary nx-btn--sm" (click)="cobrar(x)">Cobrar ahora</button>
+                <button *ngIf="c.esAdmin && x.estado !== 'Pagada'" type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="pagar(x)">Marcar pagada</button></td></tr>
             <tr *ngIf="!facturas.length"><td colspan="9" class="cx-vacio">Todavía no hay facturas.</td></tr>
           </tbody>
         </table>
+      </section>
+      <section *ngIf="tab === 'facturacion' && pagos" class="nx-card nx-pad nx-mt-16">
+        <h2 class="nx-section__title nx-mt-0">Cobro automático (Izipay · {{ pagos.modo }})</h2>
+        <p class="nx-mt-0">{{ pagos.tarjeta ? 'Tarjeta ' + pagos.tarjeta.marca + ' ' + pagos.tarjeta.tarjeta + ' · registrada el ' + pagos.tarjeta.registradaEn + ' por ' + pagos.tarjeta.autorizadoPor : 'Sin tarjeta registrada: las facturas se pagan por transferencia y se marcan a mano.' }}</p>
+        <div class="nx-dt__scroll">
+          <table class="nx-table cx-tabla" aria-label="Cobros con tarjeta">
+            <thead><tr><th>Fecha</th><th>Factura</th><th class="nx-num">Monto</th><th>Tarjeta</th><th>Origen</th><th>Orden Izipay</th><th>Resultado</th><th></th></tr></thead>
+            <tbody>
+              <tr *ngFor="let x of pagos.cobros"><td>{{ x.fecha }}</td><td>{{ x.factura }}</td><td class="nx-num">{{ soles(x.monto) }}</td><td>{{ x.tarjeta }}</td>
+                <td>{{ x.origen }} · {{ x.actor }}</td><td class="nx-small">{{ x.orderNumber }}</td>
+                <td><span class="nx-badge nx-badge--sm" [ngClass]="x.estado === 'Aprobado' ? 'nx-tone-success' : x.estado === 'Rechazado' || x.estado === 'Error' ? 'nx-tone-danger' : 'nx-tone-warning'">{{ x.estado }}</span>
+                  <span class="nx-small nx-muted"> {{ x.mensaje }}{{ x.codigoAutorizacion ? ' · Aut. ' + x.codigoAutorizacion : '' }}</span></td>
+                <td class="nx-text-right nx-nowrap"><ng-container *ngIf="c.esAdmin && (x.estado === 'Por confirmar' || x.estado === 'Procesando')">
+                  <button type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="resolver(x, true)">Aprobado</button>
+                  <button type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="resolver(x, false)">No aprobado</button></ng-container></td></tr>
+              <tr *ngIf="!pagos.cobros.length"><td colspan="8" class="cx-vacio">Todavía no hay cobros con tarjeta.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="nx-hint">“Por confirmar”: Izipay no respondió a tiempo. Revisa la orden en el panel de Izipay y resuélvela aquí; mientras tanto no se vuelve a cobrar esa factura.</p>
       </section>
 
       <!-- Dominios -->
@@ -317,6 +343,7 @@ export class ConsolaTenantDetalleComponent implements OnDestroy {
   vigencias: Record<string, string> = {};
   uso: UsoTenant | null = null;
   facturas: Factura[] = [];
+  pagos: PagosCuenta | null = null;
   dominios: Dominio[] = [];
   estadoDominio: Record<number, string> = {};
   correoDominio: CorreoDominio | null = null;
@@ -370,7 +397,10 @@ export class ConsolaTenantDetalleComponent implements OnDestroy {
     if (!this.id) return;
     const e = (x: unknown) => this.ui.toast(errorConsola(x));
     if (this.tab === 'uso') this.c.get<UsoTenant>(`tenants/${this.id}/usage`).subscribe({ next: (u) => this.uso = u, error: e });
-    if (this.tab === 'facturacion') this.c.get<Factura[]>(`tenants/${this.id}/invoices`).subscribe({ next: (f) => this.facturas = f, error: e });
+    if (this.tab === 'facturacion') {
+      this.c.get<Factura[]>(`tenants/${this.id}/invoices`).subscribe({ next: (f) => this.facturas = f, error: e });
+      this.c.get<PagosCuenta>(`tenants/${this.id}/payments`).subscribe({ next: (p) => this.pagos = p, error: e });
+    }
     if (this.tab === 'dominios') {
       this.c.get<Dominio[]>(`tenants/${this.id}/domains`).subscribe({ next: (d) => this.dominios = d, error: e });
       this.c.get<CorreoDominio | null>(`tenants/${this.id}/email-domain`).subscribe({ next: (k) => this.correoDominio = k ?? null, error: e });
@@ -499,6 +529,22 @@ export class ConsolaTenantDetalleComponent implements OnDestroy {
   revisar(): void {
     this.c.post<ResumenCicloVida>(`lifecycle/run?tenantId=${this.id}`, {}).subscribe({
       next: (r) => { this.ui.toast(r.eventos.length ? r.eventos.join(' · ') : 'Sin cambios: el estado está al día'); this.cargar(); this.cargarTab(); },
+      error: (e) => this.ui.toast(errorConsola(e)),
+    });
+  }
+
+  /** Charges the invoice now with the tenant's registered card. */
+  cobrar(x: Factura): void {
+    this.c.post<CobroPago>(`tenants/${this.id}/invoices/${x.numero}/charge`, {}).subscribe({
+      next: (r) => { this.ui.toast(`${x.numero}: cobro ${r.estado.toLowerCase()}${r.estado !== 'Aprobado' && r.mensaje ? ' · ' + r.mensaje : ''}`); this.cargar(); this.cargarTab(); },
+      error: (e) => this.ui.toast(errorConsola(e)),
+    });
+  }
+
+  /** Settles a charge left "Por confirmar" after checking it in Izipay's panel. */
+  resolver(x: CobroPago, aprobado: boolean): void {
+    this.c.post<CobroPago>(`tenants/${this.id}/payments/${x.id}/resolve?aprobado=${aprobado}`, {}).subscribe({
+      next: (r) => { this.ui.toast(`Cobro ${r.orderNumber}: ${r.estado.toLowerCase()}`); this.cargar(); this.cargarTab(); },
       error: (e) => this.ui.toast(errorConsola(e)),
     });
   }

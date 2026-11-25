@@ -2,6 +2,8 @@ import { Component } from '@angular/core';
 import { AsistenciaService } from '../../core/asistencia.service';
 import { ConfigAsistencia } from '../../core/sample/asistencia';
 import { UiStateService } from '../../core/ui-state.service';
+import { GenericosService } from '../../core/genericos.service';
+import { CONFIG_FORMS } from '../../core/sample/config-forms';
 
 /** Administrativo › Asistencia › Configuraciones: rules the other attendance screens apply. */
 @Component({
@@ -55,7 +57,7 @@ export class AsistenciaConfigComponent {
   f: ConfigAsistencia;
   error = '';
 
-  constructor(private asis: AsistenciaService, private ui: UiStateService) { this.f = { ...asis.config }; }
+  constructor(private gen: GenericosService, private asis: AsistenciaService, private ui: UiStateService) { this.f = { ...asis.config }; }
 
   private validar(): string {
     const entero = (n: unknown, min: number, max: number) => Number.isInteger(Number(n)) && Number(n) >= min && Number(n) <= max;
@@ -69,10 +71,10 @@ export class AsistenciaConfigComponent {
   guardar(): void {
     this.error = this.validar();
     if (this.error) return;
-    Object.assign(this.asis.config, {
+    const cambios = this.gen.guardarConfig(CONFIG_FORMS['asistencia'], 'Configuración de asistencia', {
       umbralSaldo: Number(this.f.umbralSaldo), anticipacionDias: Number(this.f.anticipacionDias),
       horasJornada: Number(this.f.horasJornada), sobretasaDomingo: Number(this.f.sobretasaDomingo), permitirAdelanto: this.f.permitirAdelanto,
     });
-    this.ui.toast('Configuración de asistencia guardada');
+    this.ui.toast(cambios.length ? 'Configuración de asistencia guardada' : 'No hay cambios que guardar');
   }
 }

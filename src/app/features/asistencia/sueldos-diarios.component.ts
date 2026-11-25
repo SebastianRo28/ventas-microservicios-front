@@ -1,6 +1,7 @@
 import { Component, OnDestroy } from '@angular/core';
 import { combineLatest, Subscription } from 'rxjs';
 import { AsistenciaService } from '../../core/asistencia.service';
+import { PeriodoService, nombreMes } from '../../core/periodo.service';
 import { parseFecha, soles } from '../../core/format';
 import { HrDataService } from '../../core/hr-data.service';
 import { ParametrosRemService } from '../../core/parametros-rem.service';
@@ -31,6 +32,7 @@ const COLS: Column[] = [
   selector: 'app-sueldos-diarios',
   template: `
     <app-page-header title="Sueldos Diarios" [crumbs]="['Administrativo', 'Asistencia']"></app-page-header>
+    <app-periodo-aviso></app-periodo-aviso>
     <div class="nx-grid nx-grid--4 nx-mb-16">
       <div class="nx-card nx-stat"><span>Colaboradores con jornal diario</span><b>{{ stats.diarios }}</b></div>
       <div class="nx-card nx-stat"><span>Días sin goce en {{ periodo }}</span><b>{{ stats.sinGoce }}</b></div>
@@ -71,22 +73,20 @@ export class SueldosDiariosComponent implements OnDestroy {
   /** A daily wage cannot be below RMV / 30 (Tablas de parámetros). */
   get rmv(): number { return this.params.rmv; }
   get minimo(): number { return this.params.jornalMinimo; }
-  readonly periodo: string;
+  /** "marzo de 2026": month of the topbar period (or of the attendance cut-off date). */
+  get periodo(): string { return nombreMes(this.per.seleccionado).toLowerCase().replace(' ', ' de '); }
   rows: Row[] = [];
   stats = { diarios: 0, sinGoce: 0, descuento: '', total: '' };
   editar: { c: Colaborador; diario: boolean; jornal: string } | null = null;
   intento = false;
   private colaboradores: Colaborador[] = [];
-  private readonly anio: number;
-  private readonly mes: number;
+  private get anio(): number { return Number(this.per.seleccionado.slice(3)); }
+  private get mes(): number { return Number(this.per.seleccionado.slice(0, 2)) - 1; }
   private sub: Subscription;
 
-  constructor(data: HrDataService, public asis: AsistenciaService, private params: ParametrosRemService, private ui: UiStateService) {
-    const corte = parseFecha(asis.corte)!;
-    this.anio = corte.getFullYear();
-    this.mes = corte.getMonth();
-    this.periodo = corte.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }).toLowerCase();
-    this.sub = combineLatest([data.colaboradores(), asis.ausencias$]).subscribe(([cs]) => { this.colaboradores = cs; this.refrescar(); });
+  constructor(data: HrDataService, public asis: AsistenciaService, private params: ParametrosRemService, private ui: UiStateService,
+              private per: PeriodoService) {
+    this.sub = combineLatest([data.colaboradores(), asis.ausencias$, per.seleccionado$]).subscribe(([cs]) => { this.colaboradores = cs; this.refrescar(); });
   }
   ngOnDestroy(): void { this.sub.unsubscribe(); }
 

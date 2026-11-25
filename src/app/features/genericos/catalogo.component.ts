@@ -40,9 +40,13 @@ type Valor = string | number | boolean;
                 <option *ngFor="let o of opciones(c)" [value]="o">{{ o }}</option>
               </select>
               <textarea *ngIf="c.tipo === 'textarea'" class="nx-textarea" rows="3" maxlength="500" [name]="c.key" [attr.name]="c.key" [(ngModel)]="f.v[c.key]"></textarea>
-              <input *ngIf="c.tipo === 'texto' || c.tipo === 'numero' || c.tipo === 'fecha'" class="nx-input" [name]="c.key" [attr.name]="c.key"
-                     [attr.inputmode]="c.tipo === 'numero' ? 'decimal' : null" [placeholder]="c.placeholder ?? (c.tipo === 'fecha' ? 'DD/MM/YYYY' : '')"
+              <input *ngIf="c.tipo === 'texto' || c.tipo === 'numero'" class="nx-input" [name]="c.key" [attr.name]="c.key"
+                     [attr.inputmode]="c.tipo === 'numero' ? 'decimal' : null" [placeholder]="c.placeholder ?? ''"
                      [(ngModel)]="f.v[c.key]" [class.is-invalid]="intento && errores[c.key]">
+              <span *ngIf="c.tipo === 'fecha'" class="nx-input-icon nx-input-icon--end">
+                <input nxFecha class="nx-input" [name]="c.key" [attr.name]="c.key" [placeholder]="c.placeholder ?? 'DD/MM/YYYY'"
+                       [(ngModel)]="f.v[c.key]" [class.is-invalid]="intento && errores[c.key]"><app-icon name="calendar" [size]="16"></app-icon>
+              </span>
               <span *ngIf="c.ayuda" class="nx-hint">{{ c.ayuda }}</span>
               <span *ngIf="intento && errores[c.key]" class="nx-error">{{ errores[c.key] }}</span>
             </label>
@@ -91,12 +95,13 @@ export class CatalogoComponent implements OnDestroy {
       })),
       { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '110px' },
     ];
-    this.sub = combineLatest([gen.filas$(this.cfg), data.colaboradores(), data.cargos(), items.tipos$]).subscribe(([fs, cs, cargos, tipos]) => {
+    this.sub = combineLatest([gen.filas$(this.cfg), data.colaboradores(), data.cargos(), items.tipos$, data.ubigeo()]).subscribe(([fs, cs, cargos, tipos, ubigeo]) => {
       this.fuentes = {
         colaboradores: cs.map((c) => `${c.apellidos}, ${c.nombres}`),
         areas: [...new Set(cs.map((c) => c.area))].sort(),
         cargos: cargos.map((c) => c.nombre),
         items: tipos.filter((t) => t.activo).map((t) => `${t.codigo} · ${t.nombre}`),
+        departamentos: ubigeo.departamentos.map((d) => d.nombre),
       };
       this.filas = fs;
       this.rows = fs.map((f) => {

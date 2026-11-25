@@ -1,11 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { GenericosService } from './genericos.service';
+import { CONFIG_FORMS } from './sample/config-forms';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_URL } from './api';
 import { AuditService } from './audit.service';
 import { AuthService, mensajeError } from './auth.service';
 import {
-  COMISIONES_AFP, CONFIG_REM, ComisionAfp, ConfigRem, PARAMETROS_GENERALES, ParametroGeneral, TRAMOS_RENTA, TramoRenta
+  COMISIONES_AFP, ComisionAfp, ConfigRem, PARAMETROS_GENERALES, ParametroGeneral, TRAMOS_RENTA, TramoRenta
 } from './sample/parametros-rem';
 import { UiStateService } from './ui-state.service';
 
@@ -21,9 +23,10 @@ export class ParametrosRemService {
   readonly generales: ParametroGeneral[] = PARAMETROS_GENERALES.map((p) => ({ ...p }));
   readonly afp: ComisionAfp[] = COMISIONES_AFP.map((a) => ({ ...a }));
   readonly tramos: TramoRenta[] = TRAMOS_RENTA.map((t) => ({ ...t }));
-  readonly config: ConfigRem = CONFIG_REM;
+  /** Configuración de remuneraciones (/api/configuracion/remuneraciones, with its defaults). */
+  get config(): ConfigRem { return this.genericosCfg.valores(CONFIG_FORMS['remuneraciones']) as unknown as ConfigRem; }
 
-  constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService) {}
+  constructor(private genericosCfg: GenericosService, private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService) {}
 
   /** Same arrays, so screens holding them see the server values. */
   cargar(): Observable<void> {

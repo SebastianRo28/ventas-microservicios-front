@@ -1,7 +1,8 @@
 import { Component } from '@angular/core';
 import { HrDataService } from '../../core/hr-data.service';
-import { Reconocimiento, VALORES_RECONOCIMIENTO } from '../../core/sample/reportes';
+import { Reconocimiento } from '../../core/sample/reportes';
 import { UiStateService } from '../../core/ui-state.service';
+import { PortalService as PortalValores, ValorReconocimiento } from '../../core/portal.service';
 import { Column, Row, RowAction } from '../../shared/data-table/data-table.models';
 
 const COLS: Column[] = [
@@ -45,7 +46,7 @@ const fecha = (d: string) => d.split('/').reverse().join('');
   `
 })
 export class ReconocimientosAdminComponent {
-  readonly valores = VALORES_RECONOCIMIENTO;
+  get valores(): ValorReconocimiento[] { return this.portalValores.valores$.value; }
   readonly cols = COLS; readonly rcols = RCOLS;
   readonly actions: RowAction[] = ['ver', 'eliminar'];
   tab = 0;
@@ -53,7 +54,7 @@ export class ReconocimientosAdminComponent {
   reconocidos: Row[] = [];
   private all: Reconocimiento[] = [];
 
-  constructor(data: HrDataService, private ui: UiStateService) {
+  constructor(private portalValores: PortalValores, data: HrDataService, private ui: UiStateService) {
     data.reconocimientos().subscribe((r) => { this.all = r; this.refresh(); });
   }
 

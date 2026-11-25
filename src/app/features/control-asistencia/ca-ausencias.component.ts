@@ -94,8 +94,8 @@ const VISTAS: Record<VistaAus, DefVista> = {
         <label *ngIf="def.tipos && def.tipos.length > 1" class="nx-field">Tipo*
           <select class="nx-select" name="tipo" [attr.name]="'tipo'" [(ngModel)]="m.tipo"><option *ngFor="let t of def.tipos">{{ t }}</option></select></label>
         <div class="nx-grid nx-grid--2 nx-gap-16">
-          <label class="nx-field">Desde*<input type="date" class="nx-input" name="desde" [(ngModel)]="m.desde"></label>
-          <label class="nx-field">Hasta*<input type="date" class="nx-input" name="hasta" [min]="m.desde" [(ngModel)]="m.hasta"></label>
+          <label class="nx-field">Desde*<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" name="desde" [(ngModel)]="m.desde"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+          <label class="nx-field">Hasta*<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input" name="hasta" [nxFechaMin]="m.desde" [(ngModel)]="m.hasta"><app-icon name="calendar" [size]="16"></app-icon></span></label>
         </div>
         <label class="nx-field">Observación<input class="nx-input" name="obs" maxlength="120" [(ngModel)]="m.observacion"></label>
         <div *ngIf="!error && previa" class="nx-ok-note" role="status"><app-icon name="checkcircle" [size]="16"></app-icon>{{ previa }}</div>

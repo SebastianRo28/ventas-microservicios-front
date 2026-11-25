@@ -99,7 +99,7 @@
               <option *ngFor="let o of options(c)" [value]="o">{{ o }}</option>
             </select>
             <label *ngSwitchCase="'date'" class="nx-input-icon nx-input-icon--end">
-              <input class="nx-input nx-input--sm" [attr.aria-label]="'Fecha ' + c.label" placeholder="DD/MM/YYYY"
+              <input nxFecha class="nx-input nx-input--sm" [attr.aria-label]="'Fecha ' + c.label" placeholder="DD/MM/YYYY"
                      [value]="filters[c.key] || ''" (input)="setFilter(c.key, $any($event.target).value)">
               <app-icon name="calendar" [size]="14"></app-icon>
             </label>

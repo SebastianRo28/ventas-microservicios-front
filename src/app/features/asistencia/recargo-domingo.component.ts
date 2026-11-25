@@ -54,7 +54,7 @@ const COLS: Column[] = [
           </select>
         </label>
         <div class="nx-grid nx-grid--2 nx-gap-16">
-          <label class="nx-field">Fecha*<input class="nx-input" name="fecha" placeholder="DD/MM/YYYY" [(ngModel)]="m.fecha"></label>
+          <label class="nx-field">Fecha*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="fecha" placeholder="DD/MM/YYYY" [(ngModel)]="m.fecha"><app-icon name="calendar" [size]="16"></app-icon></span></label>
           <label class="nx-field">Horas trabajadas*<input class="nx-input" name="horas" type="number" min="1" max="12" [(ngModel)]="m.horas"></label>
         </div>
         <span *ngIf="diaLabel" class="nx-hint">{{ diaLabel }}</span>

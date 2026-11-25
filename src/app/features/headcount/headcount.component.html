@@ -105,8 +105,8 @@
       <select class="nx-select" name="cargo" [(ngModel)]="m.cargo"><option *ngFor="let c of cargos">{{ c }}</option></select>
     </label>
     <div class="nx-grid nx-grid--2 nx-grid--16">
-      <label class="nx-field">Fecha de ingreso proyectada*<input class="nx-input" name="ingreso" placeholder="DD/MM/YYYY" [(ngModel)]="m.ingreso"></label>
-      <label class="nx-field">Fecha de término<input class="nx-input" name="termino" placeholder="DD/MM/YYYY" [(ngModel)]="m.termino">
+      <label class="nx-field">Fecha de ingreso proyectada*<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="ingreso" placeholder="DD/MM/YYYY" [(ngModel)]="m.ingreso"><app-icon name="calendar" [size]="16"></app-icon></span></label>
+      <label class="nx-field">Fecha de término<span class="nx-input-icon nx-input-icon--end"><input nxFecha class="nx-input" name="termino" placeholder="DD/MM/YYYY" [(ngModel)]="m.termino"><app-icon name="calendar" [size]="16"></app-icon></span>
         <span class="nx-hint">Si no se define fecha de término, la posición será indefinida.</span></label>
     </div>
     <label class="nx-field">Cantidad de posiciones a crear*<input class="nx-input" type="number" min="1" max="20" name="cantidad" [(ngModel)]="m.cantidad"></label>

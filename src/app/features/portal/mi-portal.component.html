@@ -2,7 +2,7 @@
 <div class="nx-portal">
   <div class="nx-portal__main">
     <!-- Portadas -->
-    <section class="nx-card nx-cover" aria-label="Portadas" aria-roledescription="carrusel">
+    <section *ngIf="portadas.length" class="nx-card nx-cover" aria-label="Portadas" aria-roledescription="carrusel">
       <ng-container *ngFor="let p of portadas; let i = index">
         <ng-container *ngIf="i === slide">
           <div class="nx-cover__art" [style.background]="p.bg">
@@ -109,16 +109,17 @@
         <span>{{ t.what }}</span>
         <div class="nx-mini-task__foot"><span class="nx-muted nx-small">{{ t.when }}</span><button type="button" class="nx-btn nx-btn--outline nx-btn--xs">Acciones</button></div>
       </article>
-      <button type="button" class="nx-link-btn" (click)="ui.openDrawer('pendientes')">Ver todas las tareas (8)</button>
+      <div *ngIf="!tareas.length" class="nx-muted nx-small">No tienes tareas pendientes.</div>
+      <button *ngIf="totalTareas" type="button" class="nx-link-btn" (click)="ui.openDrawer('pendientes')">Ver todas las tareas ({{ totalTareas }})</button>
     </section>
 
     <section class="nx-card nx-side">
       <div class="nx-side__head"><h3 class="nx-grow">Accesos directos</h3><span class="nx-chip-sm">F1</span></div>
-      <div class="nx-vac">
+      <div *ngIf="muestra('Vacaciones disponibles')" class="nx-vac">
         <div class="nx-grow"><span>Vacaciones disponibles</span><b>{{ saldoVacaciones }} días totales</b></div>
         <a *ngIf="portal.puedeVer('/admin/asistencia/solicitudes')" class="nx-btn nx-btn--primary nx-btn--sm" routerLink="/admin/asistencia/solicitudes">Solicitar</a>
       </div>
-      <div class="nx-slips">
+      <div *ngIf="muestra('Últimas boletas de pago')" class="nx-slips">
         <b>Últimas boletas de pago</b>
         <div *ngIf="boletas.length; else sinBoletas">
           <a *ngFor="let bo of boletas" href="#" (click)="$event.preventDefault(); boletaVer = bo.id">{{ nombrePeriodo(bo.periodo) }}</a>
@@ -162,8 +163,8 @@
     <div class="nx-values">
       <button *ngFor="let v of valores; let i = index" type="button" class="nx-value" [class.is-on]="valor === i"
               [attr.aria-pressed]="valor === i" (click)="valor = i">
-        <span class="nx-value__icon" [style.background]="v.color" [style.box-shadow]="'0 0 0 5px ' + v.color + '33'"><app-icon [name]="v.icon" [size]="26"></app-icon></span>
-        <span class="nx-value__name" [title]="v.hint">{{ v.name }}</span>
+        <span class="nx-value__icon" [style.background]="v.color" [style.box-shadow]="'0 0 0 5px color-mix(in srgb, ' + v.color + ' 20%, transparent)'"><app-icon [name]="v.icono" [size]="26"></app-icon></span>
+        <span class="nx-value__name">{{ v.nombre }}</span>
       </button>
     </div>
   </ng-container>
@@ -188,7 +189,7 @@
   <ng-container *ngIf="recon < 3">
     <span class="nx-field-label nx-mt-16">Vista previa</span>
     <div class="nx-recog-preview">
-      <div [style.background]="valores[valor].color">{{ valores[valor].name }}</div>
+      <div [style.background]="valores[valor]?.color">{{ valores[valor]?.nombre }}</div>
       <p>{{ reconMsg || '¡Buen trabajo equipo!' }}</p>
     </div>
   </ng-container>
@@ -229,7 +230,7 @@
 </app-modal>
 
 <!-- Calendario de cumpleaños -->
-<app-modal *ngIf="calendario" title="Calendario de cumpleaños 2026" width="760px" (closed)="calendario = false">
+<app-modal *ngIf="calendario" [title]="'Calendario de cumpleaños ' + anio" width="760px" (closed)="calendario = false">
   <div class="nx-calendar">
     <div *ngFor="let m of cumples" class="nx-calendar__month">
       <b>{{ m[0] }}</b>

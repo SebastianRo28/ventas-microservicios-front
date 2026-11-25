@@ -96,8 +96,8 @@ export class CaColaboradoresComponent implements OnDestroy {
     </app-page-header>
     <app-ca-filtros [fecha]="false"></app-ca-filtros>
     <div class="nx-card nx-cafil">
-      <label class="nx-cafil__f">Desde<input type="date" class="nx-input nx-input--sm" [min]="minIso" [max]="maxIso" [ngModel]="desdeIso" (ngModelChange)="setRango($event, hastaIso)"></label>
-      <label class="nx-cafil__f">Hasta<input type="date" class="nx-input nx-input--sm" [min]="minIso" [max]="maxIso" [ngModel]="hastaIso" (ngModelChange)="setRango(desdeIso, $event)"></label>
+      <label class="nx-cafil__f">Desde<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [ngModel]="desdeIso" (ngModelChange)="setRango($event, hastaIso)"><app-icon name="calendar" [size]="14"></app-icon></span></label>
+      <label class="nx-cafil__f">Hasta<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [ngModel]="hastaIso" (ngModelChange)="setRango(desdeIso, $event)"><app-icon name="calendar" [size]="14"></app-icon></span></label>
       <span *ngIf="errorRango" class="nx-error">{{ errorRango }}</span>
     </div>
     <div class="nx-catarjeta">
@@ -247,7 +247,7 @@ export class CaTarjetaComponent implements OnDestroy {
       <div class="nx-grid nx-grid--2 nx-mb-16">
         <section class="nx-card nx-pad" aria-label="Registro del día">
           <div class="nx-section__head"><h2>Registro del día</h2>
-            <input type="date" class="nx-input nx-input--sm nx-w-200" [min]="minIso" [max]="maxIso" [ngModel]="diaIso" (ngModelChange)="setDia($event)" aria-label="Fecha del registro"></div>
+            <span class="nx-input-icon nx-input-icon--end nx-w-200"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [ngModel]="diaIso" (ngModelChange)="setDia($event)" aria-label="Fecha del registro"><app-icon name="calendar" [size]="14"></app-icon></span></div>
           <p class="nx-small nx-mt-0"><span class="nx-cashift" [style.background]="dia.turno?.color || null">{{ dia.codigo }}</span> {{ dia.horario }} ·
             <span class="nx-badge nx-badge--sm" [ngClass]="'nx-tone-' + tone(dia.estado)">{{ dia.estado }}</span> <span class="nx-muted">{{ dia.detalle }}</span></p>
           <ol class="nx-catl">

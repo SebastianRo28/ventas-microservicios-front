@@ -29,8 +29,8 @@ const ESTADOS: (EstadoHhee | 'Todos')[] = ['Todos', 'En espera', 'Aprobado', 'Ap
     <app-page-header title="Aprobación de Horas Extras" [crumbs]="['Control de Asistencia', 'Horas Extras']"></app-page-header>
     <app-ca-filtros [fecha]="false"></app-ca-filtros>
     <div class="nx-card nx-cafil">
-      <label class="nx-cafil__f">Fecha inicio<input type="date" class="nx-input nx-input--sm" [min]="minIso" [max]="maxIso" [(ngModel)]="desde" (ngModelChange)="armar()"></label>
-      <label class="nx-cafil__f">Fecha término<input type="date" class="nx-input nx-input--sm" [min]="minIso" [max]="maxIso" [(ngModel)]="hasta" (ngModelChange)="armar()"></label>
+      <label class="nx-cafil__f">Fecha inicio<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [(ngModel)]="desde" (ngModelChange)="armar()"><app-icon name="calendar" [size]="14"></app-icon></span></label>
+      <label class="nx-cafil__f">Fecha término<span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [(ngModel)]="hasta" (ngModelChange)="armar()"><app-icon name="calendar" [size]="14"></app-icon></span></label>
       <label class="nx-cafil__f">Exceso desde (hora)<input type="time" class="nx-input nx-input--sm" [(ngModel)]="horaIni" (ngModelChange)="armar()"></label>
       <label class="nx-cafil__f">Exceso hasta (hora)<input type="time" class="nx-input nx-input--sm" [(ngModel)]="horaFin" (ngModelChange)="armar()"></label>
       <label class="nx-cafil__f">Valor mínimo (S/)<input type="number" min="0" class="nx-input nx-input--sm nx-w-140" [(ngModel)]="vmin" (ngModelChange)="armar()"></label>

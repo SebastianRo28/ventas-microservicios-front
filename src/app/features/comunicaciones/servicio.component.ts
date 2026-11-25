@@ -1,5 +1,9 @@
 import { Component } from '@angular/core';
-import { CategoriaTicket, EstadoTicket, TICKETS, Ticket } from '../../core/sample/servicio';
+import { CategoriaTicket, EstadoTicket, Ticket } from '../../core/sample/servicio';
+import { AsistenciaService } from '../../core/asistencia.service';
+import { AuthService } from '../../core/auth.service';
+import { DatosService } from '../../core/datos.service';
+import { parseFecha } from '../../core/format';
 import { UiStateService } from '../../core/ui-state.service';
 
 /** SLA for a first answer, in hours. */
@@ -28,7 +32,7 @@ const ESTADO_TONE: Record<EstadoTicket, string> = { Abierto: 'warning', 'En proc
             <option value="">Todas las categorías</option><option *ngFor="let c of categorias">{{ c }}</option>
           </select>
         </div>
-        <button *ngFor="let t of visibles" type="button" class="nx-inbox__item" [class.is-active]="sel === t" (click)="abrir(t)">
+        <button *ngFor="let t of visibles" type="button" class="nx-inbox__item" [class.is-active]="sel?.id === t.id" (click)="abrir(t)">
           <span class="nx-row nx-row--center"><b class="nx-grow nx-ellipsis">{{ t.asunto }}</b><span class="nx-badge nx-badge--sm" [ngClass]="'nx-tone-' + tone(t.estado)">{{ t.estado }}</span></span>
           <span class="nx-small">{{ t.colaborador }} · #{{ t.id }}</span>
           <span class="nx-small nx-muted">{{ t.categoria }} · {{ t.abierto }}</span>
@@ -66,40 +70,51 @@ const ESTADO_TONE: Record<EstadoTicket, string> = { Abierto: 'warning', 'En proc
 export class ServicioComponent {
   readonly categorias: CategoriaTicket[] = ['Remuneraciones', 'Vacaciones y asistencia', 'Beneficios', 'Documentos', 'Otros'];
   readonly sla = SLA_HORAS;
-  readonly tickets = TICKETS;
+  /** Questions from the collaborators (/api/datos/tickets: each one sees their own, Recursos Humanos all of them). */
+  get tickets(): Ticket[] { return this.datos.lista$<Ticket>('tickets').value; }
   filtro = '';
   categoria = '';
-  sel: Ticket | null = TICKETS.find((t) => t.estado !== 'Resuelto') ?? null;
+  private selId: number | null = null;
+  get sel(): Ticket | null {
+    return this.tickets.find((t) => t.id === this.selId) ?? (this.selId === null ? this.tickets.find((t) => t.estado !== 'Resuelto') ?? null : null);
+  }
   respuesta = '';
   resolver = false;
 
-  constructor(private ui: UiStateService) {}
+  constructor(private ui: UiStateService, private datos: DatosService, private auth: AuthService, private asis: AsistenciaService) {}
 
   get visibles(): Ticket[] { return this.tickets.filter((t) => (!this.filtro || t.estado === this.filtro) && (!this.categoria || t.categoria === this.categoria)); }
   get sinRespuesta(): number { return this.tickets.filter((t) => t.estado !== 'Resuelto' && !t.mensajes.some((m) => m.rrhh)).length; }
   cuenta(e: EstadoTicket): number { return this.tickets.filter((t) => t.estado === e).length; }
   tone(e: EstadoTicket): string { return ESTADO_TONE[e]; }
 
-  /** No HR answer yet and opened more than SLA hours before the sample cut-off (16/03/2026 18:00). */
+  /** No HR answer yet and opened more than SLA hours ago (today = the attendance cut-off date, at the current time). */
   vencido(t: Ticket): boolean {
     if (t.estado === 'Resuelto' || t.mensajes.some((m) => m.rrhh)) return false;
     const [d, h] = t.abierto.split(' ');
     const [dd, mm, yy] = d.split('/').map(Number), [hh, mi] = h.split(':').map(Number);
-    return (new Date(2026, 2, 16, 18).getTime() - new Date(yy, mm - 1, dd, hh, mi).getTime()) / 3_600_000 > SLA_HORAS;
+    const hoy = parseFecha(this.asis.corte) ?? new Date(), ahoraMismo = new Date();
+    hoy.setHours(ahoraMismo.getHours(), ahoraMismo.getMinutes());
+    return (hoy.getTime() - new Date(yy, mm - 1, dd, hh, mi).getTime()) / 3_600_000 > SLA_HORAS;
   }
 
-  abrir(t: Ticket): void { this.sel = t; this.respuesta = ''; this.resolver = false; }
+  abrir(t: Ticket): void { this.selId = t.id; this.respuesta = ''; this.resolver = false; }
 
-  cambiarEstado(t: Ticket, e: EstadoTicket): void { t.estado = e; this.ui.toast(`Consulta #${t.id}: ${e.toLowerCase()}`); }
+  cambiarEstado(t: Ticket, e: EstadoTicket): void {
+    this.selId = t.id;
+    this.datos.actualizar('tickets', { ...t, estado: e }).subscribe(() => this.ui.toast(`Consulta #${t.id}: ${e.toLowerCase()}`));
+  }
 
   responder(t: Ticket): void {
     const texto = this.respuesta.trim();
     if (!texto) return;
-    t.mensajes.push({ autor: 'Rodrigo Paredes', rrhh: true, fecha: ahora(), texto });
-    t.asignado = t.asignado || 'Rodrigo Paredes';
-    t.estado = this.resolver ? 'Resuelto' : 'En proceso';
+    const yo = this.auth.usuario?.nombre ?? 'Recursos Humanos';
+    this.selId = t.id;
+    this.datos.actualizar('tickets', {
+      ...t, mensajes: [...t.mensajes, { autor: yo, rrhh: true, fecha: ahora(), texto }], asignado: t.asignado || yo,
+      estado: this.resolver ? 'Resuelto' : 'En proceso',
+    }).subscribe(() => this.ui.toast(`Respuesta enviada en la consulta #${t.id}`));
     this.respuesta = '';
     this.resolver = false;
-    this.ui.toast(`Respuesta enviada en la consulta #${t.id}`);
   }
 }
