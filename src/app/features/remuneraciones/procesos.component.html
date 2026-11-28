@@ -14,21 +14,24 @@
     </button>
 
     <div *ngIf="open.has(p.periodo)" class="nx-period__body">
-      <div *ngIf="!p.cerrado" class="nx-row nx-row--right">
-        <button type="button" class="nx-btn nx-btn--primary" (click)="procesarModal = true"><app-icon name="refresh" [size]="16"></app-icon>Procesar</button>
+      <div *ngIf="!p.cerrado && p.boletas" class="nx-row nx-row--right">
+        <button type="button" class="nx-btn nx-btn--outline" (click)="procesarModal = true"><app-icon name="refresh" [size]="16"></app-icon>Reprocesar</button>
         <button type="button" class="nx-btn nx-btn--outline nx-btn--danger" [disabled]="!p.boletas" [title]="p.boletas ? '' : 'Procesa la planilla antes de cerrarla'"
                 (click)="cerrarModal = true"><app-icon name="lock" [size]="16"></app-icon>Cerrar Período</button>
       </div>
-      <div *ngIf="!p.cerrado && !p.boletas" class="nx-banner nx-banner--warning nx-banner--compact" role="note">
-        <app-icon name="alert" [size]="18"></app-icon>
-        <span class="nx-grow">La planilla de este período aún no se ha procesado.</span>
+      <!-- Not processed yet: a clear next step instead of four amounts in zero. -->
+      <div *ngIf="!p.cerrado && !p.boletas" class="nx-empty nx-empty--compact nx-mb-12">
+        <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round"><app-icon name="calculator" [size]="26"></app-icon></span>
+        <b>Aún no procesas la planilla de {{ nombrePeriodo(p.periodo) | lowercase }}</b>
+        <span class="nx-muted nx-small">Al procesarla se calculan las boletas con la asistencia, las horas extras y los conceptos del período.</span>
+        <button type="button" class="nx-btn nx-btn--primary" (click)="procesarModal = true"><app-icon name="refresh" [size]="16"></app-icon>Procesar planilla</button>
       </div>
       <div *ngIf="conObservaciones(p.periodo) as n" class="nx-banner nx-banner--warning nx-banner--compact" role="note">
         <app-icon name="alert" [size]="18"></app-icon>
         <span class="nx-grow">{{ n }} boleta(s) con observaciones: revísalas antes de cerrar.</span>
       </div>
 
-      <div class="nx-row nx-mb-12">
+      <div *ngIf="p.boletas" class="nx-row nx-mb-12">
         <div class="nx-card nx-stat nx-stat--inline"><span>Ingresos</span><b>{{ soles(p.ingresos) }}</b></div>
         <div class="nx-card nx-stat nx-stat--inline"><span>Descuentos</span><b>{{ soles(p.descuentos) }}</b></div>
         <div class="nx-card nx-stat nx-stat--inline"><span>Neto a pagar</span><b>{{ soles(p.neto) }}</b></div>

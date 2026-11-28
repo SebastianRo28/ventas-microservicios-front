@@ -26,7 +26,9 @@ export class PendientesService {
       ? this.ctx.contexto$.pipe(filter((c) => !!c), take(1),
         switchMap((c) => c!.modulos.includes('SST') ? this.sst.datos().pipe(map((d) => d.asignaciones), catchError(() => of([]))) : of([])), startWith([]))
       : of([]);
-    return combineLatest([this.data.colaboradores(), this.asis.solicitudes$, this.data.solicitudesWf(), this.portal.evaluaciones$, evidencias]).pipe(
+    // Evaluations (and workflows, filtered in HrDataService) are part of Plataforma Pro.
+    const evaluaciones = this.ctx.contratado$('PRO').pipe(switchMap((pro) => pro ? this.portal.evaluaciones$ : of([])), startWith([]));
+    return combineLatest([this.data.colaboradores(), this.asis.solicitudes$, this.data.solicitudesWf(), evaluaciones, evidencias]).pipe(
       map(([cs, sols, wf, evals, evs]) => {
         const nombre = (id: number) => { const c = cs.find((x: Colaborador) => x.id === id); return c ? `${c.apellidos}, ${c.nombres}` : '—'; };
         const lista: Pendiente[] = [
@@ -34,19 +36,23 @@ export class PendientesService {
             tipo: s.tipo === 'Vacaciones' ? 'vac' : 'aus', etiqueta: 'Solicitudes', tone: 'info', fecha: s.creada,
             titulo: `Solicitud de ${s.tipo === 'Vacaciones' ? 'Vacaciones' : 'Ausentismo'} · ${nombre(s.colaboradorId)}`,
             detalle: s.desde === s.hasta ? `${s.tipo} el ${s.desde}.` : `${s.tipo} del ${s.desde} al ${s.hasta}.`,
+            ruta: '/admin/asistencia/solicitudes', accion: 'Revisar solicitud',
           })),
           ...wf.filter((s) => s.estado === 'Pendiente' && !s.esMia).map((s): Pendiente => ({
             tipo: 'otro', etiqueta: 'Solicitudes', tone: 'info', fecha: s.creada,
             titulo: `#${s.id} ${s.titulo} está pendiente de revisión`, detalle: `Solicitado por ${s.solicitante}.`,
+            ruta: '/admin/workflow/solicitudes', accion: 'Revisar solicitud',
           })),
           ...evals.filter((e) => e.estado === 'Autoevaluación pendiente').map((e): Pendiente => ({
             tipo: 'eva', etiqueta: 'Acciones pendientes - Evaluación', tone: 'neutral', fecha: e.cierre,
             titulo: e.nombre, detalle: `Completa tu autoevaluación antes del ${e.cierre}.`,
+            ruta: '/portal/mis-evaluaciones', accion: 'Hacer autoevaluación',
           })),
           ...evs.filter((a) => !a.finalizada && (a.estado === 'Por vencer' || a.estado === 'Vencida')).map((a): Pendiente => ({
             tipo: 'sst', etiqueta: 'SST', tone: a.estado === 'Vencida' ? 'danger' : 'warning', fecha: a.vence ?? a.actualizado,
             titulo: `${a.requisito} ${a.estado === 'Vencida' ? 'vencido' : 'por vencer'}`,
             detalle: `La evidencia de ${a.titular} ${a.estado === 'Vencida' ? 'venció' : 'vence'} el ${a.vence ?? '—'}.`,
+            ruta: '/sst/cumplimientos', accion: 'Actualizar evidencia',
           })),
         ];
         return lista.sort((a, b) => orden(b.fecha).localeCompare(orden(a.fecha)));

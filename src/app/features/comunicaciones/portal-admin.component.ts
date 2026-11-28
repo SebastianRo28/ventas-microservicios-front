@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { catchError, forkJoin, map, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { API_URL } from '../../core/api';
 import { downloadCsv } from '../../core/csv';
 import { HrDataService } from '../../core/hr-data.service';
 import { DatosService } from '../../core/datos.service';
@@ -14,10 +16,10 @@ const COLS: Column[] = [
   { key: 't', label: 'Título', w: 'minmax(240px, 2fr)' },
   { key: 'e', label: 'Estado', type: 'badge', filter: 'select', w: '120px' },
   { key: 'fp', label: 'Fecha de publicación', type: 'date', filter: 'date', w: '160px' },
-  { key: 'fe', label: 'Fecha de expiración', type: 'date', filter: 'date', w: '160px' },
+  { key: 'fe', label: 'Fecha de expiración', oculta: true, type: 'date', filter: 'date', w: '160px' },
   { key: 'v', label: 'N° de vistas únicas', type: 'number', filter: 'none', w: '150px' },
-  { key: 'c', label: 'N° de comentarios', type: 'number', filter: 'none', w: '150px' },
-  { key: 'r', label: 'N° de reacciones', type: 'number', filter: 'none', w: '140px' },
+  { key: 'c', label: 'N° de comentarios', oculta: true, type: 'number', filter: 'none', w: '150px' },
+  { key: 'r', label: 'N° de reacciones', oculta: true, type: 'number', filter: 'none', w: '140px' },
   { key: 'g', label: '% Engagement', type: 'number', filter: 'none', w: '130px' },
   { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '120px' },
 ];
@@ -31,7 +33,7 @@ const PCOLS: Column[] = [
 
 /**
  * P-12.5 Comunicaciones › Portal del Colaborador (admin). Publicaciones are stored by the API and shown on the Mi Portal
- * wall while published (from the publication date until expiry); portadas and acciones rápidas are still local.
+ * wall while published (from the publication date until expiry); portadas (with their picture) and acciones rápidas are records of /api/datos.
  */
 @Component({
   selector: 'app-portal-admin',
@@ -57,14 +59,40 @@ const PCOLS: Column[] = [
 
     <app-data-table *ngIf="tab === 1" [columns]="pcols" [rows]="portadaRows" createLabel="Crear Portada" [rowActions]="elemActions"
                     [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false" tableLabel="Portadas" minWidth="1000px" exportName="portadas"
-                    (create)="ui.toast('El editor de portadas llegará en la próxima versión')"
+                    (create)="editarPortada(null)"
                     (action)="onElem('portal-portadas', portadas, $event.action, $event.row)"></app-data-table>
     <app-data-table *ngIf="tab === 2" [columns]="pcols" [rows]="accionRows" createLabel="Crear Acción Rápida" [rowActions]="elemActions"
                     [showBulk]="false" [selectable]="false" [showAdvancedFilter]="false" tableLabel="Acciones rápidas" minWidth="1000px" exportName="acciones-rapidas"
                     (create)="ui.toast('El editor de acciones rápidas llegará en la próxima versión')"
                     (action)="onElem('portal-accesos', acciones, $event.action, $event.row)"></app-data-table>
 
-    <app-modal *ngIf="pubModal as m" [title]="m.id === null ? 'Crear Publicación' : 'Editar Publicación'" width="640px" (closed)="pubModal = null">
+    <app-modal *ngIf="portadaModal as m" [title]="m.id === null ? 'Crear Portada' : 'Editar Portada'" width="640px" (closed)="portadaModal = null">
+      <form id="portada-form" class="nx-form" (ngSubmit)="guardarPortada()">
+        <div class="nx-field">Imagen
+          <div class="nx-portada-img" [style.background-image]="m.imagen ? 'url(' + m.imagen + ')' : null">
+            <span *ngIf="!m.imagen" class="nx-muted nx-small">Sin imagen: se muestra un fondo de color con ícono.</span>
+          </div>
+          <div class="nx-row">
+            <label class="nx-btn nx-btn--outline nx-btn--sm">
+              <app-icon name="upload" [size]="15"></app-icon>{{ subiendo ? 'Subiendo…' : (m.imagen ? 'Cambiar imagen' : 'Subir imagen') }}
+              <input type="file" class="visually-hidden" accept="image/png,image/jpeg,image/webp" [disabled]="subiendo" (change)="subirImagen($event)">
+            </label>
+            <button *ngIf="m.imagen" type="button" class="nx-link-btn" (click)="m.imagen = null">Quitar imagen</button>
+          </div>
+          <span class="nx-hint">PNG, JPG o WebP de hasta 2 MB. Recomendado: 1200 × 300 px (horizontal).</span>
+        </div>
+        <label class="nx-field">Título*<input class="nx-input" name="titulo" maxlength="120" [(ngModel)]="m.titulo"></label>
+        <label class="nx-field">Descripción<input class="nx-input" name="descripcion" maxlength="200" [(ngModel)]="m.descripcion"></label>
+        <label class="nx-check nx-check--plain"><input type="checkbox" name="visible" [(ngModel)]="m.visible">Mostrar en el portal</label>
+        <span *ngIf="errorPortada" class="nx-error" role="alert">{{ errorPortada }}</span>
+      </form>
+      <ng-container modal-footer>
+        <button type="button" class="nx-btn nx-btn--outline" (click)="portadaModal = null">Cancelar</button>
+        <button type="submit" form="portada-form" class="nx-btn nx-btn--primary" [disabled]="subiendo">Guardar</button>
+      </ng-container>
+    </app-modal>
+
+    <app-modal *ngIf="pubModal as m"[title]="m.id === null ? 'Crear Publicación' : 'Editar Publicación'" width="640px" (closed)="pubModal = null">
       <form id="pub-form" class="nx-form" (ngSubmit)="guardarPub()">
         <label class="nx-field">Título*<input class="nx-input" name="titulo" maxlength="150" [(ngModel)]="m.titulo"></label>
         <label class="nx-field">Contenido*<textarea class="nx-textarea" name="texto" rows="5" maxlength="4000" [(ngModel)]="m.texto"></textarea></label>
@@ -95,8 +123,11 @@ export class PortalAdminComponent {
   pubModal: { id: number | null; titulo: string; texto: string; autor: string; publicarEl: string; expira: string; fijada: boolean } | null = null;
   errorPub = '';
   ocupado = false;
+  portadaModal: { id: number | null; titulo: string; descripcion: string; visible: boolean; imagen: string | null; vinculo: ElementoPortal['vinculo'] } | null = null;
+  errorPortada = '';
+  subiendo = false;
 
-  constructor(data: HrDataService, public ui: UiStateService, private router: Router, private api: ComunicacionService, private datos: DatosService) {
+  constructor(data: HrDataService, public ui: UiStateService, private router: Router, private api: ComunicacionService, private datos: DatosService, private http: HttpClient) {
     this.cargarPubs();
     data.portadas().subscribe((p) => { this.portadas = p; this.refresh(); });
     data.accionesRapidas().subscribe((a) => { this.acciones = a; this.refresh(); });
@@ -169,6 +200,44 @@ export class PortalAdminComponent {
       this.datos.actualizar(coleccion, { ...e, visible }).subscribe(() => this.ui.toast(`“${e.titulo}” ahora está ${visible ? 'visible' : 'oculto'} en el portal`));
     }
     if (action === 'eliminar') this.datos.eliminar(coleccion, e.id).subscribe(() => this.ui.toast(`“${e.titulo}” eliminado`));
-    if (action === 'editar') this.ui.toast('La edición llegará en la próxima versión');
+    if (action === 'editar') {
+      if (coleccion === 'portal-portadas') this.editarPortada(e);
+      else this.ui.toast('La edición llegará en la próxima versión');
+    }
+  }
+
+  editarPortada(e: ElementoPortal | null): void {
+    this.errorPortada = '';
+    this.portadaModal = e
+      ? { id: e.id, titulo: e.titulo, descripcion: e.descripcion, visible: e.visible, imagen: e.imagen ?? null, vinculo: e.vinculo }
+      : { id: null, titulo: '', descripcion: '', visible: true, imagen: null, vinculo: 'Sin vínculo' };
+  }
+
+  /** Uploads the picture to the brand files endpoint (same storage and public URL as the logos). */
+  subirImagen(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = '';
+    const m = this.portadaModal;
+    if (!archivo || !m) return;
+    if (archivo.size > 2 * 1024 * 1024) { this.errorPortada = 'La imagen supera 2 MB.'; return; }
+    const form = new FormData();
+    form.append('archivo', archivo);
+    form.append('tipo', 'portada');
+    this.subiendo = true;
+    this.errorPortada = '';
+    this.http.post<{ id: string; url: string }>(`${API_URL}/marca/archivos`, form).subscribe({
+      next: (r) => { this.subiendo = false; m.imagen = r.url; },
+      error: (err) => { this.subiendo = false; this.errorPortada = mensajeError(err); },
+    });
+  }
+
+  guardarPortada(): void {
+    const m = this.portadaModal;
+    if (!m || this.subiendo) return;
+    if (!m.titulo.trim()) { this.errorPortada = 'Ingresa el título.'; return; }
+    const datos = { titulo: m.titulo.trim(), descripcion: m.descripcion.trim(), visible: m.visible, vinculo: m.vinculo, imagen: m.imagen };
+    const op = m.id === null ? this.datos.crear<ElementoPortal>('portal-portadas', datos) : this.datos.actualizar<ElementoPortal>('portal-portadas', { id: m.id, ...datos });
+    op.subscribe(() => { this.portadaModal = null; this.ui.toast(`Portada “${datos.titulo}” guardada`); });
   }
 }

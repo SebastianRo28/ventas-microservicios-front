@@ -98,20 +98,22 @@ export class CaMarcaManualComponent implements OnInit {
 const COLS: Column[] = [
   { key: 'f', label: 'Fecha y hora', type: 'date', filter: 'date', w: 'minmax(140px, 0.8fr)' },
   { key: 'c', label: 'Colaborador', type: 'link', w: 'minmax(200px, 1.3fr)' },
-  { key: 'd', label: 'Documento', w: '110px' },
+  { key: 'd', label: 'Documento', w: '110px', oculta: true },
   { key: 'r', label: 'Recinto', filter: 'select', w: 'minmax(180px, 1fr)' },
-  { key: 't', label: 'Tipo', type: 'badge', filter: 'select', w: '110px' },
-  { key: 'm', label: 'Método', filter: 'select', w: '110px' },
-  { key: 'dr', label: 'Dentro del radio', type: 'badge', filter: 'select', w: 'minmax(130px, 0.6fr)' },
+  { key: 't', label: 'Tipo', type: 'badge', filter: 'select', w: '96px' },
+  { key: 'm', label: 'Método', filter: 'select', w: '96px' },
+  { key: 'dr', label: 'En el radio', type: 'badge', filter: 'select', w: 'minmax(130px, 0.6fr)' },
   { key: 'fo', label: 'Foto', type: 'badge', filter: 'select', w: '90px' },
-  { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '90px' },
+  { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '70px' },
 ];
 const fila = (ca: ControlAsistenciaService, m: Marca): Row => ({
   id: m.id, f: `${m.fecha} ${m.hora}`, c: { text: ca.nombre(m.colaboradorId), link: `/ca/colaboradores/perfil/${m.colaboradorId}` },
   d: ca.col(m.colaboradorId)?.documento ?? '—', r: ca.recinto(m.recintoId)?.nombre ?? '—',
   t: { text: m.tipo, tone: m.tipo === 'Entrada' ? 'success' : 'orange' }, m: m.metodo,
-  dr: m.dentroRadio ? { text: '✓ Sí', tone: 'success' } : { text: '✗ No', tone: 'danger' },
-  fo: m.metodo === 'Web' || m.metodo === 'Manual' ? { text: 'No aplica', tone: 'gray' } : m.foto ? { text: 'Sí', tone: 'success' } : { text: 'No', tone: 'warning' }, x: '',
+  // Manual punches and web punches made before the location was asked carry the site coordinates, not the device ones.
+  dr: m.metodo === 'Manual' ? { text: 'No aplica', tone: 'gray' } : m.metodo === 'Web' && m.distancia == null ? { text: 'Sin ubicación', tone: 'gray' }
+    : m.dentroRadio ? { text: '✓ Sí', tone: 'success' } : { text: '✗ No', tone: 'danger' },
+  fo: m.metodo === 'Manual' ? { text: 'No aplica', tone: 'gray' } : m.foto ? { text: 'Sí', tone: 'success' } : { text: 'No', tone: m.metodo === 'Web' ? 'gray' : 'warning' }, x: '',
 });
 
 /** Control de Asistencia › Marcaciones › Registro de Marcaciones (P-04.8). */
@@ -128,15 +130,19 @@ const fila = (ca: ControlAsistenciaService, m: Marca): Row => ({
       <span class="nx-grow"></span><span class="nx-small nx-muted">{{ rows.length }} marcas</span>
     </div>
     <app-data-table [columns]="cols" [rows]="rows" [rowActions]="['ver']" [selectable]="false" [showBulk]="false" [showAdvancedFilter]="false"
-                    tableLabel="Marcaciones" minWidth="1300px" exportName="marcaciones" emptyTitle="Sin marcas" emptyText="No hay marcas para los filtros elegidos."
+                    tableLabel="Marcaciones" minWidth="1050px" exportName="marcaciones" emptyTitle="Sin marcas" emptyText="No hay marcas para los filtros elegidos."
                     (action)="ver($event.row)"></app-data-table>
-    <app-modal *ngIf="sel as m" [title]="m.tipo + ' · ' + ca.nombre(m.colaboradorId)" width="620px" (closed)="sel = null">
+    <app-modal *ngIf="sel as m" [title]="m.tipo + ' · ' + ca.nombre(m.colaboradorId)" width="620px" (closed)="cerrar()">
       <div class="nx-fieldrow"><span>Fecha y hora</span><span>{{ m.fecha }} {{ m.hora }}</span></div>
       <div class="nx-fieldrow"><span>Método</span><span>{{ m.metodo }}{{ m.creadoPor ? ' · registrada por ' + m.creadoPor : '' }}</span></div>
       <div *ngIf="m.motivo" class="nx-fieldrow"><span>Motivo</span><span>{{ m.motivo }}</span></div>
-      <div class="nx-fieldrow"><span>Coordenadas</span><span>{{ m.lat.toFixed(5) }}, {{ m.lng.toFixed(5) }} · {{ m.dentroRadio ? 'dentro del radio' : 'fuera del radio' }}</span></div>
+      <div *ngIf="m.distancia != null; else sinGps" class="nx-fieldrow"><span>Ubicación del dispositivo</span>
+        <span>{{ m.lat.toFixed(5) }}, {{ m.lng.toFixed(5) }} · a {{ m.distancia | number: '1.0-0' }} m del recinto, {{ m.dentroRadio ? 'dentro del radio' : 'fuera del radio' }}{{ m.precision != null ? ' · precisión del GPS ±' + m.precision + ' m' : '' }}</span></div>
+      <ng-template #sinGps><div class="nx-fieldrow"><span>Coordenadas</span><span>{{ m.lat.toFixed(5) }}, {{ m.lng.toFixed(5) }} · {{ m.metodo === 'Manual' || m.metodo === 'Web' ? 'las del recinto (sin ubicación del dispositivo)' : m.dentroRadio ? 'dentro del radio' : 'fuera del radio' }}</span></div></ng-template>
+      <div *ngIf="m.foto" class="nx-fieldrow"><span>Selfie</span>
+        <span><img *ngIf="fotoUrl; else cargandoFoto" class="nx-marca-foto" [src]="fotoUrl" [alt]="'Selfie de la marca de ' + ca.nombre(m.colaboradorId)"><ng-template #cargandoFoto><span *ngIf="fotoError" class="nx-muted">{{ fotoError }}</span><span *ngIf="!fotoError" class="nx-marca-foto nx-skel-box" role="status" aria-label="Cargando la foto"></span></ng-template></span></div>
       <app-ca-mapa class="nx-mt-12" [recintos]="recintoSel" [puntos]="puntoSel" [alto]="240" etiqueta="Ubicación de la marca"></app-ca-mapa>
-      <ng-container modal-footer><button type="button" class="nx-btn nx-btn--primary" (click)="sel = null">Cerrar</button></ng-container>
+      <ng-container modal-footer><button type="button" class="nx-btn nx-btn--primary" (click)="cerrar()">Cerrar</button></ng-container>
     </app-modal>
   `
 })
@@ -150,7 +156,13 @@ export class CaMarcacionesComponent implements OnDestroy {
   private sub: Subscription;
 
   constructor(public ca: ControlAsistenciaService) { this.sub = ca.cambios$.subscribe(() => this.armar()); }
-  ngOnDestroy(): void { this.sub.unsubscribe(); }
+  ngOnDestroy(): void { this.sub.unsubscribe(); this.soltarFoto(); }
+
+  /** Selfie of the open punch (object URL, revoked on close). */
+  fotoUrl: string | null = null;
+  fotoError = '';
+  private soltarFoto(): void { if (this.fotoUrl) URL.revokeObjectURL(this.fotoUrl); this.fotoUrl = null; this.fotoError = ''; }
+  cerrar(): void { this.sel = null; this.soltarFoto(); }
 
   armar(): void {
     const f = this.ca.filtro.fecha, mes = f.slice(3), dia = +f.slice(0, 2);
@@ -162,7 +174,12 @@ export class CaMarcacionesComponent implements OnDestroy {
   ver(row: Row): void {
     const m = this.ca.todasLasMarcas().find((x) => x.id === row.id);
     if (!m) return;
+    this.soltarFoto();
     this.sel = m;
+    if (m.foto && m.id > 0) this.ca.fotoMarca(m.id).subscribe({
+      next: (u) => { if (this.sel === m) this.fotoUrl = u; else URL.revokeObjectURL(u); },
+      error: () => (this.fotoError = 'No se pudo cargar la foto.'),
+    });
     const r = this.ca.recinto(m.recintoId);
     this.recintoSel = r ? [r] : [];
     this.puntoSel = [{ lat: m.lat, lng: m.lng, color: m.tipo === 'Entrada' ? 'var(--nx-success-500)' : 'var(--nx-orange)', label: `${m.tipo} ${m.hora}` }];
@@ -173,7 +190,7 @@ const COLS_MANUAL: Column[] = [
   { key: 'f', label: 'Fecha y hora', type: 'date', filter: 'date', w: 'minmax(140px, 0.8fr)' },
   { key: 'c', label: 'Colaborador', type: 'link', w: 'minmax(200px, 1.3fr)' },
   { key: 'r', label: 'Recinto', filter: 'select', w: 'minmax(170px, 1fr)' },
-  { key: 't', label: 'Tipo', type: 'badge', filter: 'select', w: '110px' },
+  { key: 't', label: 'Tipo', type: 'badge', filter: 'select', w: '96px' },
   { key: 'mo', label: 'Motivo', w: 'minmax(220px, 1.5fr)' },
   { key: 'a', label: 'Registrada por', filter: 'select', w: 'minmax(150px, 0.9fr)' },
   { key: 'x', label: 'Acciones', type: 'actions', filter: 'none', sortable: false, w: '90px' },

@@ -35,7 +35,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
     <app-page-header title="Estado de cuenta" [crumbs]="['Administración']" [askAi]="false">
       <button type="button" class="nx-btn nx-btn--outline" [disabled]="descargando" (click)="descargarDatos()"><app-icon name="download" [size]="16"></app-icon>{{ descargando ? 'Preparando…' : 'Descargar todos mis datos' }}</button>
     </app-page-header>
-    <p *ngIf="!c" class="nx-muted">Cargando…</p>
+    <div *ngIf="!c" class="nx-skel" role="status" aria-label="Cargando"><span></span><span></span><span></span></div>
     <ng-container *ngIf="c">
       <div class="nx-grid nx-grid--4 nx-mb-16">
         <div class="nx-card nx-stat"><span>Plan</span><b class="nx-stat__text">Nexo RH {{ c.plan.nombre }}</b>

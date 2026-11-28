@@ -12,7 +12,8 @@ export interface Publicacion { id: number; titulo: string; fijada: boolean; esta
   /** % engagement as reported by the portal; null while unpublished. */
   engagement: number | null; }
 
-export interface ElementoPortal { id: number; titulo: string; visible: boolean; descripcion: string; vinculo: 'Link' | 'Sin vínculo'; }
+/** Portada or acción rápida of Mi Portal; `imagen` is the URL of the uploaded picture (portadas only). */
+export interface ElementoPortal { id: number; titulo: string; visible: boolean; descripcion: string; vinculo: 'Link' | 'Sin vínculo'; imagen?: string | null; }
 
 export interface ValorReconocimiento { nombre: string; color: string; icono: string; }
 

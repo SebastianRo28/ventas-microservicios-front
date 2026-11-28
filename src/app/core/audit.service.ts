@@ -1,8 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { API_URL } from './api';
 import { AuthService } from './auth.service';
+import { ContextoService } from './contexto.service';
 import { AccionCambio, Cambio } from './sample/plataforma';
 
 /**
@@ -14,12 +15,13 @@ import { AccionCambio, Cambio } from './sample/plataforma';
 export class AuditService {
   readonly cambios: Cambio[] = [];
 
-  constructor(private http: HttpClient, private auth: AuthService) {}
+  constructor(private http: HttpClient, private auth: AuthService, private ctx: ContextoService) {}
 
-  /** Reloads the log from the API (administrators only; others keep their own session entries). */
+  /** Reloads the log from the API (administrators with Plataforma Pro; others keep their own session entries). */
   cargar(): Observable<void> {
     if (!this.auth.esAdmin) return of(undefined);
-    return this.http.get<{ total: number; items: Cambio[] }>(`${API_URL}/cambios?tamano=1000`).pipe(
+    return this.ctx.contratado$('PRO').pipe(
+      switchMap((pro) => pro ? this.http.get<{ total: number; items: Cambio[] }>(`${API_URL}/cambios?tamano=1000`) : of({ total: 0, items: [] as Cambio[] })),
       map((r) => { this.cambios.splice(0, this.cambios.length, ...r.items); }),
       catchError(() => of(undefined)),
     );
@@ -34,6 +36,10 @@ export class AuditService {
       propiedad: c.propiedad ?? '—', anterior: c.anterior ?? '—', actual: c.actual ?? '—',
       colaborador: c.colaborador, documento: c.documento, entidad: c.entidad, accion: c.accion,
     });
-    if (enviar && this.auth.autenticado) this.http.post(`${API_URL}/cambios`, c).pipe(catchError(() => of(null))).subscribe();
+    // The change history is part of Plataforma Pro: without it the change is not sent (the API would answer 403).
+    if (enviar && this.auth.autenticado) {
+      this.ctx.contratado$('PRO').pipe(
+        switchMap((pro) => pro ? this.http.post(`${API_URL}/cambios`, c) : of(null)), catchError(() => of(null))).subscribe();
+    }
   }
 }

@@ -37,7 +37,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Mis Beneficios', icon: 'gift', path: 'portal/mis-beneficios' },
       { label: 'Mis Encuestas', icon: 'clipcheck', path: 'portal/mis-encuestas', modulo: 'SURVEYS', count: 2 },
       { label: 'Mis Capacitaciones', icon: 'grad', path: 'portal/mis-capacitaciones' },
-      { label: 'Mis Evaluaciones', icon: 'star', path: 'portal/mis-evaluaciones', count: 1 },
+      { label: 'Mis Evaluaciones', icon: 'star', path: 'portal/mis-evaluaciones', modulo: 'PRO', count: 1 },
       { label: 'Reconocimientos', icon: 'award', path: 'portal/reconocimientos', modulo: 'COMMS' },
       { label: 'Procesos Internos', icon: 'workflow', path: 'portal/procesos-internos', modulo: 'PRO' },
       { label: 'Canal de Denuncias', icon: 'flag', path: 'portal/denuncias', modulo: 'WHISTLEBLOWER' },

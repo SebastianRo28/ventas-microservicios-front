@@ -92,6 +92,9 @@ export interface Marca {
   /** Who registered a manual mark, and why. */
   creadoPor?: string;
   motivo?: string;
+  /** Meters from the site and GPS accuracy, for punches with the real device location. */
+  distancia?: number | null;
+  precision?: number | null;
 }
 
 export type MotivoFallida = 'Fuera del radio' | 'Sin foto' | 'Sin turno asignado' | 'Método no permitido';

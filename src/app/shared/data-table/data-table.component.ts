@@ -63,6 +63,8 @@ export class DataTableComponent implements OnChanges {
   filters: Record<string, string> = {};
   selected = new Set<Row['id']>();
   colsOpen = false;
+  /** The per-column filter row starts folded; the toolbar button opens it. */
+  filtersOpen = false;
   bulkOpen = false;
   advOpen = false;
 
@@ -72,7 +74,31 @@ export class DataTableComponent implements OnChanges {
   /** Derived view, recomputed on any change. */
   view = { cols: [] as Column[], shown: [] as Row[], filtered: [] as Row[], pages: [] as (number | '…')[], nPages: 1, grid: '' };
 
-  ngOnChanges(): void { this.recompute(); }
+  /** Columns shown or hidden by the person, remembered per table in this browser. */
+  private columnasListas = false;
+  private get claveColumnas(): string { return 'nx-dt-cols:' + location.pathname + ':' + this.tableLabel; }
+
+  ngOnChanges(): void {
+    if (!this.columnasListas && this.columns.length) {
+      this.columnasListas = true;
+      let guardadas: string[] | null = null;
+      try { guardadas = JSON.parse(localStorage.getItem(this.claveColumnas) ?? 'null'); } catch { guardadas = null; }
+      this.hidden = new Set(Array.isArray(guardadas) ? guardadas.filter((k) => this.columns.some((c) => c.key === k))
+        : this.columns.filter((c) => c.oculta).map((c) => c.key));
+    }
+    this.recompute();
+  }
+
+  /** Minimum width shrinks with the hidden columns, so hiding columns removes the horizontal scroll. */
+  get anchoMinimo(): string {
+    const px = parseFloat(this.minWidth), total = this.columns.length;
+    if (!px || !this.hidden.size || !total) return this.minWidth;
+    return Math.round(px * (total - this.hidden.size) / total) + 'px';
+  }
+
+  /** Filters in use (shown on the Filtros button so a folded row never hides why rows are missing). */
+  get filtrosActivos(): number { return Object.values(this.filters).filter((v) => !!v).length; }
+  limpiarFiltros(): void { this.filters = {}; this.page = 1; this.recompute(); }
 
   @HostListener('document:click', ['$event'])
   closeMenus(e: MouseEvent): void {
@@ -142,6 +168,7 @@ export class DataTableComponent implements OnChanges {
 
   toggleColumn(key: string): void {
     this.hidden.has(key) ? this.hidden.delete(key) : this.hidden.add(key);
+    try { localStorage.setItem(this.claveColumnas, JSON.stringify([...this.hidden])); } catch { /* private mode: not remembered */ }
     this.recompute();
   }
 

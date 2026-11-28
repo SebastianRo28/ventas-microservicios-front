@@ -9,7 +9,6 @@ import { UiStateService } from '../../core/ui-state.service';
       <button type="button" class="nx-scrim" aria-label="Cerrar panel" (click)="ui.closeDrawer()"></button>
       <app-admin-drawer *ngIf="d === 'admin'"></app-admin-drawer>
       <app-pendientes-drawer *ngIf="d === 'pendientes'"></app-pendientes-drawer>
-      <app-ai-drawer *ngIf="d === 'ai'"></app-ai-drawer>
     </div>
   `
 })

@@ -33,7 +33,7 @@ export function copiarTexto(ui: UiStateService, texto: string): void {
   selector: 'app-dominio',
   template: `
     <app-page-header title="Dominio y correo" [crumbs]="['Administración']" [askAi]="false"></app-page-header>
-    <p *ngIf="!e" class="nx-muted">Cargando…</p>
+    <div *ngIf="!e" class="nx-skel" role="status" aria-label="Cargando"><span></span><span></span><span></span></div>
     <ng-container *ngIf="e">
       <div *ngIf="!e.permiteDominio || !e.permiteCorreo" class="nx-banner nx-mb-16" role="status">
         <app-icon name="star" [size]="16"></app-icon>

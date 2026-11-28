@@ -13,6 +13,8 @@ export interface Column {
   w?: string;
   sortable?: boolean;
   options?: string[];
+  /** Starts hidden; the person can show it from the columns menu (secondary data of wide tables). */
+  oculta?: boolean;
   /** Text for `check` cells (yes, no); defaults to Completado / Pendiente. */
   checkLabels?: [string, string];
 }

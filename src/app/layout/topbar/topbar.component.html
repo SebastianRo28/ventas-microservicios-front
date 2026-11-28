@@ -4,8 +4,8 @@
     <app-icon name="menu"></app-icon>
   </button>
 
-  <!-- Payroll period (administrators with Payroll); disabled on screens whose data is not monthly. -->
-  <div *ngIf="periodo.disponible" class="nx-dt__menu-anchor nx-periodo">
+  <!-- Payroll period (administrators with Payroll); only on screens whose data is monthly. -->
+  <div *ngIf="periodo.disponible && usaPeriodo" class="nx-dt__menu-anchor nx-periodo">
     <button type="button" class="nx-topbar__period" [class.is-otro]="periodo.viendoOtro" [disabled]="!usaPeriodo"
             [attr.aria-label]="'Período de trabajo: ' + periodo.etiqueta + (usaPeriodo ? '. Cambiar período' : '. Esta pantalla no depende del período')"
             [title]="usaPeriodo ? 'Período de trabajo' : 'Esta pantalla no depende del período'"
@@ -50,10 +50,6 @@
     Prueba Gratuita · {{ t.dias }} {{ t.dias === 1 ? 'día' : 'días' }} <app-icon name="info" [size]="14"></app-icon><b>Contratar</b>
   </a>
 
-  <button type="button" class="nx-topbar__ai" (click)="ui.openDrawer('ai')">
-    <app-icon name="sparkle" [size]="16"></app-icon>Nexo AI
-  </button>
-
   <a *ngIf="auth.puedeVer('admin/colaboradores/vigentes')" class="nx-topbar__icon" [routerLink]="inPortal ? '/admin/colaboradores/vigentes' : '/portal'"
      [attr.aria-label]="inPortal ? 'Cambiar a vista administrador' : 'Cambiar a vista colaborador'"
      [title]="inPortal ? 'Cambiar a vista administrador' : 'Cambiar a vista colaborador'">
@@ -65,12 +61,6 @@
   <button type="button" class="nx-topbar__icon" [attr.aria-label]="'Mis pendientes, ' + pendientes + ' pendientes'" (click)="ui.openDrawer('pendientes')">
     <app-icon name="bell"></app-icon>
     <span *ngIf="pendientes" class="nx-topbar__count">{{ pendientes > 99 ? '99+' : pendientes }}</span>
-  </button>
-  <button type="button" class="nx-topbar__icon nx-hide-sm" aria-label="Novedades del producto">
-    <app-icon name="megaphone"></app-icon>
-  </button>
-  <button type="button" class="nx-topbar__icon nx-hide-sm" aria-label="Ayuda">
-    <app-icon name="help"></app-icon>
   </button>
   <div class="nx-dt__menu-anchor">
     <button type="button" class="nx-topbar__user" aria-label="Menú de usuario" [attr.aria-expanded]="menuUsuario" (click)="menuUsuario = !menuUsuario">

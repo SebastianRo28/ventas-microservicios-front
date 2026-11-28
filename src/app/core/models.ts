@@ -109,7 +109,8 @@ export interface PeriodoPlanilla {
   boletas: number; ingresos: number; descuentos: number; aportes: number; neto: number;
 }
 
-export interface Pendiente { tipo: 'sst' | 'vac' | 'aus' | 'eva' | 'otro'; etiqueta: string; tone: Tone; fecha: string; titulo: string; detalle: string; }
+/** A pending task; `ruta` is the screen where it gets resolved (approve, upload the evidence, answer the evaluation). */
+export interface Pendiente { tipo: 'sst' | 'vac' | 'aus' | 'eva' | 'otro'; etiqueta: string; tone: Tone; fecha: string; titulo: string; detalle: string; ruta: string; accion: string; }
 
 /** Account in Administración › Usuarios (API /usuarios). */
 export interface UsuarioCuenta {

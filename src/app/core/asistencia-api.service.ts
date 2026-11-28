@@ -67,6 +67,8 @@ export class AsistenciaApi {
   guardarConfiguracion(clave: string, valores: Record<string, string | number | boolean>): Observable<unknown> {
     return this.http.put(`${API_URL}/configuracion/${clave}`, valores);
   }
+  /** Selfie of a punch (JPEG); 404 when it has none or the user cannot see it. */
+  fotoMarca(id: number): Observable<Blob> { return this.http.get(`${API_URL}/asistencia/marcas/${id}/foto`, { responseType: 'blob' }); }
   eliminar(ruta: string): Observable<unknown> { return this.http.delete(`${API_URL}/asistencia/${ruta}`); }
 
   /** Sends a change already applied locally; on rejection shows why and reloads the server data. */

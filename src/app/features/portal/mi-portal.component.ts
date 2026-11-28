@@ -1,6 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { AsistenciaService } from '../../core/asistencia.service';
-import { ControlAsistenciaService } from '../../core/control-asistencia.service';
+import { ControlAsistenciaService, DatosMarca } from '../../core/control-asistencia.service';
 import { Recinto } from '../../core/sample/control-asistencia';
 import { HrDataService } from '../../core/hr-data.service';
 import { UiStateService } from '../../core/ui-state.service';
@@ -21,7 +21,6 @@ interface Post {
   from?: string; to?: string; valor?: string; valorColor?: string;
   /** Birthday */
   role?: string;
-  likes: number; loves: number; smiles: number; comments: number;
 }
 
 /** Colors of the covers, in turn (palette tokens). */
@@ -43,7 +42,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 import { PortalService, ValorReconocimiento } from '../../core/portal.service';
 import { Boleta } from '../../core/models';
 import { Reconocimiento } from '../../core/sample/reportes';
-import { ComunicacionService } from '../../core/comunicacion.service';
+import { ComentarioMuro, ComunicacionService, ElementoMuro, InteraccionMuro, TipoReaccion } from '../../core/comunicacion.service';
 import { mensajeError } from '../../core/auth.service';
 import { iniciales, parseFecha } from '../../core/format';
 import { PendientesService } from '../../core/pendientes.service';
@@ -53,9 +52,9 @@ import { nombrePeriodo } from '../../shared/boleta/boleta-modal.component';
   selector: 'app-mi-portal',
   templateUrl: './mi-portal.component.html'
 })
-export class MiPortalComponent {
+export class MiPortalComponent implements OnDestroy {
   /** Visible covers of Comunicaciones › Portal. */
-  portadas: { title: string; text: string; icon: string; bg: string; blob: string }[] = [];
+  portadas: { title: string; text: string; icon: string; bg: string; blob: string; imagen: string | null }[] = [];
   /** Visible quick actions of Comunicaciones › Portal (all of them while the company has not configured any). */
   private acciones: ElementoPortal[] = [];
   muestra(titulo: string): boolean { return !this.acciones.length || this.acciones.some((a) => a.titulo === titulo && a.visible); }
@@ -69,7 +68,6 @@ export class MiPortalComponent {
   readonly chips: [Feed, string][] = [['all', 'Todo'], ['pub', 'Publicaciones'], ['rec', 'Reconocimientos'], ['bday', 'Cumpleaños']];
   slide = 0;
   feed: Feed = 'all';
-  liked = new Set<string>();
   marca: string | null = null;
   marcaError = false;
   recintos: Recinto[] = [];
@@ -78,7 +76,7 @@ export class MiPortalComponent {
   /** Birthday posts of the day (attendance cut-off date), from the collaborators' records. */
   private fijos: Post[] = [];
   /** First pending tasks (PendientesService) and how many there are. */
-  tareas: { tag: string; tone: string; who: string; what: string; when: string }[] = [];
+  tareas: { tag: string; tone: string; who: string; what: string; when: string; ruta: string; accion: string }[] = [];
   totalTareas = 0;
 
   /** Modals */
@@ -99,13 +97,13 @@ export class MiPortalComponent {
     this.anio = hoy.getFullYear();
     const ddmm = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}`;
     data.portadas().subscribe((ps) => {
-      this.portadas = ps.filter((p) => p.visible).map((p, i) => ({ title: p.titulo, text: p.descripcion, icon: ICONOS[i % ICONOS.length], ...PALETA[i % PALETA.length] }));
+      this.portadas = ps.filter((p) => p.visible).map((p, i) => ({ title: p.titulo, text: p.descripcion, icon: ICONOS[i % ICONOS.length], ...PALETA[i % PALETA.length], imagen: p.imagen ?? null }));
       this.slide = 0;
     });
     data.accionesRapidas().subscribe((a) => (this.acciones = a));
     pendientes.items$().subscribe((l) => {
       this.totalTareas = l.length;
-      this.tareas = l.slice(0, 3).map((p) => ({ tag: p.etiqueta, tone: p.tone, who: p.titulo, what: p.detalle, when: p.fecha }));
+      this.tareas = l.slice(0, 3).map((p) => ({ tag: p.etiqueta, tone: p.tone, who: p.titulo, what: p.detalle, when: p.fecha, ruta: p.ruta, accion: p.accion }));
     });
     this.recintos = ca.recintos$.value.filter((r) => r.activo);
     this.ubicacion = ca.recintoDe[this.portal.yoId] ?? this.recintos[0]?.id ?? 0;
@@ -116,7 +114,7 @@ export class MiPortalComponent {
         .filter(([, ps]) => ps.length);
       this.fijos = conCumple.filter((c) => c.contacto!.cumpleanos === ddmm).map((c): Post => ({
         id: 'b' + c.id, kind: 'bday', ini: iniciales(c.nombres, c.apellidos), avatarTone: 'yellow', author: `${c.nombres} ${c.apellidos}`,
-        meta: `CUMPLEAÑOS · ${ddmm}/${this.anio}`, role: `${c.cargo} · ${c.area}`, likes: 0, loves: 0, smiles: 0, comments: 0 }));
+        meta: `CUMPLEAÑOS · ${ddmm}/${this.anio}`, role: `${c.cargo} · ${c.area}`}));
       this.componer();
       const otros = l.filter((c) => c.id !== this.portal.yoId);
       this.personas = otros.map((c) => `${c.apellidos}, ${c.nombres}`);
@@ -126,6 +124,7 @@ export class MiPortalComponent {
     });
     portal.reconocimientos$.subscribe((rs) => this.armarMuro(rs));
     this.cargarMuro();
+    this.cargarInteracciones();
     if (this.portal.yoId >= 0) data.boletas(this.portal.yoId).subscribe((bs) => (this.boletas = bs.filter((b) => b.definitiva).slice(0, 3)));
   }
 
@@ -137,7 +136,7 @@ export class MiPortalComponent {
       const autor = r.autor.split(', ').reverse().join(' ');
       return { id: 'r' + r.id, kind: 'rec', ini: iniciales(r.autor.split(', ')[1] ?? r.autor, r.autor.split(', ')[0] ?? ''), avatarTone: 'warning', author: '', meta: `${r.fecha} · Reconocimiento`,
         from: autor, to: r.para.split('; ').map((n) => n.split(', ').reverse().join(' ')).join(', '), valor: r.valor, valorColor: v?.color,
-        text: `“${r.mensaje}”`, likes: 0, loves: 0, smiles: 0, comments: 0 };
+        text: `“${r.mensaje}”`};
     });
     this.recs = recs;
     this.componer();
@@ -149,7 +148,7 @@ export class MiPortalComponent {
     this.com.muro().subscribe({
       next: (ps) => {
         this.pubs = ps.map((x) => ({ id: 'p' + x.id, kind: 'pub' as const, pinned: x.fijada, ini: iniciales(x.autor.split(' ')[0] ?? '', x.autor.split(' ')[1] ?? ''),
-          avatarTone: 'info', author: x.autor, meta: `${x.publicada} · Publicación`, text: x.texto, likes: x.reacciones, loves: 0, smiles: 0, comments: x.comentarios }));
+          avatarTone: 'info', author: x.autor, meta: `${x.publicada} · Publicación`, text: x.texto}));
         this.componer();
       },
       error: () => this.componer(),
@@ -167,7 +166,88 @@ export class MiPortalComponent {
   prev(): void { const n = this.portadas.length; if (n) this.slide = (this.slide + n - 1) % n; }
   next(): void { const n = this.portadas.length; if (n) this.slide = (this.slide + 1) % n; }
 
-  toggleLike(p: Post): void { this.liked.has(p.id) ? this.liked.delete(p.id) : this.liked.add(p.id); }
+  // ---- Reactions and comments (publications and recognitions; birthdays have none) ----
+  readonly reacciones: { tipo: TipoReaccion; icono: string; nombre: string }[] = [
+    { tipo: 'like', icono: 'thumbsup', nombre: 'Me gusta' }, { tipo: 'love', icono: 'heart', nombre: 'Me encanta' }, { tipo: 'smile', icono: 'smile', nombre: 'Me divierte' },
+  ];
+  /** Counters by post id ('p12', 'r3'). */
+  private inter = new Map<string, InteraccionMuro>();
+  /** Posts whose comment list is open, their comments and the comment being written. */
+  abiertos = new Set<string>();
+  comentarios = new Map<string, ComentarioMuro[]>();
+  borrador: Record<string, string> = {};
+  enviando = new Set<string>();
+
+  /** API reference of a post (null for birthdays). */
+  private ref(p: Post): { e: ElementoMuro; id: number } | null {
+    return p.kind === 'bday' ? null : { e: p.kind, id: +p.id.slice(1) };
+  }
+  interaccion(p: Post): InteraccionMuro {
+    return this.inter.get(p.id) ?? { elemento: p.kind as ElementoMuro, id: +p.id.slice(1), like: 0, love: 0, smile: 0, mia: null, comentarios: 0 };
+  }
+  private cargarInteracciones(): void {
+    this.com.interacciones().subscribe({ next: (l) => (this.inter = new Map(l.map((x) => [(x.elemento === 'pub' ? 'p' : 'r') + x.id, x]))), error: () => {} });
+  }
+
+  /** Same reaction again removes it; another one replaces it. Shown at once and corrected with the API's answer. */
+  reaccionar(p: Post, tipo: TipoReaccion): void {
+    const r = this.ref(p);
+    if (!r) return;
+    const antes = this.interaccion(p);
+    const nueva = antes.mia === tipo ? null : tipo;
+    const opt = { ...antes, mia: nueva };
+    if (antes.mia) opt[antes.mia]--;
+    if (nueva) opt[nueva]++;
+    this.inter.set(p.id, opt);
+    this.com.reaccionar(r.e, r.id, nueva).subscribe({
+      next: (x) => this.inter.set(p.id, x),
+      error: (e) => { this.inter.set(p.id, antes); this.ui.toast(mensajeError(e)); },
+    });
+  }
+
+  verComentarios(p: Post): void {
+    const r = this.ref(p);
+    if (!r) return;
+    if (this.abiertos.has(p.id)) { this.abiertos.delete(p.id); return; }
+    this.abiertos.add(p.id);
+    this.com.comentariosMuro(r.e, r.id).subscribe({
+      next: (l) => this.comentarios.set(p.id, l),
+      error: (e) => { this.abiertos.delete(p.id); this.ui.toast(mensajeError(e)); },
+    });
+  }
+
+  comentar(p: Post): void {
+    const r = this.ref(p);
+    const texto = (this.borrador[p.id] ?? '').trim();
+    if (!r || !texto || this.enviando.has(p.id)) return;
+    this.enviando.add(p.id);
+    this.com.comentar(r.e, r.id, texto).subscribe({
+      next: (c) => {
+        this.enviando.delete(p.id);
+        this.borrador[p.id] = '';
+        const i = this.interaccion(p);
+        this.inter.set(p.id, { ...i, comentarios: i.comentarios + 1 });
+        // Show the list with the new comment (loading the others if it was closed).
+        if (this.comentarios.has(p.id) && this.abiertos.has(p.id)) this.comentarios.set(p.id, [...this.comentarios.get(p.id)!, c]);
+        else { this.abiertos.delete(p.id); this.verComentarios(p); }
+      },
+      error: (e) => { this.enviando.delete(p.id); this.ui.toast(mensajeError(e)); },
+    });
+  }
+
+  borrarComentario(p: Post, c: ComentarioMuro): void {
+    this.com.borrarComentario(c.id).subscribe({
+      next: () => {
+        this.comentarios.set(p.id, (this.comentarios.get(p.id) ?? []).filter((x) => x.id !== c.id));
+        const i = this.interaccion(p);
+        this.inter.set(p.id, { ...i, comentarios: Math.max(0, i.comentarios - 1) });
+        this.ui.toast('Comentario eliminado');
+      },
+      error: (e) => this.ui.toast(mensajeError(e)),
+    });
+  }
+  /** Initials of "Nombres Apellidos": first name and first surname. */
+  inicialesDe(nombre: string): string { const w = nombre.trim().split(/\s+/); return iniciales(w[0] ?? '', (w.length > 2 ? w[w.length - 2] : w[w.length - 1]) ?? ''); }
 
   private idPorNombre = new Map<string, number>();
   /** Last three final payslips of the signed-in person. */
@@ -176,17 +256,95 @@ export class MiPortalComponent {
   readonly nombrePeriodo = nombrePeriodo;
   /** A punch is being sent to the API. */
   marcando = false;
-  /** Punch from the portal (method Web); it shows up in Control de Asistencia at once. */
+  /** Punch from the portal (method Web); it shows up in Control de Asistencia at once. Depending on Configuraciones ›
+   *  Métodos de marcación it asks for the device location and a selfie, which the API checks against the site radius. */
   marcar(tipo: 'Entrada' | 'Salida'): void {
     // The API sets the date and time of the punch.
     if (this.portal.yoId < 0) { this.marca = 'Tu usuario no está vinculado a un colaborador, así que no puede registrar asistencia.'; this.marcaError = true; return; }
+    this.marca = null;
+    if (this.ca.metodos['fotoWeb']) { this.abrirCamara(tipo); return; }
+    this.enviarMarca(tipo);
+  }
+
+  private async enviarMarca(tipo: 'Entrada' | 'Salida', foto?: string): Promise<void> {
     this.marcando = true;
-    this.ca.marcar(this.portal.yoId, +this.ubicacion, tipo, 'Web').subscribe((r) => {
+    const extra: DatosMarca = { foto };
+    if (this.ca.metodos['ubicacionWeb']) {
+      this.marca = 'Obteniendo tu ubicación…'; this.marcaError = false;
+      try {
+        const p = await ubicacionActual();
+        Object.assign(extra, { lat: p.coords.latitude, lng: p.coords.longitude, precision: p.coords.accuracy });
+      } catch (e) {
+        this.marcando = false; this.marcaError = true;
+        this.marca = (e as GeolocationPositionError)?.code === 1
+          ? 'Necesitamos tu ubicación para registrar la marca. Permite el acceso a la ubicación en tu navegador y vuelve a intentarlo.'
+          : 'No pudimos obtener tu ubicación. Revisa que la ubicación del dispositivo esté activada y vuelve a intentarlo.';
+        return;
+      }
+    }
+    this.ca.marcar(this.portal.yoId, +this.ubicacion, tipo, 'Web', extra).subscribe((r) => {
       this.marcando = false;
       this.marca = r.mensaje;
       this.marcaError = !r.ok;
     });
   }
+
+  /** What the punch will record besides the time, per Configuraciones › Métodos de marcación. */
+  get avisoMarca(): string {
+    const u = !!this.ca.metodos['ubicacionWeb'], f = !!this.ca.metodos['fotoWeb'];
+    return u && f ? 'Al marcar se registrará tu ubicación y una selfie.' : u ? 'Al marcar se registrará tu ubicación.' : f ? 'Al marcar se tomará una selfie.' : '';
+  }
+
+  /** Selfie step: the type of punch being taken, the camera stream and any camera error. */
+  camara: 'Entrada' | 'Salida' | null = null;
+  camaraError = '';
+  camaraLista = false;
+  private stream: MediaStream | null = null;
+  private video?: HTMLVideoElement;
+  @ViewChild('video') set videoRef(r: ElementRef<HTMLVideoElement> | undefined) {
+    this.video = r?.nativeElement;
+    if (this.video && this.stream && this.video.srcObject !== this.stream) { this.video.srcObject = this.stream; this.video.play().catch(() => undefined); }
+  }
+
+  private async abrirCamara(tipo: 'Entrada' | 'Salida'): Promise<void> {
+    this.camara = tipo; this.camaraError = ''; this.camaraLista = false;
+    if (!navigator.mediaDevices?.getUserMedia) { this.camaraError = 'Este navegador no permite usar la cámara. Prueba con otro navegador o desde tu celular.'; return; }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      if (this.camara !== tipo) { s.getTracks().forEach((t) => t.stop()); return; }
+      this.stream = s;
+      if (this.video) { this.video.srcObject = s; await this.video.play().catch(() => undefined); }
+      this.camaraLista = true;
+    } catch (e) {
+      const n = (e as DOMException)?.name;
+      this.camaraError = n === 'NotAllowedError'
+        ? 'Necesitamos la cámara para tomar tu selfie. Permite el acceso a la cámara en tu navegador y vuelve a intentarlo.'
+        : n === 'NotFoundError' ? 'No encontramos una cámara en este dispositivo. Marca desde tu celular o avisa a RR.HH.'
+        : 'No pudimos abrir la cámara. Cierra otras aplicaciones que la estén usando y vuelve a intentarlo.';
+    }
+  }
+
+  tomarFoto(): void {
+    const v = this.video, tipo = this.camara;
+    if (!v || !tipo || !v.videoWidth) return;
+    // Small JPEG (max 480 px wide): enough to recognize the person, light to store.
+    const ancho = Math.min(480, v.videoWidth), alto = Math.round(ancho * v.videoHeight / v.videoWidth);
+    const c = document.createElement('canvas');
+    c.width = ancho; c.height = alto;
+    const g = c.getContext('2d')!;
+    g.translate(ancho, 0); g.scale(-1, 1); // same mirror image the person sees
+    g.drawImage(v, 0, 0, ancho, alto);
+    const foto = c.toDataURL('image/jpeg', 0.75);
+    this.cerrarCamara();
+    this.enviarMarca(tipo, foto);
+  }
+
+  cerrarCamara(): void {
+    this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null; this.camara = null; this.camaraLista = false;
+  }
+
+  ngOnDestroy(): void { this.cerrarCamara(); }
 
   reconError = '';
   openRecon(): void { this.recon = 1; this.valor = 0; this.reconWho = []; this.reconMsg = ''; this.reconError = ''; }
@@ -208,4 +366,12 @@ export class MiPortalComponent {
   reconBack(): void { this.recon = this.recon === 2 ? 1 : 0; }
 
   saveTareas(): void { this.tareasCfg = false; this.ui.toast('Preferencias de tareas guardadas'); }
+}
+
+/** Current position of the device (GPS when available). */
+function ubicacionActual(): Promise<GeolocationPosition> {
+  return new Promise((ok, mal) => {
+    if (!navigator.geolocation) { mal({ code: 2 }); return; }
+    navigator.geolocation.getCurrentPosition(ok, mal, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  });
 }

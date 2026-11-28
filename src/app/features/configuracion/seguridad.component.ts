@@ -18,7 +18,7 @@ interface SeguridadEdicion { acceso: PoliticaAcceso; privacidadUrl: string | nul
   selector: 'app-seguridad',
   template: `
     <app-page-header title="Seguridad y acceso" [crumbs]="['Administración']" [askAi]="false"></app-page-header>
-    <p *ngIf="!e" class="nx-muted">Cargando…</p>
+    <div *ngIf="!e" class="nx-skel" role="status" aria-label="Cargando"><span></span><span></span><span></span></div>
     <form *ngIf="e && a" class="nx-stack" (ngSubmit)="guardar()">
       <section class="nx-card nx-settings">
         <h3 class="nx-settings__title nx-mt-0">Métodos de inicio de sesión</h3>

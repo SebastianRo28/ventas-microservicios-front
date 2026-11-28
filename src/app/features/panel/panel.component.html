@@ -5,10 +5,10 @@
 <div class="nx-grid nx-grid--4 nx-mb-20">
   <div *ngFor="let k of kpis" class="nx-card nx-kpi">
     <span class="nx-kpi__title"><span class="nx-iconbox nx-iconbox--30"><app-icon [name]="k.icon" [size]="17"></app-icon></span>{{ k.title }}</span>
-    <span class="nx-muted nx-small">{{ k.sub }}</span>
     <div class="nx-kpi__values">
-      <div *ngFor="let v of k.values"><span>{{ v[0] }}</span><b>{{ v[1] }}</b></div>
+      <div *ngFor="let v of k.values; let first = first"><b [ngClass]="first && k.tone ? 'nx-kpi__b--' + k.tone : ''">{{ v[1] }}</b><span>{{ v[0] }}</span></div>
     </div>
+    <span class="nx-muted nx-small">{{ k.sub }}</span>
   </div>
 </div>
 
@@ -17,13 +17,17 @@
   <section class="nx-card nx-section">
     <div class="nx-section__head">
       <h2>Procesos</h2>
-      <a class="nx-btn nx-btn--outline nx-btn--sm" routerLink="/rem/procesos">Ver historial</a>
-      <a class="nx-btn nx-btn--outline nx-btn--sm" routerLink="/rem/procesos">Ver anteriores</a>
+      <a class="nx-btn nx-btn--outline nx-btn--sm" routerLink="/rem/procesos">Ver todos</a>
     </div>
-    <div class="nx-banner nx-banner--compact" role="note">
-      <app-icon name="info" [size]="18"></app-icon>
-      <span class="nx-grow">Descubre la nueva experiencia de Archivos y Pagos</span>
-      <a routerLink="/rem/archivos-pagos">Conocer</a>
+    <!-- Remuneraciones: where the payroll of the period stands. -->
+    <div *ngIf="esRem" class="nx-etapas" role="group" aria-label="Estado de la planilla del período">
+      <ol class="nx-etapas__lista">
+        <li *ngFor="let e of etapas; let i = index" class="nx-etapas__paso" [class.is-done]="i < etapa" [class.is-on]="i === etapa"
+            [attr.aria-current]="i === etapa ? 'step' : null">
+          <span class="nx-etapas__dot"><app-icon *ngIf="i < etapa; else num" name="check" [size]="13" [stroke]="2.6"></app-icon><ng-template #num>{{ i + 1 }}</ng-template></span>{{ e }}
+        </li>
+      </ol>
+      <p class="nx-small nx-muted">{{ etapaDetalle }}</p>
     </div>
     <div class="nx-accordion">
       <div *ngFor="let p of periodos; let i = index" class="nx-accordion__item">
@@ -83,13 +87,47 @@
 </div>
 
 <div class="nx-grid nx-grid--2">
-  <section class="nx-card nx-section">
-    <h2 class="nx-section__title">Últimas Publicaciones</h2>
-    <div class="nx-empty nx-empty--compact">
-      <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round"><app-icon name="message" [size]="26"></app-icon></span>
-      <b>No hay publicaciones recientes</b>
-      <a class="nx-btn nx-btn--outline" routerLink="/portal">Ir al portal</a>
+  <!-- Remuneraciones: what to fix before paying. -->
+  <section *ngIf="esRem" class="nx-card nx-section">
+    <h2 class="nx-section__title">Antes de pagar</h2>
+    <ul *ngIf="alertas.length; else sinAlertas" class="nx-alertas-rem">
+      <li *ngFor="let a of alertas">
+        <a [routerLink]="a.ruta" class="nx-alertas-rem__item">
+          <span class="nx-iconbox nx-iconbox--30" [ngClass]="'nx-tone-' + a.tone"><app-icon [name]="a.tone === 'info' ? 'info' : 'alert'" [size]="16"></app-icon></span>
+          <span class="nx-grow">{{ a.texto }}</span>
+          <b *ngIf="a.n">{{ a.n }}</b>
+          <app-icon name="chevron-right" [size]="16"></app-icon>
+        </a>
+      </li>
+    </ul>
+    <ng-template #sinAlertas>
+      <div class="nx-empty nx-empty--compact">
+        <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round nx-tone-success"><app-icon name="checkcircle" [size]="26"></app-icon></span>
+        <b>Todo listo para pagar</b>
+        <span class="nx-muted nx-small">Los colaboradores tienen banco, régimen pensionario y sueldo registrados.</span>
+      </div>
+    </ng-template>
+  </section>
+
+  <!-- Administrativo: latest posts of Mi Portal. -->
+  <section *ngIf="!esRem" class="nx-card nx-section">
+    <div class="nx-section__head">
+      <h2>Últimas Publicaciones</h2>
+      <a class="nx-btn nx-btn--outline nx-btn--sm" routerLink="/do/comunicaciones/portal">Gestionar</a>
     </div>
+    <ul *ngIf="publicaciones?.length; else sinPublicaciones" class="nx-pubs">
+      <li *ngFor="let p of publicaciones" class="nx-pubs__item">
+        <a routerLink="/portal" class="nx-pubs__titulo">{{ p.titulo }}</a>
+        <span class="nx-small nx-muted">{{ p.publicada }} · {{ p.autor }}<ng-container *ngIf="p.reacciones"> · {{ p.reacciones }} reacciones</ng-container><ng-container *ngIf="p.comentarios"> · {{ p.comentarios }} comentarios</ng-container></span>
+      </li>
+    </ul>
+    <ng-template #sinPublicaciones>
+      <div *ngIf="publicaciones" class="nx-empty nx-empty--compact">
+        <span class="nx-iconbox nx-iconbox--56 nx-iconbox--round"><app-icon name="message" [size]="26"></app-icon></span>
+        <b>Aún no hay publicaciones</b>
+        <a class="nx-btn nx-btn--outline" routerLink="/do/comunicaciones/portal">Crear publicación</a>
+      </div>
+    </ng-template>
   </section>
 
   <section class="nx-card nx-section">

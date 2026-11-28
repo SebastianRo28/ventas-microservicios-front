@@ -10,6 +10,11 @@
         <option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
       </select>de {{ rows.length }}
     </label>
+    <button *ngIf="showFilters" type="button" class="nx-btn nx-btn--outline nx-btn--sm" [class.is-on]="filtersOpen || filtrosActivos"
+            [attr.aria-expanded]="filtersOpen" (click)="filtersOpen = !filtersOpen">
+      <app-icon name="filter" [size]="15"></app-icon>Filtrar{{ filtrosActivos ? ' (' + filtrosActivos + ')' : '' }}
+    </button>
+    <button *ngIf="filtrosActivos" type="button" class="nx-link-btn" (click)="limpiarFiltros()">Limpiar</button>
     <div class="nx-grow"></div>
     <button type="button" class="nx-icon-btn" aria-label="Descargar Excel" title="Descargar Excel" (click)="exportCsv()">
       <app-icon name="download" [size]="17"></app-icon>
@@ -59,7 +64,7 @@
   <!-- Table -->
   <div class="nx-card nx-dt__card">
     <div class="nx-dt__scroll">
-      <div role="table" [attr.aria-label]="tableLabel" [style.min-width]="minWidth">
+      <div role="table" [attr.aria-label]="tableLabel" [style.min-width]="anchoMinimo">
         <div role="row" class="nx-dt__row nx-dt__row--head" [style.grid-template-columns]="view.grid">
           <div *ngIf="selectable" role="columnheader" class="nx-dt__check">
             <input type="checkbox" aria-label="Seleccionar todos" [checked]="allSelected" (change)="toggleAll()">
@@ -81,6 +86,7 @@
             </button>
             <div *ngIf="colsOpen" class="nx-popover nx-dt__cols-menu">
               <span class="nx-eyebrow">Mostrar columnas</span>
+              <span class="nx-small nx-muted">Se recuerda en este navegador.</span>
               <ng-container *ngFor="let c of columns">
                 <label *ngIf="c.type !== 'actions'" class="nx-check">
                   <input type="checkbox" [checked]="!hidden.has(c.key)" (change)="toggleColumn(c.key)">{{ c.label | termino }}
@@ -90,7 +96,7 @@
           </div>
         </div>
 
-        <div *ngIf="showFilters" role="row" class="nx-dt__row nx-dt__row--filters" [style.grid-template-columns]="view.grid">
+        <div *ngIf="showFilters && filtersOpen" role="row" class="nx-dt__row nx-dt__row--filters" [style.grid-template-columns]="view.grid">
           <div *ngIf="selectable"></div>
           <div *ngFor="let c of view.cols; trackBy: trackCol" class="nx-dt__filter" [ngSwitch]="c.type === 'actions' ? 'none' : (c.filter ?? 'text')">
             <select *ngSwitchCase="'select'" class="nx-select nx-select--sm" [attr.aria-label]="'Filtrar ' + (c.label | termino)"
@@ -103,8 +109,7 @@
                      [value]="filters[c.key] || ''" (input)="setFilter(c.key, $any($event.target).value)">
               <app-icon name="calendar" [size]="14"></app-icon>
             </label>
-            <input *ngSwitchCase="'none'" class="nx-input nx-input--sm" [attr.aria-label]="c.label + ' no filtrable'"
-                   placeholder="No disponible" disabled>
+            <ng-container *ngSwitchCase="'none'"></ng-container>
             <input *ngSwitchDefault class="nx-input nx-input--sm" [attr.aria-label]="'Buscar por ' + c.label" placeholder="Buscar por…"
                    [value]="filters[c.key] || ''" (input)="setFilter(c.key, $any($event.target).value)">
           </div>

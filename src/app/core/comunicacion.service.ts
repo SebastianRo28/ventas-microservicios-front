@@ -25,6 +25,12 @@ export interface PublicacionApi {
 }
 export interface PublicacionGuardar { titulo: string; texto: string; autor: string; fijada: boolean; publicarEl: string; expira: string; }
 
+export type ElementoMuro = 'pub' | 'rec';
+export type TipoReaccion = 'like' | 'love' | 'smile';
+/** Reactions and comments of a wall item; `mia` is the signed-in user's reaction. */
+export interface InteraccionMuro { elemento: ElementoMuro; id: number; like: number; love: number; smile: number; mia: TipoReaccion | null; comentarios: number; }
+export interface ComentarioMuro { id: number; autor: string; texto: string; fecha: string; propio: boolean; puedeBorrar: boolean; }
+
 /** Desarrollo Organizacional on the API: surveys, whistleblowing channel and portal publications. */
 @Injectable({ providedIn: 'root' })
 export class ComunicacionService {
@@ -56,6 +62,17 @@ export class ComunicacionService {
 
   // Publicaciones
   muro(): Observable<PublicacionApi[]> { return this.http.get<PublicacionApi[]>(`${API_URL}/publicaciones/muro`); }
+
+  // Wall interactions (reactions and comments of publications and recognitions).
+  interacciones(): Observable<InteraccionMuro[]> { return this.http.get<InteraccionMuro[]>(`${API_URL}/muro/interacciones`); }
+  reaccionar(elemento: ElementoMuro, id: number, tipo: TipoReaccion | null): Observable<InteraccionMuro> {
+    return this.http.put<InteraccionMuro>(`${API_URL}/muro/${elemento}/${id}/reaccion`, { tipo });
+  }
+  comentariosMuro(elemento: ElementoMuro, id: number): Observable<ComentarioMuro[]> { return this.http.get<ComentarioMuro[]>(`${API_URL}/muro/${elemento}/${id}/comentarios`); }
+  comentar(elemento: ElementoMuro, id: number, texto: string): Observable<ComentarioMuro> {
+    return this.http.post<ComentarioMuro>(`${API_URL}/muro/${elemento}/${id}/comentarios`, { texto });
+  }
+  borrarComentario(id: number): Observable<void> { return this.http.delete<void>(`${API_URL}/muro/comentarios/${id}`); }
   publicaciones(): Observable<PublicacionApi[]> { return this.http.get<PublicacionApi[]>(`${API_URL}/publicaciones`); }
   guardarPublicacion(id: number | null, p: PublicacionGuardar): Observable<PublicacionApi> {
     return id === null ? this.http.post<PublicacionApi>(`${API_URL}/publicaciones`, p) : this.http.put<PublicacionApi>(`${API_URL}/publicaciones/${id}`, p);

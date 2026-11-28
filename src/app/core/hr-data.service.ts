@@ -35,7 +35,7 @@ export class HrDataService {
 
   constructor(private audit: AuditService, private http: HttpClient, private auth: AuthService, private ui: UiStateService,
               private asistenciaApi: AsistenciaApi, private items: ItemsService, private parametrosRem: ParametrosRemService,
-              private genericos: GenericosService, private portal: PortalService, contexto: ContextoService, private datosMod: DatosService) {
+              private genericos: GenericosService, private portal: PortalService, private contexto: ContextoService, private datosMod: DatosService) {
     contexto.contexto$.subscribe((c) => { this.empresa = c?.tenant.nombre ?? ''; });
     // Page reloaded with a session still open: load the data again.
     if (auth.autenticado) this.cargar().subscribe();
@@ -96,7 +96,9 @@ export class HrDataService {
   /** Requests the user may see; "grupo" sorts them into the trays (to act on, created by me, the rest). */
   cargarWorkflow(): Observable<void> {
     if (!this.auth.autenticado || this.auth.debeCambiarPassword) return of(undefined);
-    return this.http.get<SolicitudWf[]>(`${API_URL}/workflow/solicitudes`).pipe(
+    // Workflows are part of Plataforma Pro: without it there are no requests to load.
+    return this.contexto.contratado$('PRO').pipe(
+      switchMap((pro) => pro ? this.http.get<SolicitudWf[]>(`${API_URL}/workflow/solicitudes`) : of([] as SolicitudWf[])),
       map((l) => { this.solicitudes$.next(l.map((x) => ({ ...x, grupo: x.puedoResolver ? 'me' : x.esMia ? 'mine' : 'all' }))); }),
       catchError(() => of(undefined)),
     );

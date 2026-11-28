@@ -10,8 +10,8 @@ import { Recinto } from '../../core/sample/control-asistencia';
 @Component({
   selector: 'app-ca-filtros',
   template: `
-    <div class="nx-card nx-cafil" role="search" aria-label="Filtros de Control de Asistencia">
-      <label *ngIf="recinto" class="nx-cafil__f nx-cafil__f--wide">Recinto
+    <div class="nx-card nx-cafil" [class.is-open]="abiertos" role="search" aria-label="Filtros de Control de Asistencia">
+      <label *ngIf="recinto" class="nx-cafil__f nx-cafil__f--wide nx-cafil__extra">Recinto
         <select class="nx-select nx-select--sm" name="ca-recinto" [attr.name]="'ca-recinto'" [ngModel]="f.recintoId" (ngModelChange)="ca.setFiltro({ recintoId: +$event })">
           <option [ngValue]="0">Todos los recintos</option>
           <option *ngFor="let r of recintos" [ngValue]="r.id">{{ r.nombre }}{{ r.activo ? '' : ' (inactivo)' }}</option>
@@ -21,20 +21,25 @@ import { Recinto } from '../../core/sample/control-asistencia';
         <span class="nx-input-icon nx-input-icon--end"><input nxFecha nxFechaIso class="nx-input nx-input--sm" name="ca-fecha" [attr.name]="'ca-fecha'" [nxFechaMin]="minIso" [nxFechaMax]="maxIso" [ngModel]="iso" (ngModelChange)="setFecha($event)"><app-icon name="calendar" [size]="14"></app-icon></span>
       </label>
       <button *ngIf="fecha && f.fecha !== ca.corte" type="button" class="nx-btn nx-btn--outline nx-btn--sm" (click)="ca.setFiltro({ fecha: ca.corte })">Hoy</button>
+      <!-- Mobile: only the date stays visible; the rest opens with this button. -->
+      <button *ngIf="recinto || rapidos" type="button" class="nx-btn nx-btn--outline nx-btn--sm nx-cafil__toggle" aria-controls="ca-filtros-extra"
+              [attr.aria-expanded]="abiertos" (click)="abiertos = !abiertos">
+        <app-icon name="sliders" [size]="14"></app-icon>Filtros{{ activos ? ' (' + activos + ')' : '' }}
+      </button>
       <ng-container *ngIf="rapidos">
-        <label class="nx-cafil__f">Área
+        <label class="nx-cafil__f nx-cafil__extra" id="ca-filtros-extra">Área
           <select class="nx-select nx-select--sm" name="ca-area" [attr.name]="'ca-area'" [ngModel]="f.area" (ngModelChange)="ca.setFiltro({ area: $event })">
             <option value="">Todas</option><option *ngFor="let x of areas">{{ x }}</option></select></label>
-        <label class="nx-cafil__f">Cargo
+        <label class="nx-cafil__f nx-cafil__extra">Cargo
           <select class="nx-select nx-select--sm" name="ca-cargo" [attr.name]="'ca-cargo'" [ngModel]="f.cargo" (ngModelChange)="ca.setFiltro({ cargo: $event })">
             <option value="">Todos</option><option *ngFor="let x of cargos">{{ x }}</option></select></label>
-        <label class="nx-cafil__f">Tipo de contrato
+        <label class="nx-cafil__f nx-cafil__extra">Tipo de contrato
           <select class="nx-select nx-select--sm" name="ca-contrato" [attr.name]="'ca-contrato'" [ngModel]="f.contrato" (ngModelChange)="ca.setFiltro({ contrato: $event })">
             <option value="">Todos</option><option *ngFor="let x of contratos">{{ x }}</option></select></label>
-        <label class="nx-cafil__f">Supervisor
+        <label class="nx-cafil__f nx-cafil__extra">Supervisor
           <select class="nx-select nx-select--sm" name="ca-supervisor" [attr.name]="'ca-supervisor'" [ngModel]="f.supervisor" (ngModelChange)="ca.setFiltro({ supervisor: $event })">
             <option value="">Todos</option><option *ngFor="let x of supervisores">{{ x }}</option></select></label>
-        <button *ngIf="f.area || f.cargo || f.contrato || f.supervisor" type="button" class="nx-link-btn" (click)="limpiar()">Limpiar filtros</button>
+        <button *ngIf="f.area || f.cargo || f.contrato || f.supervisor" type="button" class="nx-link-btn nx-cafil__extra" (click)="limpiar()">Limpiar filtros</button>
       </ng-container>
       <span class="nx-grow"></span>
       <span class="nx-small nx-muted">{{ cuantos }} colaboradores</span>
@@ -69,6 +74,10 @@ export class CaFiltrosComponent implements OnDestroy {
   }
   ngOnDestroy(): void { this.sub.unsubscribe(); }
 
+  /** Mobile: the extra filters are folded behind the Filtros button. */
+  abiertos = false;
+  /** Filters in use besides the date (shown on the Filtros button). */
+  get activos(): number { const f = this.f; return [this.recinto && f.recintoId, this.rapidos && f.area, this.rapidos && f.cargo, this.rapidos && f.contrato, this.rapidos && f.supervisor].filter(Boolean).length; }
   get f() { return this.ca.filtro; }
   get cuantos(): number { return this.recinto ? this.ca.visibles().length : this.ca.visibles(this.ca.filtro, 0).length; }
   get iso(): string { return aIso(this.f.fecha); }

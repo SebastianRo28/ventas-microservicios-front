@@ -1,7 +1,6 @@
 import { Component, Input } from '@angular/core';
-import { UiStateService } from '../../core/ui-state.service';
 
-/** Breadcrumb + page title + "Pregúntale a Nexo AI" chip. Project actions to the right. */
+/** Breadcrumb + page title. Project actions to the right. Nexo AI lives in the floating button, not in each title. */
 @Component({
   selector: 'app-page-header',
   template: `
@@ -11,9 +10,6 @@ import { UiStateService } from '../../core/ui-state.service';
     </nav>
     <div class="nx-page-head">
       <h1>{{ title | termino }}</h1>
-      <button *ngIf="askAi" type="button" class="nx-ai-chip" (click)="ui.openDrawer('ai')">
-        <app-icon name="sparkle" [size]="15"></app-icon>Pregúntale a Nexo AI
-      </button>
       <ng-content select="[header-badge]"></ng-content>
       <div class="nx-grow"></div>
       <ng-content></ng-content>
@@ -23,6 +19,6 @@ import { UiStateService } from '../../core/ui-state.service';
 export class PageHeaderComponent {
   @Input() title = '';
   @Input() crumbs: string[] = [];
-  @Input() askAi = true;
-  constructor(public ui: UiStateService) {}
+  /** Kept so existing templates that pass [askAi] keep compiling; the chip is gone. */
+  @Input() askAi = false;
 }

@@ -150,11 +150,13 @@ export const CONFIG_FORMS: Record<string, ConfigFormDef> = {
         { key: 'foto', label: 'Foto desde un dispositivo compartido', tipo: 'switch' },
       ] },
       { titulo: 'Validaciones', campos: [
+        { key: 'ubicacionWeb', label: 'Pedir la ubicación del dispositivo en las marcas desde el portal web', tipo: 'switch' },
+        { key: 'fotoWeb', label: 'Pedir una selfie en las marcas desde el portal web', tipo: 'switch' },
         { key: 'exigirFoto', label: 'Exigir foto en las marcas desde la app o QR', tipo: 'switch' },
         { key: 'exigirRadio', label: 'Exigir que la marca esté dentro del radio del recinto', tipo: 'switch' },
         { key: 'radioDefecto', label: 'Radio por defecto de los recintos nuevos (metros)', tipo: 'numero', min: 20, max: 2000 },
       ] },
     ] }],
-    valores: { web: true, app: true, qr: true, foto: false, exigirFoto: true, exigirRadio: true, radioDefecto: 150 },
+    valores: { web: true, app: true, qr: true, foto: false, ubicacionWeb: true, fotoWeb: false, exigirFoto: true, exigirRadio: true, radioDefecto: 150 },
   },
 };

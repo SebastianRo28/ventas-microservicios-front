@@ -19,6 +19,9 @@ import {
 const DIA = 86_400_000;
 const pad = (n: number) => String(n).padStart(2, '0');
 /** 'HH:mm' → minutes after midnight. */
+/** Device location (GPS of the browser) and selfie (JPEG data URL) sent with an own punch. */
+export interface DatosMarca { lat?: number; lng?: number; precision?: number; foto?: string; }
+
 export const aMin = (h: string): number => { const [a, b] = h.split(':').map(Number); return a * 60 + b; };
 /** Minutes after midnight → 'HH:mm'. */
 export const aHora = (m: number): string => `${pad(Math.floor((((m % 1440) + 1440) % 1440) / 60))}:${pad((((m % 60) + 60) % 60))}`;
@@ -362,7 +365,7 @@ export class ControlAsistenciaService {
    * Own punch from Mi Portal (widget Registrar Asistencia) or the app. The API sets the date and time; punches rejected
    * on the device (method disabled) go to Marcas Fallidas.
    */
-  marcar(colId: number, recintoId: number, tipo: Marca['tipo'], metodo: MetodoMarca): Observable<{ ok: boolean; mensaje: string }> {
+  marcar(colId: number, recintoId: number, tipo: Marca['tipo'], metodo: MetodoMarca, extra: DatosMarca = {}): Observable<{ ok: boolean; mensaje: string }> {
     const c = this.col(colId), rc = this.recinto(recintoId);
     if (!c || !rc) return of({ ok: false, mensaje: 'Selecciona un recinto.' });
     const clave: Record<string, string> = { Web: 'web', App: 'app', QR: 'qr', Foto: 'foto' };
@@ -371,16 +374,21 @@ export class ControlAsistenciaService {
         (f) => this.fallidas$.next([f, ...this.fallidas$.value]));
       return of({ ok: false, mensaje: `La marcación por ${metodo === 'Web' ? 'portal web' : metodo} está desactivada. Avisa a RR.HH.` });
     }
-    return this.api.post<Marca>('marcar', { tipo, metodo, recintoId }).pipe(
+    return this.api.post<Marca>('marcar', { tipo, metodo, recintoId, ...extra }).pipe(
       map((m) => {
         this.marcas.push(m);
         this.indexar();
         this.invalidar();
-        return { ok: true, mensaje: `${tipo} registrada a las ${m.hora} · ${rc.nombre}` };
+        const fuera = m.distancia != null && !m.dentroRadio ? ` (a ${m.distancia.toLocaleString('es-PE')} m, fuera del radio)` : '';
+        return { ok: true, mensaje: `${tipo} registrada a las ${m.hora} · ${rc.nombre}${fuera}` };
       }),
-      catchError((e) => of({ ok: false, mensaje: mensajeError(e) })),
+      // The API may have saved a failed punch (out of range, no selfie): reload to show it in Marcas Fallidas.
+      catchError((e) => { if (e?.status === 400) this.api.cargar().subscribe(); return of({ ok: false, mensaje: mensajeError(e) }); }),
     );
   }
+
+  /** Selfie of a punch, as an object URL the caller must revoke. */
+  fotoMarca(id: number): Observable<string> { return this.api.fotoMarca(id).pipe(map((b) => URL.createObjectURL(b))); }
 
   agregarManual(c: Colaborador, p: { fecha: string; hora: string; tipo: Marca['tipo']; motivo: string }): Marca {
     const rc = this.recinto(this.recintoDe[c.id]) ?? this.recintos$.value[0];

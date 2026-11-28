@@ -29,7 +29,8 @@ export class NavComponent implements OnDestroy {
   /** Live counters (pending surveys); other items keep the count from the nav config. */
   count(item: NavItem): number | undefined {
     if (item.path === 'portal/mis-encuestas') return this.portal.encuestasPendientes;
-    if (item.path === 'portal/mis-evaluaciones') return this.portal.evaluacionesPendientes;
+    // Only with Plataforma Pro: otherwise the evaluations are not requested (the API would answer 403).
+    if (item.path === 'portal/mis-evaluaciones') return this.ctx.contexto?.modulos.includes('PRO') ? this.portal.evaluacionesPendientes : undefined;
     return item.count;
   }
 

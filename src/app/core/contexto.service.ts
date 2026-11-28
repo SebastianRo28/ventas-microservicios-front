@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, catchError, of, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, filter, map, of, take, tap, timeout } from 'rxjs';
 import { API_URL } from './api';
 import { AuthService } from './auth.service';
 import { cuentaSuspendida$, moduloNoHabilitado$ } from './eventos';
@@ -66,6 +66,15 @@ export class ContextoService {
     if (!codigo) return true;
     const c = this.contexto;
     return !c || c.modulos.includes(codigo);
+  }
+
+  /**
+   * Whether the company has the module, once the context is loaded: data of modules outside the plan is not requested
+   * (the API would answer 403). If the context does not arrive in time it answers true and lets the API decide.
+   */
+  contratado$(codigo: string): Observable<boolean> {
+    return this.contexto$.pipe(filter((c): c is ContextoUsuario => !!c), take(1), map((c) => c.modulos.includes(codigo)),
+      timeout({ first: 8000, with: () => of(true) }));
   }
 
   /** Opens the commercial modal. Without a code (Onboarding, Talento…) it is a product coming soon. */

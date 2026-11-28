@@ -3,7 +3,7 @@
   <button type="button" class="nx-btn nx-btn--primary" [disabled]="!cambios || publicando" (click)="publicar()">{{ publicando ? 'Publicando…' : 'Publicar cambios' }}</button>
 </app-page-header>
 
-<p *ngIf="cargando" class="nx-muted">Cargando la marca…</p>
+<div *ngIf="cargando" class="nx-skel" role="status" aria-label="Cargando"><span></span><span></span><span></span></div>
 
 <ng-container *ngIf="datos as d">
   <div *ngIf="cambios" class="nx-banner nx-banner--compact" role="status">

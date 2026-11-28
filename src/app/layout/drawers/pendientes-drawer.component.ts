@@ -25,14 +25,16 @@ type Filtro = 'all' | Pendiente['tipo'];
         </div>
       </div>
       <div class="nx-drawer__body nx-drawer__feed">
-        <article *ngFor="let p of visibles" class="nx-card nx-task">
+        <a *ngFor="let p of visibles" class="nx-card nx-task nx-task--link" [routerLink]="p.ruta" (click)="ui.closeDrawer()"
+           [attr.aria-label]="p.titulo + '. ' + p.accion">
           <div class="nx-task__top">
             <span class="nx-badge nx-badge--sm" [ngClass]="'nx-tone-' + p.tone">{{ p.etiqueta }}</span>
             <span class="nx-muted nx-small">{{ p.fecha }}</span>
           </div>
           <b>{{ p.titulo }}</b>
           <span class="nx-muted">{{ p.detalle }}</span>
-        </article>
+          <span class="nx-task__accion">{{ p.accion }} <app-icon name="chevron-right" [size]="14"></app-icon></span>
+        </a>
         <div *ngIf="!visibles.length" class="nx-empty nx-empty--compact"><b>No tienes pendientes</b><span class="nx-muted">Todo al día.</span></div>
       </div>
     </aside>

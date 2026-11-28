@@ -17,7 +17,11 @@
 
   <div id="nx-sidebar" class="nx-sidebar">
     <div class="nx-logo">
-      <img *ngIf="marcas.marca?.logos?.horizontal as logo; else logoNexo" class="nx-logo__img" [src]="logo" [alt]="marcas.marca?.empresa">
+      <!-- The menu is dark: the light version of the logo goes first; the regular one sits on a light plate. -->
+      <img *ngIf="marcas.marca?.logos?.horizontalClaro as logo; else logoNormal" class="nx-logo__img" [src]="logo" [alt]="marcas.marca?.empresa">
+      <ng-template #logoNormal>
+        <span *ngIf="marcas.marca?.logos?.horizontal as logo; else logoNexo" class="nx-logo__plate"><img class="nx-logo__img" [src]="logo" [alt]="marcas.marca?.empresa"></span>
+      </ng-template>
       <ng-template #logoNexo><b>Nexo</b><span>RH</span></ng-template>
     </div>
     <div class="nx-sidebar__title">{{ current.label | termino }}</div>

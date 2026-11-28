@@ -14,7 +14,7 @@ export const nombrePeriodo = (p: string): string => { const [m, a] = p.split('/'
   selector: 'app-boleta-modal',
   template: `
     <app-modal [title]="b ? 'Boleta de pago · ' + nombrePeriodo(b.resumen.periodo) : 'Boleta de pago'" width="720px" (closed)="closed.emit()">
-      <p *ngIf="!b && !error" class="nx-muted">Cargando…</p>
+      <div *ngIf="!b && !error" class="nx-skel" role="status" aria-label="Cargando"><span></span><span></span><span></span></div>
       <p *ngIf="error" class="nx-error" role="alert">{{ error }}</p>
       <div *ngIf="b as d" class="nx-boleta">
         <div *ngIf="!d.resumen.definitiva" class="nx-banner nx-banner--warning nx-banner--compact nx-mb-12" role="note">

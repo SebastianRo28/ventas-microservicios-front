@@ -7,9 +7,9 @@ const COLUMNS: Column[] = [
   { key: 'nombre', label: 'Nombre', type: 'link', w: 'minmax(180px, 1.7fr)' },
   { key: 'doc', label: 'Número de Documento', w: 'minmax(100px, 0.9fr)' },
   { key: 'cargo', label: 'Cargo', filter: 'select', w: 'minmax(110px, 1.2fr)' },
-  { key: 'div', label: 'División', filter: 'select', w: 'minmax(110px, 1.3fr)' },
+  { key: 'div', label: 'División', filter: 'select', oculta: true, w: 'minmax(110px, 1.3fr)' },
   { key: 'area', label: 'Área', filter: 'select', w: 'minmax(90px, 1fr)' },
-  { key: 'sub', label: 'Sub-área', filter: 'select', w: 'minmax(90px, 1fr)' },
+  { key: 'sub', label: 'Sub-área', filter: 'select', oculta: true, w: 'minmax(90px, 1fr)' },
   { key: 'ing', label: 'Fecha Ingreso', filter: 'date', type: 'date', w: 'minmax(110px, 0.9fr)' },
   { key: 'neto', label: 'Sueldo Neto', filter: 'none', type: 'money', w: 'minmax(100px, 0.9fr)' },
 ];

@@ -5,21 +5,30 @@
     <section *ngIf="portadas.length" class="nx-card nx-cover" aria-label="Portadas" aria-roledescription="carrusel">
       <ng-container *ngFor="let p of portadas; let i = index">
         <ng-container *ngIf="i === slide">
-          <div class="nx-cover__art" [style.background]="p.bg">
-            <span class="nx-cover__blob nx-cover__blob--a" [style.background]="p.blob"></span>
-            <span class="nx-cover__blob nx-cover__blob--b" [style.background]="p.blob"></span>
-            <span class="nx-cover__icon"><app-icon [name]="p.icon" [size]="52" [stroke]="1.6"></app-icon></span>
-          </div>
-          <div class="nx-cover__text" aria-live="polite"><h2>{{ p.title }}</h2><p>{{ p.text }}</p></div>
+          <img *ngIf="p.imagen; else arte" class="nx-cover__art nx-cover__img" [src]="p.imagen" alt="">
+          <ng-template #arte>
+            <div class="nx-cover__art" [style.background]="p.bg">
+              <span class="nx-cover__blob nx-cover__blob--a" [style.background]="p.blob"></span>
+              <span class="nx-cover__blob nx-cover__blob--b" [style.background]="p.blob"></span>
+              <span class="nx-cover__icon"><app-icon [name]="p.icon" [size]="52" [stroke]="1.6"></app-icon></span>
+            </div>
+          </ng-template>
+          <!-- An uploaded image already carries its own message: the title and text stay only for screen readers. -->
+          <div class="nx-cover__text" [class.visually-hidden]="p.imagen" aria-live="polite"><h2>{{ p.title }}</h2><p>{{ p.text }}</p></div>
         </ng-container>
       </ng-container>
-      <button type="button" class="nx-cover__nav nx-cover__nav--prev" aria-label="Portada anterior" (click)="prev()"><app-icon name="chevron-left"></app-icon></button>
-      <button type="button" class="nx-cover__nav nx-cover__nav--next" aria-label="Portada siguiente" (click)="next()"><app-icon name="chevron-right"></app-icon></button>
-      <div class="nx-cover__dots">
-        <button *ngFor="let p of portadas; let i = index" type="button" [attr.aria-label]="'Ir a portada ' + (i + 1)"
-                [attr.aria-current]="i === slide" (click)="slide = i"><span [class.is-on]="i === slide"></span></button>
+      <div *ngIf="portadas.length > 1" class="nx-cover__bar">
+        <button type="button" class="nx-cover__nav" aria-label="Portada anterior" (click)="prev()"><app-icon name="chevron-left" [size]="16"></app-icon></button>
+        <div class="nx-cover__dots">
+          <button *ngFor="let p of portadas; let i = index" type="button" [attr.aria-label]="'Ir a portada ' + (i + 1)"
+                  [attr.aria-current]="i === slide" (click)="slide = i"><span [class.is-on]="i === slide"></span></button>
+        </div>
+        <button type="button" class="nx-cover__nav" aria-label="Portada siguiente" (click)="next()"><app-icon name="chevron-right" [size]="16"></app-icon></button>
       </div>
     </section>
+
+    <!-- On narrow screens Registrar Asistencia shows here, right under the cover. -->
+    <section class="nx-card nx-side nx-asis--main"><ng-container *ngTemplateOutlet="asistencia"></ng-container></section>
 
     <!-- Feed filters -->
     <div class="nx-feedbar">
@@ -64,38 +73,52 @@
           </ng-container>
         </ng-container>
 
-        <div class="nx-post__actions">
-          <button type="button" class="nx-react" [class.is-on]="liked.has(p.id)" [attr.aria-pressed]="liked.has(p.id)" (click)="toggleLike(p)"
-                  [attr.aria-label]="'Me gusta, ' + (p.likes + (liked.has(p.id) ? 1 : 0))">
-            <app-icon name="thumbsup" [size]="16"></app-icon>{{ p.likes + (liked.has(p.id) ? 1 : 0) }}
-          </button>
-          <button type="button" class="nx-react" [attr.aria-label]="'Me encanta, ' + p.loves"><app-icon name="heart" [size]="16"></app-icon>{{ p.loves }}</button>
-          <button type="button" class="nx-react" [attr.aria-label]="'Me divierte, ' + p.smiles"><app-icon name="smile" [size]="16"></app-icon>{{ p.smiles }}</button>
-          <div class="nx-grow"></div>
-          <button type="button" class="nx-link-btn">{{ p.comments }} {{ p.comments === 1 ? 'comentario' : 'comentarios' }}</button>
-        </div>
-        <label class="nx-comment">
-          <span class="nx-avatar nx-avatar--32">{{ portal.yoIniciales }}</span>
-          <input class="nx-input" aria-label="Escribe un comentario" placeholder="Escribe un comentario…">
-        </label>
+        <ng-container *ngIf="p.kind !== 'bday'">
+          <ng-container *ngIf="interaccion(p) as it">
+            <div class="nx-post__actions">
+              <button *ngFor="let r of reacciones" type="button" class="nx-react" [class.is-on]="it.mia === r.tipo" [attr.aria-pressed]="it.mia === r.tipo"
+                      [title]="it.mia === r.tipo ? 'Quitar ' + r.nombre.toLowerCase() : r.nombre" (click)="reaccionar(p, r.tipo)"
+                      [attr.aria-label]="r.nombre + ', ' + it[r.tipo]">
+                <app-icon [name]="r.icono" [size]="16"></app-icon><ng-container *ngIf="it[r.tipo]">{{ it[r.tipo] }}</ng-container>
+              </button>
+              <div class="nx-grow"></div>
+              <button type="button" class="nx-link-btn" [attr.aria-expanded]="abiertos.has(p.id)" (click)="verComentarios(p)">
+                {{ it.comentarios ? it.comentarios + (it.comentarios === 1 ? ' comentario' : ' comentarios') : 'Comentar' }}
+              </button>
+            </div>
+            <ul *ngIf="abiertos.has(p.id)" class="nx-comments" aria-label="Comentarios">
+              <li *ngIf="!comentarios.has(p.id)" class="nx-skel nx-skel--compact" role="status" aria-label="Cargando comentarios"><span></span><span></span></li>
+              <li *ngIf="comentarios.get(p.id)?.length === 0" class="nx-muted">Aún no hay comentarios. ¡Sé el primero!</li>
+              <li *ngFor="let c of comentarios.get(p.id)" class="nx-comments__item">
+                <span class="nx-avatar nx-avatar--32">{{ inicialesDe(c.autor) }}</span>
+                <div class="nx-comments__body">
+                  <div class="nx-comments__head"><b>{{ c.autor }}</b><span>{{ c.fecha }}</span>
+                    <button *ngIf="c.puedeBorrar" type="button" class="nx-icon-btn nx-icon-btn--ghost nx-comments__del"
+                            [attr.aria-label]="c.propio ? 'Eliminar mi comentario' : 'Eliminar comentario de ' + c.autor" title="Eliminar" (click)="borrarComentario(p, c)">
+                      <app-icon name="trash" [size]="15"></app-icon>
+                    </button>
+                  </div>
+                  <p>{{ c.texto }}</p>
+                </div>
+              </li>
+            </ul>
+          </ng-container>
+          <form class="nx-comment" (ngSubmit)="comentar(p)">
+            <span class="nx-avatar nx-avatar--32">{{ portal.yoIniciales }}</span>
+            <input class="nx-input" aria-label="Escribe un comentario" placeholder="Escribe un comentario…" maxlength="500" autocomplete="off"
+                   [name]="'comentario-' + p.id" [(ngModel)]="borrador[p.id]" [disabled]="enviando.has(p.id)">
+            <button *ngIf="(borrador[p.id] || '').trim()" type="submit" class="nx-icon-btn nx-icon-btn--ghost" aria-label="Publicar comentario" [disabled]="enviando.has(p.id)">
+              <app-icon name="send" [size]="17"></app-icon>
+            </button>
+          </form>
+        </ng-container>
       </article>
     </div>
   </div>
 
   <!-- Aside -->
   <aside class="nx-portal__side" aria-label="Accesos y tareas">
-    <section class="nx-card nx-side">
-      <h3>Registrar Asistencia</h3>
-      <p class="nx-muted">Marca tus entradas y salidas de tu lugar de trabajo</p>
-      <label class="nx-field">Selecciona tu ubicación de trabajo*
-        <select class="nx-select" [(ngModel)]="ubicacion"><option *ngFor="let r of recintos" [ngValue]="r.id">{{ r.nombre }}</option></select>
-      </label>
-      <div class="nx-grid nx-grid--2 nx-grid--10">
-        <button type="button" class="nx-btn nx-btn--primary" [disabled]="marcando" (click)="marcar('Entrada')"><app-icon name="login" [size]="16"></app-icon>Entrada</button>
-        <button type="button" class="nx-btn nx-btn--orange" [disabled]="marcando" (click)="marcar('Salida')"><app-icon name="logout" [size]="16"></app-icon>Salida</button>
-      </div>
-      <div *ngIf="marca" class="nx-ok-note" [class.nx-ok-note--warn]="marcaError" role="status"><app-icon [name]="marcaError ? 'alert' : 'checkcircle'" [size]="16"></app-icon>{{ marca }}</div>
-    </section>
+    <section class="nx-card nx-side nx-asis--side"><ng-container *ngTemplateOutlet="asistencia"></ng-container></section>
 
     <section class="nx-card nx-side">
       <div class="nx-side__head">
@@ -107,7 +130,7 @@
         <div><span class="nx-badge" [ngClass]="'nx-tone-' + t.tone">{{ t.tag }}</span></div>
         <b>{{ t.who }}</b>
         <span>{{ t.what }}</span>
-        <div class="nx-mini-task__foot"><span class="nx-muted nx-small">{{ t.when }}</span><button type="button" class="nx-btn nx-btn--outline nx-btn--xs">Acciones</button></div>
+        <div class="nx-mini-task__foot"><span class="nx-muted nx-small">{{ t.when }}</span><a class="nx-btn nx-btn--outline nx-btn--xs" [routerLink]="t.ruta">{{ t.accion }}</a></div>
       </article>
       <div *ngIf="!tareas.length" class="nx-muted nx-small">No tienes tareas pendientes.</div>
       <button *ngIf="totalTareas" type="button" class="nx-link-btn" (click)="ui.openDrawer('pendientes')">Ver todas las tareas ({{ totalTareas }})</button>
@@ -246,3 +269,33 @@
 </app-modal>
 
 <app-boleta-modal *ngIf="boletaVer !== null" [boletaId]="boletaVer" (closed)="boletaVer = null"></app-boleta-modal>
+
+<!-- Selfie al marcar (Configuraciones › Métodos de marcación) -->
+<app-modal *ngIf="camara" [title]="'Selfie para tu ' + (camara === 'Entrada' ? 'entrada' : 'salida')" width="480px" (closed)="cerrarCamara()">
+  <p class="nx-muted nx-mb-12">Ubica tu rostro dentro del círculo. La foto queda junto a tu marca y solo la ven RR.HH. y tu jefatura.</p>
+  <div class="nx-selfie">
+    <video #video class="nx-selfie__video" autoplay playsinline muted aria-label="Vista previa de la cámara"></video>
+    <div *ngIf="camaraLista" class="nx-selfie__guia" aria-hidden="true"></div>
+    <div *ngIf="!camaraLista && !camaraError" class="nx-selfie__estado" role="status">Abriendo la cámara…</div>
+    <div *ngIf="camaraError" class="nx-selfie__estado nx-selfie__estado--error" role="alert"><app-icon name="alert" [size]="18"></app-icon>{{ camaraError }}</div>
+  </div>
+  <ng-container modal-footer>
+    <button type="button" class="nx-btn nx-btn--outline" (click)="cerrarCamara()">Cancelar</button>
+    <button type="button" class="nx-btn nx-btn--primary" [disabled]="!camaraLista" (click)="tomarFoto()"><app-icon name="image" [size]="16"></app-icon>Tomar foto y marcar</button>
+  </ng-container>
+</app-modal>
+
+<!-- Registrar Asistencia: shown in the side column on wide screens and under the cover on narrow ones. -->
+<ng-template #asistencia>
+  <h3>Registrar Asistencia</h3>
+  <p class="nx-muted">Marca tus entradas y salidas de tu lugar de trabajo</p>
+  <label class="nx-field">Selecciona tu ubicación de trabajo*
+    <select class="nx-select" [(ngModel)]="ubicacion"><option *ngFor="let r of recintos" [ngValue]="r.id">{{ r.nombre }}</option></select>
+  </label>
+  <div class="nx-grid nx-grid--2 nx-grid--10 nx-marcar-btns">
+    <button type="button" class="nx-btn nx-btn--primary" [disabled]="marcando" (click)="marcar('Entrada')"><app-icon name="login" [size]="16"></app-icon>Entrada</button>
+    <button type="button" class="nx-btn nx-btn--orange" [disabled]="marcando" (click)="marcar('Salida')"><app-icon name="logout" [size]="16"></app-icon>Salida</button>
+  </div>
+  <p *ngIf="avisoMarca" class="nx-small nx-muted nx-mt-8"><app-icon name="location" [size]="14"></app-icon> {{ avisoMarca }}</p>
+  <div *ngIf="marca" class="nx-ok-note" [class.nx-ok-note--warn]="marcaError" role="status"><app-icon [name]="marcaError ? 'alert' : 'checkcircle'" [size]="16"></app-icon>{{ marca }}</div>
+</ng-template>
